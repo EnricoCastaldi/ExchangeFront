@@ -1,0 +1,615 @@
+// i18n.jsx
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+
+const T = {
+  pl: {
+    locale: "pl-PL",
+    brand: "Exchange",
+    navbar: { demo: "Tryb demo", logout: "Wyloguj" },
+    menu: {
+      EXCHANGE: "WYMIANA",
+      CUSTOMERS: "KLIENCI",
+      ITEM: "PRODUKTY (ZBOŻA)",
+      VENDORS: "DOSTAWCY",
+      BUY: "ZAKUP",
+      SELL: "SPRZEDAŻ",
+    },
+    buy: {
+      controls: {
+        searchPlaceholder: "Szukaj: dostawca, produkt, SKU, opis",
+        allStatuses: "Wszystkie statusy",
+        statuses: {
+          open: "Otwarte",
+          approved: "Zatwierdzone",
+          rejected: "Odrzucone",
+          closed: "Zamknięte",
+        },
+        searchBtn: "Szukaj",
+        newBtn: "Nowe zapytanie zakupowe",
+        perPage: (n) => `${n} / stronę`,
+        prev: "Wstecz",
+        next: "Dalej",
+      },
+      table: {
+        id: "ID",
+        vendor: "Dostawca",
+        item: "Produkt",
+        type: "Typ",
+        qty: "Ilość (t)",
+        price: "Cena / t",
+        status: "Status",
+        created: "Utworzono",
+        description: "Opis",
+        actions: "",
+        loading: "Ładowanie...",
+        empty: "Brak zapytań zakupowych",
+        typeMap: { spot: "spot", forward: "forward", tender: "przetarg" },
+      },
+      modal: {
+        title: "Zapytanie zakupowe",
+        cancel: "Anuluj",
+        save: "Zapisz zmiany",
+        create: "Utwórz zapytanie",
+        fields: {
+          vendor: "Dostawca *",
+          vendorPlaceholder: "Wybierz dostawcę…",
+          item: "Produkt *",
+          itemPlaceholder: "Wybierz produkt…",
+          type: "Typ",
+          quantity: "Ilość (t)",
+          price: "Cena za tonę (USD)",
+          status: "Status",
+          description: "Opis",
+        },
+        statuses: {
+          open: "otwarte",
+          approved: "zatwierdzone",
+          rejected: "odrzucone",
+          closed: "zamknięte",
+        },
+        types: { spot: "spot", forward: "forward", tender: "przetarg" },
+      },
+      alerts: {
+        deleteConfirm: "Usunąć to zapytanie?",
+        requestFailed: "Żądanie nie powiodło się",
+        selectVendor: "Wybierz dostawcę",
+        selectItem: "Wybierz produkt",
+        typeRequired: "Wymagany typ",
+      },
+      paginationMeta: (total, page, pages) =>
+        `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    },
+    // i18n.jsx (add to T.pl)
+    customers: {
+  controls: {
+    searchPlaceholder: "Szukaj: nazwa, email, kraj, miasto",
+    allStatuses: "Wszystkie statusy",
+    statuses: { active: "Aktywny", suspended: "Zawieszony", closed: "Zamknięty" },
+    searchBtn: "Szukaj",
+    importCsv: "Import CSV",
+    addBtn: "Dodaj klienta",
+  },
+  table: {
+    id: "ID", name: "Nazwa", email: "Email", phone: "Telefon", country: "Kraj",
+    city: "Miasto", joined: "Dołączył", status: "Status", balance: "Saldo",
+    actions: "", loading: "Ładowanie...", empty: "Brak klientów", dash: "—",
+  },
+  footer: {
+    meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz", next: "Dalej",
+  },
+  modal: {
+    title: "Klient",
+    cancel: "Anuluj",
+    save: "Zapisz zmiany",
+    add: "Dodaj klienta",
+    fields: {
+      name: "Nazwa *", email: "Email", phone: "Telefon", country: "Kraj",
+      city: "Miasto", status: "Status", balance: "Saldo (USD)", joinedAt: "Data dołączenia",
+    },
+  },
+  alerts: {
+    csvFail: "Import CSV nie powiódł się",
+    deleteConfirm: "Usunąć tego klienta?",
+    nameRequired: "Nazwa jest wymagana",
+  },
+    },
+    exchange: {
+  topbar: {
+    lastUpdate: "Ostatnia aktualizacja",
+    nextIn: "Następne odświeżenie za",
+    refreshNowTitle: "Odśwież teraz",
+    refresh: "Odśwież",
+    loading: "Ładowanie…",
+  },
+  columns: {
+    buyTitle: "Zapytania ZAKUPU",
+    sellTitle: "Zapytania SPRZEDAŻY",
+    searchPlaceholderBuy: "Szukaj: dostawca, produkt, SKU",
+    searchPlaceholderSell: "Szukaj: klient, produkt, SKU",
+    allStatuses: "Wszystkie statusy",
+    statuses: { open: "Otwarte", approved: "Zatwierdzone", rejected: "Odrzucone", closed: "Zamknięte" },
+    allItems: "Wszystkie produkty",
+    searchBtn: "Szukaj",
+    refreshBtn: "Odśwież",
+    headers: {
+      id: "ID",
+      partyBuy: "Dostawca",
+      partySell: "Klient",
+      item: "Produkt",
+      type: "Typ",
+      qty: "Ilość (t)",
+      price: "Cena / t",
+      status: "Status",
+      created: "Utworzono",
+    },
+    empty: "Brak wyników",
+    footer: {
+      meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+      perPage: (n) => `${n} / stronę`,
+      prev: "Wstecz",
+      next: "Dalej",
+    },
+  },
+  stats: { count: "Liczba", qty: "Ilość (t)", notional: "Wartość" },
+    },
+    items: {
+  controls: {
+    searchPlaceholder: "Szukaj: nazwa, SKU, kategoria, dostawca",
+    allStatuses: "Wszystkie statusy",
+    statuses: { active: "Aktywny", inactive: "Nieaktywny", archived: "Zarchiwizowany" },
+    categoryPlaceholder: "Kategoria (np. Zboże, Ziarno)",
+    searchBtn: "Szukaj",
+    importCsv: "Import CSV",
+    addBtn: "Dodaj produkt",
+  },
+  table: {
+    id: "ID", sku: "SKU", name: "Nazwa", category: "Kategoria", vendor: "Dostawca",
+    price: "Cena", qty: "Ilość", status: "Status", created: "Utworzono",
+    actions: "", loading: "Ładowanie...", empty: "Brak produktów", dash: "—",
+  },
+  footer: {
+    meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz", next: "Dalej",
+  },
+  modal: {
+    title: "Produkt (Zboże / Ziarno)",
+    cancel: "Anuluj",
+    save: "Zapisz zmiany",
+    add: "Dodaj produkt",
+    fields: {
+      sku: "SKU *",
+      name: "Nazwa *",
+      category: "Kategoria",
+      vendor: "Dostawca",
+      price: "Cena (za tonę)",
+      quantity: "Ilość (t)",
+      status: "Status",
+      createdAt: "Utworzono",
+    },
+  },
+  alerts: {
+    csvFail: "Import CSV nie powiódł się",
+    deleteConfirm: "Usunąć ten produkt?",
+    skuNameRequired: "Wymagane są SKU i nazwa",
+  },
+    },
+    vendors: {
+    controls: {
+        searchPlaceholder: "Szukaj: nazwa, kontakt, email, miasto",
+        allStatuses: "Wszystkie statusy",
+        statuses: { active: "Aktywny", suspended: "Zawieszony", closed: "Zamknięty" },
+        searchBtn: "Szukaj",
+        addBtn: "Dodaj dostawcę",
+    },
+    table: {
+        id: "ID", name: "Nazwa", contact: "Kontakt", email: "Email", phone: "Telefon",
+        country: "Kraj", city: "Miasto", status: "Status", created: "Utworzono",
+        actions: "", loading: "Ładowanie...", empty: "Brak dostawców", dash: "—",
+    },
+    footer: {
+        meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+        perPage: (n) => `${n} / stronę`,
+        prev: "Wstecz", next: "Dalej",
+    },
+    modal: {
+        title: "Dostawca",
+        cancel: "Anuluj",
+        save: "Zapisz zmiany",
+        add: "Dodaj dostawcę",
+        fields: {
+        name: "Nazwa *",
+        contact: "Osoba kontaktowa",
+        email: "Email",
+        phone: "Telefon",
+        country: "Kraj",
+        city: "Miasto",
+        status: "Status",
+        createdAt: "Utworzono",
+        },
+    },
+    alerts: {
+        deleteConfirm: "Usunąć tego dostawcę?",
+        nameRequired: "Nazwa jest wymagana",
+    },
+    },
+    sell: {
+  controls: {
+    searchPlaceholder: "Szukaj: klient, produkt, SKU, opis",
+    allStatuses: "Wszystkie statusy",
+    statuses: { open: "Otwarte", approved: "Zatwierdzone", rejected: "Odrzucone", closed: "Zamknięte" },
+    searchBtn: "Szukaj",
+    newBtn: "Nowe zapytanie sprzedażowe",
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz",
+    next: "Dalej",
+  },
+  table: {
+    id: "ID",
+    customer: "Klient",
+    item: "Produkt",
+    type: "Typ",
+    qty: "Ilość (t)",
+    price: "Cena / t",
+    status: "Status",
+    created: "Utworzono",
+    description: "Opis",
+    actions: "",
+    loading: "Ładowanie...",
+    empty: "Brak zapytań sprzedażowych",
+  },
+  modal: {
+    title: "Zapytanie sprzedażowe",
+    cancel: "Anuluj",
+    save: "Zapisz zmiany",
+    create: "Utwórz zapytanie",
+    fields: {
+      customer: "Klient *",
+      item: "Produkt *",
+      type: "Typ",
+      quantity: "Ilość (t)",
+      price: "Cena za tonę (USD)",
+      status: "Status",
+      description: "Opis",
+    },
+    statuses: { open: "otwarte", approved: "zatwierdzone", rejected: "odrzucone", closed: "zamknięte" },
+    types: { spot: "spot", forward: "forward", tender: "przetarg" },
+  },
+  alerts: {
+    deleteConfirm: "Usunąć to zapytanie?",
+    requestFailed: "Żądanie nie powiodło się",
+    selectCustomer: "Wybierz klienta",
+    selectItem: "Wybierz produkt",
+    typeRequired: "Wymagany typ",
+  },
+  paginationMeta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    },
+  },
+  en: {
+    locale: "en-US",
+    brand: "Exchange",
+    navbar: { demo: "Demo mode", logout: "Log out" },
+    menu: {
+      EXCHANGE: "EXCHANGE",
+      CUSTOMERS: "CUSTOMERS",
+      ITEM: "ITEMS (GRAINS)",
+      VENDORS: "VENDORS",
+      BUY: "BUY",
+      SELL: "SELL",
+    },
+    buy: {
+      controls: {
+        searchPlaceholder: "Search vendor, item, sku, description",
+        allStatuses: "All statuses",
+        statuses: {
+          open: "Open",
+          approved: "Approved",
+          rejected: "Rejected",
+          closed: "Closed",
+        },
+        searchBtn: "Search",
+        newBtn: "New Buy Request",
+        perPage: (n) => `${n} / page`,
+        prev: "Prev",
+        next: "Next",
+      },
+      table: {
+        id: "ID",
+        vendor: "Vendor",
+        item: "Item",
+        type: "Type",
+        qty: "Qty (t)",
+        price: "Price / t",
+        status: "Status",
+        created: "Created",
+        description: "Description",
+        actions: "",
+        loading: "Loading...",
+        empty: "No buy requests",
+        typeMap: { spot: "spot", forward: "forward", tender: "tender" },
+      },
+      modal: {
+        title: "Buy Request",
+        cancel: "Cancel",
+        save: "Save changes",
+        create: "Create request",
+        fields: {
+          vendor: "Vendor *",
+          vendorPlaceholder: "Select vendor…",
+          item: "Item *",
+          itemPlaceholder: "Select item…",
+          type: "Type",
+          quantity: "Quantity (tons)",
+          price: "Price per ton (USD)",
+          status: "Status",
+          description: "Description",
+        },
+        statuses: {
+          open: "open",
+          approved: "approved",
+          rejected: "rejected",
+          closed: "closed",
+        },
+        types: { spot: "spot", forward: "forward", tender: "tender" },
+      },
+      alerts: {
+        deleteConfirm: "Delete this request?",
+        requestFailed: "Request failed",
+        selectVendor: "Select a vendor",
+        selectItem: "Select an item",
+        typeRequired: "Type is required",
+      },
+      paginationMeta: (total, page, pages) =>
+        `Total: ${total} • Page ${page} of ${pages || 1}`,
+    },
+    customers: {
+  controls: {
+    searchPlaceholder: "Search name, email, country, city",
+    allStatuses: "All statuses",
+    statuses: { active: "Active", suspended: "Suspended", closed: "Closed" },
+    searchBtn: "Search",
+    importCsv: "Import CSV",
+    addBtn: "Add Customer",
+  },
+  table: {
+    id: "ID", name: "Name", email: "Email", phone: "Phone", country: "Country",
+    city: "City", joined: "Joined", status: "Status", balance: "Balance",
+    actions: "", loading: "Loading...", empty: "No customers found", dash: "—",
+  },
+  footer: {
+    meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev", next: "Next",
+  },
+  modal: {
+    title: "Customer",
+    cancel: "Cancel",
+    save: "Save changes",
+    add: "Add customer",
+    fields: {
+      name: "Name *", email: "Email", phone: "Phone", country: "Country",
+      city: "City", status: "Status", balance: "Balance (USD)", joinedAt: "Joined at",
+    },
+  },
+  alerts: {
+    csvFail: "CSV import failed",
+    deleteConfirm: "Delete this customer?",
+    nameRequired: "Name is required",
+  },
+    },
+    exchange: {
+  topbar: {
+    lastUpdate: "Last update",
+    nextIn: "Next refresh in",
+    refreshNowTitle: "Refresh now",
+    refresh: "Refresh",
+    loading: "Loading…",
+  },
+  columns: {
+    buyTitle: "BUY Requests",
+    sellTitle: "SELL Requests",
+    searchPlaceholderBuy: "Search vendor, item, SKU",
+    searchPlaceholderSell: "Search customer, item, SKU",
+    allStatuses: "All statuses",
+    statuses: { open: "Open", approved: "Approved", rejected: "Rejected", closed: "Closed" },
+    allItems: "All items",
+    searchBtn: "Search",
+    refreshBtn: "Refresh",
+    headers: {
+      id: "ID",
+      partyBuy: "Vendor",
+      partySell: "Customer",
+      item: "Item",
+      type: "Type",
+      qty: "Qty (t)",
+      price: "Price / t",
+      status: "Status",
+      created: "Created",
+    },
+    empty: "No results",
+    footer: {
+      meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+      perPage: (n) => `${n} / page`,
+      prev: "Prev",
+      next: "Next",
+    },
+  },
+  stats: { count: "Count", qty: "Qty (t)", notional: "Notional" },
+    },
+    items: {
+  controls: {
+    searchPlaceholder: "Search name, SKU, category, vendor",
+    allStatuses: "All statuses",
+    statuses: { active: "Active", inactive: "Inactive", archived: "Archived" },
+    categoryPlaceholder: "Category (e.g., Grain, Cereal)",
+    searchBtn: "Search",
+    importCsv: "Import CSV",
+    addBtn: "Add Item",
+  },
+  table: {
+    id: "ID", sku: "SKU", name: "Name", category: "Category", vendor: "Vendor",
+    price: "Price", qty: "Qty", status: "Status", created: "Created",
+    actions: "", loading: "Loading...", empty: "No items found", dash: "—",
+  },
+  footer: {
+    meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev", next: "Next",
+  },
+  modal: {
+    title: "Item (Grain / Cereal)",
+    cancel: "Cancel",
+    save: "Save changes",
+    add: "Add item",
+    fields: {
+      sku: "SKU *",
+      name: "Name *",
+      category: "Category",
+      vendor: "Vendor (Supplier)",
+      price: "Price (per ton)",
+      quantity: "Quantity (tons)",
+      status: "Status",
+      createdAt: "Created at",
+    },
+  },
+  alerts: {
+    csvFail: "CSV import failed",
+    deleteConfirm: "Delete this item?",
+    skuNameRequired: "SKU and Name are required",
+  },
+    },
+    vendors: {
+  controls: {
+    searchPlaceholder: "Search vendor name, contact, email, city",
+    allStatuses: "All statuses",
+    statuses: { active: "Active", suspended: "Suspended", closed: "Closed" },
+    searchBtn: "Search",
+    addBtn: "Add Vendor",
+  },
+  table: {
+    id: "ID", name: "Name", contact: "Contact", email: "Email", phone: "Phone",
+    country: "Country", city: "City", status: "Status", created: "Created",
+    actions: "", loading: "Loading...", empty: "No vendors found", dash: "—",
+  },
+  footer: {
+    meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev", next: "Next",
+  },
+  modal: {
+    title: "Vendor",
+    cancel: "Cancel",
+    save: "Save changes",
+    add: "Add vendor",
+    fields: {
+      name: "Name *",
+      contact: "Contact person",
+      email: "Email",
+      phone: "Phone",
+      country: "Country",
+      city: "City",
+      status: "Status",
+      createdAt: "Created at",
+    },
+  },
+  alerts: {
+    deleteConfirm: "Delete this vendor?",
+    nameRequired: "Name is required",
+  },
+    },
+    sell: {
+  controls: {
+    searchPlaceholder: "Search customer, item, sku, description",
+    allStatuses: "All statuses",
+    statuses: { open: "Open", approved: "Approved", rejected: "Rejected", closed: "Closed" },
+    searchBtn: "Search",
+    newBtn: "New Sell Request",
+    perPage: (n) => `${n} / page`,
+    prev: "Prev",
+    next: "Next",
+  },
+  table: {
+    id: "ID",
+    customer: "Customer",
+    item: "Item",
+    type: "Type",
+    qty: "Qty (t)",
+    price: "Price / t",
+    status: "Status",
+    created: "Created",
+    description: "Description",
+    actions: "",
+    loading: "Loading...",
+    empty: "No sell requests",
+  },
+  modal: {
+    title: "Sell Request",
+    cancel: "Cancel",
+    save: "Save changes",
+    create: "Create request",
+    fields: {
+      customer: "Customer *",
+      item: "Item *",
+      type: "Type",
+      quantity: "Quantity (tons)",
+      price: "Price per ton (USD)",
+      status: "Status",
+      description: "Description",
+    },
+    statuses: { open: "open", approved: "approved", rejected: "rejected", closed: "closed" },
+    types: { spot: "spot", forward: "forward", tender: "tender" },
+  },
+  alerts: {
+    deleteConfirm: "Delete this request?",
+    requestFailed: "Request failed",
+    selectCustomer: "Select a customer",
+    selectItem: "Select an item",
+    typeRequired: "Type is required",
+  },
+  paginationMeta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+    },
+  },
+};
+
+const I18nContext = createContext({
+  lang: "pl",
+  setLang: () => {},
+  t: T.pl,
+  locale: T.pl.locale,
+});
+
+export function LangProvider({ children }) {
+  const [lang, setLang] = useState(() => {
+    const saved = localStorage.getItem("lang");
+    return saved === "en" || saved === "pl" ? saved : "pl";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("lang", lang);
+  }, [lang]);
+
+  const value = useMemo(
+    () => ({ lang, setLang, t: T[lang], locale: T[lang].locale }),
+    [lang]
+  );
+
+  return (
+    <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
+  );
+}
+
+export function useI18n() {
+  return useContext(I18nContext);
+}
+
+export function fmtNum(n, locale) {
+  return Number(n || 0).toLocaleString(locale);
+}
+export function fmtMoney(n, locale, currency = "USD") {
+  return (Number(n) || 0).toLocaleString(locale, {
+    style: "currency",
+    currency,
+  });
+}
