@@ -8,6 +8,7 @@ import Vendors from "../pages/Vendors";
 import Buy from "../pages/Buy";
 import Sell from "../pages/Sell";
 import Exchange from "../pages/Exchange";
+import UsersPage from "../pages/Users";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useI18n } from "./i18n";
 
@@ -95,6 +96,7 @@ export default function Dashboard({ onLogout }) {
 function SectionContent({ active }) {
   if (active === "EXCHANGE") return <Exchange />;
   if (active === "CUSTOMERS") return <Customers />;
+    if (active === "USERS") return <UsersPage />; 
   if (active === "ITEM") return <Items />;
   if (active === "VENDORS") return <Vendors />;
   if (active === "BUY") return <Buy />;

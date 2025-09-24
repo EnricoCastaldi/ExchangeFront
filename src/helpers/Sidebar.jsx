@@ -6,6 +6,7 @@ import {
   ShoppingCart,
   Coins,
   LogOut,
+  UserCog,
   ArrowLeftRight,
 } from "lucide-react";
 import logo from "../assets/logo.png";
@@ -14,6 +15,7 @@ import { useI18n } from "./i18n";
 const MENU = [
   { key: "EXCHANGE", icon: ArrowLeftRight },
   { key: "CUSTOMERS", icon: Users },
+  { key: "USERS", icon: UserCog },     
   { key: "ITEM", icon: Sprout },
   { key: "VENDORS", icon: Building2 },
   { key: "BUY", icon: ShoppingCart },
