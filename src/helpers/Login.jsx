@@ -9,6 +9,7 @@ import {
   MailCheck,
   MessageSquare,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import logo from "../assets/logo.png";
 import background from "../assets/sfondo.jpeg";
 
@@ -50,8 +51,7 @@ export default function Login({ onSuccess }) {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
-  // step: 'login' | 'otp'
-  const [step, setStep] = useState("login");
+  const [step, setStep] = useState("login"); // 'login' | 'otp'
 
   // Language: default PL, persist
   const [lang, setLang] = useState(() => {
@@ -68,24 +68,28 @@ export default function Login({ onSuccess }) {
     e.preventDefault();
     setError("");
     if (login === "123" && password === "123") {
-      // proceed to the OTP choice screen first
       setStep("otp");
     } else {
       setError(t.errorInvalid);
     }
   };
 
-  const LinkBtn = ({ icon: Icon, children, onClick, title }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      className="inline-flex items-center gap-2 font-medium underline underline-offset-2 hover:no-underline"
-    >
-      <Icon size={16} />
-      <span>{children}</span>
-    </button>
-  );
+  // Link-aware / button fallback component
+  const LinkBtn = ({ icon: Icon, children, title, to, onClick }) => {
+    const cls =
+      "inline-flex items-center gap-2 font-medium underline underline-offset-2 hover:no-underline";
+    return to ? (
+      <Link to={to} title={title} className={cls}>
+        <Icon size={16} />
+        <span>{children}</span>
+      </Link>
+    ) : (
+      <button type="button" onClick={onClick} title={title} className={cls}>
+        <Icon size={16} />
+        <span>{children}</span>
+      </button>
+    );
+  };
 
   const goToApp = () => onSuccess("demo-token-123");
 
@@ -97,7 +101,7 @@ export default function Login({ onSuccess }) {
     >
       <div className="w-full max-w-md">
         <div className="relative rounded-2xl border border-white/30 bg-red-700/90 p-8 shadow-2xl backdrop-blur-sm">
-          {/* Language switch - top-right corner */}
+          {/* Language switch */}
           <button
             type="button"
             onClick={() => setLang((prev) => (prev === "pl" ? "en" : "pl"))}
@@ -181,12 +185,12 @@ export default function Login({ onSuccess }) {
                 {t.signIn}
               </button>
 
-              {/* Secondary links with icons */}
+              {/* Links */}
               <div className="flex items-center justify-between text-sm text-white/90">
-                <LinkBtn icon={KeyRound} title={t.forgot} onClick={() => {}}>
+                <LinkBtn icon={KeyRound} title={t.forgot} to="/forgot">
                   {t.forgot}
                 </LinkBtn>
-                <LinkBtn icon={UserPlus} title={t.register} onClick={() => {}}>
+                <LinkBtn icon={UserPlus} title={t.register} to="/register">
                   {t.register}
                 </LinkBtn>
               </div>
