@@ -1,6 +1,15 @@
-// Dashboard.jsx
+// src/helpers/Dashboard.jsx
 import { useState } from "react";
-import { Menu, ArrowLeftRight, Users, Sprout, Building2, ShoppingCart, Coins } from "lucide-react";
+import {
+  Menu,
+  ArrowLeftRight,
+  Users as UsersIcon,
+  Sprout,
+  Building2,
+  ShoppingCart,
+  Coins,
+} from "lucide-react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Customers from "../pages/Customers";
 import Items from "../pages/Items";
@@ -14,24 +23,41 @@ import { useI18n } from "./i18n";
 
 const HEADER_ICONS = {
   EXCHANGE: ArrowLeftRight,
-  CUSTOMERS: Users,
+  CUSTOMERS: UsersIcon,
   ITEM: Sprout,
   VENDORS: Building2,
   BUY: ShoppingCart,
   SELL: Coins,
+  USERS: UsersIcon,
 };
 
+const PATH_TO_KEY = {
+  "/app/exchange": "EXCHANGE",
+  "/app/customers": "CUSTOMERS",
+  "/app/users": "USERS",
+  "/app/items": "ITEM",
+  "/app/vendors": "VENDORS",
+  "/app/buy": "BUY",
+  "/app/sell": "SELL",
+};
+
+function useActiveKey() {
+  const { pathname } = useLocation();
+  const match = Object.keys(PATH_TO_KEY).find((p) => pathname.startsWith(p));
+  return match ? PATH_TO_KEY[match] : "EXCHANGE";
+}
+
 export default function Dashboard({ onLogout }) {
-  const [active, setActive] = useState("CUSTOMERS");
   const [mobileOpen, setMobileOpen] = useState(false);
   const { t } = useI18n();
+  const active = useActiveKey();
   const Icon = HEADER_ICONS[active] || ArrowLeftRight;
 
   return (
     <div className="h-screen w-full bg-white text-slate-900 flex">
       {/* Desktop sidebar */}
       <div className="hidden md:block h-full">
-        <Sidebar active={active} onSelect={setActive} onLogout={onLogout} />
+        <Sidebar onLogout={onLogout} />
       </div>
 
       {/* Mobile sidebar */}
@@ -51,14 +77,7 @@ export default function Dashboard({ onLogout }) {
             mobileOpen ? "translate-x-0" : "-translate-x-full"
           } w-72`}
         >
-          <Sidebar
-            active={active}
-            onSelect={(key) => {
-              setActive(key);
-              setMobileOpen(false);
-            }}
-            onLogout={onLogout}
-          />
+          <Sidebar onLogout={onLogout} />
         </div>
       </div>
 
@@ -80,27 +99,24 @@ export default function Dashboard({ onLogout }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* Removed the demo text */}
             <LanguageSwitcher />
           </div>
         </header>
 
         <main className="p-4 overflow-auto">
-          <SectionContent active={active} />
+          <Routes>
+            <Route index element={<Navigate to="exchange" replace />} />
+            <Route path="exchange" element={<Exchange />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="users" element={<UsersPage />} />
+            <Route path="items" element={<Items />} />
+            <Route path="vendors" element={<Vendors />} />
+            <Route path="buy" element={<Buy />} />
+            <Route path="sell" element={<Sell />} />
+            <Route path="*" element={<Navigate to="exchange" replace />} />
+          </Routes>
         </main>
       </div>
     </div>
   );
-}
-
-function SectionContent({ active }) {
-  if (active === "EXCHANGE") return <Exchange />;
-  if (active === "CUSTOMERS") return <Customers />;
-    if (active === "USERS") return <UsersPage />; 
-  if (active === "ITEM") return <Items />;
-  if (active === "VENDORS") return <Vendors />;
-  if (active === "BUY") return <Buy />;
-  if (active === "SELL") return <Sell />;
-
-  return null;
 }

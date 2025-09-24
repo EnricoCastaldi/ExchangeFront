@@ -1,7 +1,7 @@
 // src/pages/Users.jsx
 import { useEffect, useState } from "react";
 import { Search, Plus, Trash2, Pencil, X, CheckCircle2, AlertTriangle } from "lucide-react";
-import { useI18n } from "../helpers/i18n"; // <-- important
+import { useI18n } from "../helpers/i18n";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
@@ -41,9 +41,16 @@ export default function Users() {
     }
   };
 
-  useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [page, limit, status]);
+  useEffect(() => {
+    fetchData();
+    // eslint-disable-next-line
+  }, [page, limit, status]);
 
-  const onSearch = (e) => { e.preventDefault(); setPage(1); fetchData(); };
+  const onSearch = (e) => {
+    e.preventDefault();
+    setPage(1);
+    fetchData();
+  };
 
   const onDelete = async (id) => {
     if (!window.confirm(U.alerts.deleteConfirm)) return;
@@ -66,11 +73,18 @@ export default function Users() {
     const url = isEdit ? `${API}/api/users/${editing._id}` : `${API}/api/users`;
     const method = isEdit ? "PUT" : "POST";
     try {
-      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) return showNotice("error", json.message || U.alerts.requestFail);
       showNotice("success", isEdit ? U.alerts.updated : U.alerts.created);
-      setOpen(false); setEditing(null); setPage(1); fetchData();
+      setOpen(false);
+      setEditing(null);
+      setPage(1);
+      fetchData();
     } catch {
       showNotice("error", U.alerts.requestFail);
     }
@@ -78,20 +92,27 @@ export default function Users() {
 
   return (
     <div className="space-y-4">
-      {notice && <Toast type={notice.type} onClose={() => setNotice(null)}>{notice.text}</Toast>}
+      {notice && (
+        <Toast type={notice.type} onClose={() => setNotice(null)}>
+          {notice.text}
+        </Toast>
+      )}
 
+      {/* Controls */}
       <form onSubmit={onSearch} className="flex flex-wrap gap-2 items-center">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <input
-            value={q} onChange={(e) => setQ(e.target.value)}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
             placeholder={U.controls.searchPlaceholder}
             className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
           />
         </div>
 
         <select
-          value={status} onChange={(e) => setStatus(e.target.value)}
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
           className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
         >
           <option value="">{U.controls.allStatuses}</option>
@@ -100,68 +121,113 @@ export default function Users() {
           <option value="closed">{U.controls.statuses.closed}</option>
         </select>
 
-        <button type="submit" className="px-4 py-2 rounded-lg border border-slate-200 text-sm bg-white hover:bg-slate-50">
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg border border-slate-200 text-sm bg-white hover:bg-slate-50"
+        >
           {U.controls.searchBtn}
         </button>
 
         <button
-          type="button" onClick={() => { setEditing(null); setOpen(true); }}
+          type="button"
+          onClick={() => {
+            setEditing(null);
+            setOpen(true);
+          }}
           className="ml-auto inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50"
         >
           <Plus size={16} /> {U.controls.addBtn}
         </button>
       </form>
 
+      {/* Table */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <Th>{U.table.code}</Th><Th>{U.table.name}</Th><Th>{U.table.email}</Th><Th>{U.table.phone}</Th>
-                <Th>{U.table.region}</Th><Th>{U.table.jobTitle}</Th><Th>{U.table.permission}</Th>
-                <Th className="text-right">{U.table.commission}</Th>
-                <Th>{U.table.status}</Th><Th>{U.table.created}</Th><Th>{U.table.actions}</Th>
+                <Th>{U.table.code}</Th>
+                <Th>{U.table.name}</Th>
+                <Th>{U.table.email}</Th>
+                <Th>{U.table.phone}</Th>
+                <Th>{U.table.region}</Th>
+                <Th>{U.table.jobTitle}</Th>
+                <Th>{U.table.permission}</Th>
+                <Th className="text-center">{U.table.commission}</Th>
+                <Th>{U.table.status}</Th>
+                <Th>{U.table.created}</Th>
+                <Th>{U.table.actions}</Th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={11} className="p-6 text-center text-slate-500">{U.table.loading}</td></tr>
-              ) : data.data.length === 0 ? (
-                <tr><td colSpan={11} className="p-6 text-center text-slate-500">{U.table.empty}</td></tr>
-              ) : data.data.map((r) => (
-                <tr key={r._id} className="border-t">
-                  <Td className="font-mono">{r.code}</Td>
-                  <Td className="font-medium">{r.name}</Td>
-                  <Td>{r.userEmail}</Td>
-                  <Td>{r.userPhone || U.table.dash}</Td>
-                  <Td>{r.region || U.table.dash}</Td>
-                  <Td>{r.jobTitle || U.table.dash}</Td>
-                  <Td>{permChip(r.permissionLevel)}</Td>
-                  <Td className="text-right">{fmtPercent(r.commission)}</Td>
-                  <Td>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      r.status === "active" ? "bg-green-50 text-green-700 border border-green-200"
-                      : r.status === "suspended" ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                      : "bg-slate-100 text-slate-700 border border-slate-200"
-                    }`}>{String(r.status || "").toUpperCase() || U.table.dash}</span>
-                  </Td>
-                  <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString() : U.table.dash}</Td>
-                  <Td>
-                    <div className="flex justify-end gap-2 pr-3">
-                      <button className="p-2 rounded-lg hover:bg-slate-100" onClick={() => { setEditing(r); setOpen(true); }}>
-                        <Pencil size={16} />
-                      </button>
-                      <button className="p-2 rounded-lg hover:bg-slate-100 text-red-600" onClick={() => onDelete(r._id)}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </Td>
+                <tr>
+                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                    {U.table.loading}
+                  </td>
                 </tr>
-              ))}
+              ) : data.data.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                    {U.table.empty}
+                  </td>
+                </tr>
+              ) : (
+                data.data.map((r) => (
+                  <tr key={r._id} className="border-t">
+                    <Td className="font-mono">{r.code}</Td>
+                    <Td className="font-medium">{r.name}</Td>
+                    <Td>{r.userEmail}</Td>
+                    <Td>{r.userPhone || U.table.dash}</Td>
+                    <Td>{r.region || U.table.dash}</Td>
+                    <Td>{r.jobTitle || U.table.dash}</Td>
+                    <Td>{permChip(r.permissionLevel)}</Td>
+                    <Td className="text-center">{commissionChip(r.commission)}</Td>
+                    <Td>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-semibold ${
+                          r.status === "active"
+                            ? "bg-green-50 text-green-700 border border-green-200"
+                            : r.status === "suspended"
+                            ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                            : "bg-slate-100 text-slate-700 border border-slate-200"
+                        }`}
+                      >
+                        {String(r.status || "").toUpperCase() || U.table.dash}
+                      </span>
+                    </Td>
+                    <Td>
+                      {r.createdAt
+                        ? new Date(r.createdAt).toLocaleDateString()
+                        : U.table.dash}
+                    </Td>
+                    <Td>
+                      <div className="flex justify-end gap-2 pr-3">
+                        <button
+                          className="p-2 rounded-lg hover:bg-slate-100"
+                          onClick={() => {
+                            setEditing(r);
+                            setOpen(true);
+                          }}
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                          onClick={() => onDelete(r._id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
+        {/* Footer / Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
           <div className="text-xs text-slate-500">
             {U.footer.meta(data.total, data.page, data.pages)}
@@ -170,23 +236,49 @@ export default function Users() {
             <select
               className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
               value={limit}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
             >
-              {[10,20,50,100].map(n => <option key={n} value={n}>{U.footer.perPage(n)}</option>)}
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {U.footer.perPage(n)}
+                </option>
+              ))}
             </select>
-            <button className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-              onClick={() => setPage(p => Math.max(1, p-1))} disabled={data.page <= 1}>{U.footer.prev}</button>
-            <button className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-              onClick={() => setPage(p => Math.min(data.pages || 1, p+1))} disabled={data.page >= (data.pages || 1)}>{U.footer.next}</button>
+            <button
+              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={data.page <= 1}
+            >
+              {U.footer.prev}
+            </button>
+            <button
+              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+              onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
+              disabled={data.page >= (data.pages || 1)}
+            >
+              {U.footer.next}
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Modal */}
       {open && (
-        <Modal onClose={() => { setOpen(false); setEditing(null); }}>
+        <Modal
+          onClose={() => {
+            setOpen(false);
+            setEditing(null);
+          }}
+        >
           <UserForm
             initial={editing}
-            onCancel={() => { setOpen(false); setEditing(null); }}
+            onCancel={() => {
+              setOpen(false);
+              setEditing(null);
+            }}
             onSubmit={handleSubmit}
             U={U}
           />
@@ -196,26 +288,50 @@ export default function Users() {
   );
 }
 
-function Th({ children, className="" }) { return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>; }
-function Td({ children, className="" }) { return <td className={`px-4 py-3 ${className}`}>{children}</td>; }
-
-function fmtPercent(v) {
-  const n = Number(v) || 0;
-  return `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
+function Th({ children, className = "" }) {
+  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+}
+function Td({ children, className = "" }) {
+  return <td className={`px-4 py-3 ${className}`}>{children}</td>;
 }
 
+/* ----- Chips & helpers ----- */
 function permChip(levelRaw) {
   const level = String(levelRaw || "viewer").toLowerCase();
   const map = {
-    admin:   "bg-red-50 text-red-700 border border-red-200",
+    admin: "bg-red-50 text-red-700 border border-red-200",
     manager: "bg-indigo-50 text-indigo-700 border border-indigo-200",
-    trader:  "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    viewer:  "bg-slate-100 text-slate-700 border border-slate-200",
+    trader: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    viewer: "bg-slate-100 text-slate-700 border border-slate-200",
   };
   const cls = map[level] || map.viewer;
-  return <span className={`px-2 py-1 rounded text-xs uppercase ${cls}`}>{level}</span>;
+  return (
+    <span className={`px-2 py-1 rounded text-xs uppercase font-semibold ${cls}`}>
+      {level}
+    </span>
+  );
 }
 
+function commissionChip(v) {
+  const n = Number(v) || 0;
+  const cls =
+    n >= 20
+      ? "bg-red-50 text-red-700 border border-red-200"
+      : n >= 10
+      ? "bg-amber-50 text-amber-700 border border-amber-200"
+      : n >= 5
+      ? "bg-sky-50 text-sky-700 border border-sky-200"
+      : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+
+  const text = `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
+  return (
+    <span className={`inline-block min-w-[4rem] text-center px-2 py-1 rounded text-xs font-semibold ${cls}`}>
+      {text}
+    </span>
+  );
+}
+
+/* ---------- Modal + Form ---------- */
 function Modal({ children, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -223,7 +339,9 @@ function Modal({ children, onClose }) {
       <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-xl border border-slate-200">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h3 className="font-semibold">User</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100"><X size={18}/></button>
+          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100">
+            <X size={18} />
+          </button>
         </div>
         <div className="p-4">{children}</div>
       </div>
@@ -268,21 +386,77 @@ function UserForm({ initial, onSubmit, onCancel, U }) {
   return (
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label={U.modal.fields.code}><input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={code} onChange={(e)=>setCode(e.target.value)} /></Field>
-        <Field label={U.modal.fields.name}><input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={name} onChange={(e)=>setName(e.target.value)} /></Field>
-        <Field label={U.modal.fields.email}><input type="email" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={userEmail} onChange={(e)=>setUserEmail(e.target.value)} /></Field>
-        <Field label={isEdit ? U.modal.fields.newPassword : U.modal.fields.password}><input type="password" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={password} onChange={(e)=>setPassword(e.target.value)} /></Field>
-        <Field label={U.modal.fields.phone}><input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={userPhone} onChange={(e)=>setUserPhone(e.target.value)} /></Field>
+        <Field label={U.modal.fields.code}>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </Field>
+        <Field label={U.modal.fields.name}>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </Field>
+        <Field label={U.modal.fields.email}>
+          <input
+            type="email"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={userEmail}
+            onChange={(e) => setUserEmail(e.target.value)}
+          />
+        </Field>
+        <Field label={isEdit ? U.modal.fields.newPassword : U.modal.fields.password}>
+          <input
+            type="password"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        <Field label={U.modal.fields.phone}>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={userPhone}
+            onChange={(e) => setUserPhone(e.target.value)}
+          />
+        </Field>
         <Field label={U.modal.fields.commission}>
           <div className="relative">
-            <input type="number" step="0.01" className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10" value={commission} onChange={(e)=>setCommission(e.target.value)} />
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">%</span>
+            <input
+              type="number"
+              step="0.01"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10"
+              value={commission}
+              onChange={(e) => setCommission(e.target.value)}
+            />
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+              %
+            </span>
           </div>
         </Field>
-        <Field label={U.modal.fields.region}><input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={region} onChange={(e)=>setRegion(e.target.value)} /></Field>
-        <Field label={U.modal.fields.jobTitle}><input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={jobTitle} onChange={(e)=>setJobTitle(e.target.value)} /></Field>
+        <Field label={U.modal.fields.region}>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+          />
+        </Field>
+        <Field label={U.modal.fields.jobTitle}>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+          />
+        </Field>
         <Field label={U.modal.fields.permission}>
-          <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={permissionLevel} onChange={(e)=>setPermissionLevel(e.target.value)}>
+          <select
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={permissionLevel}
+            onChange={(e) => setPermissionLevel(e.target.value)}
+          >
             <option value="admin">admin</option>
             <option value="manager">manager</option>
             <option value="trader">trader</option>
@@ -290,7 +464,11 @@ function UserForm({ initial, onSubmit, onCancel, U }) {
           </select>
         </Field>
         <Field label={U.modal.fields.status}>
-          <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={status} onChange={(e)=>setStatus(e.target.value)}>
+          <select
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
             <option value="active">{U.controls.statuses.active}</option>
             <option value="suspended">{U.controls.statuses.suspended}</option>
             <option value="closed">{U.controls.statuses.closed}</option>
@@ -299,8 +477,17 @@ function UserForm({ initial, onSubmit, onCancel, U }) {
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">{U.modal.cancel}</button>
-        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+        >
+          {U.modal.cancel}
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
           {isEdit ? U.modal.save : U.modal.add}
         </button>
       </div>
@@ -309,7 +496,12 @@ function UserForm({ initial, onSubmit, onCancel, U }) {
 }
 
 function Field({ label, children }) {
-  return <label className="text-sm"><div className="mb-1 text-slate-600">{label}</div>{children}</label>;
+  return (
+    <label className="text-sm">
+      <div className="mb-1 text-slate-600">{label}</div>
+      {children}
+    </label>
+  );
 }
 
 function Toast({ type = "success", children, onClose }) {
@@ -322,7 +514,9 @@ function Toast({ type = "success", children, onClose }) {
     <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
+        ✕
+      </button>
     </div>
   );
 }

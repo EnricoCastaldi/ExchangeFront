@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+// App.jsx
+import { useState } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Login from "./helpers/Login";
-import Register from "./helpers/Register";          // <- from earlier step
-import ResetPassword from "./helpers/ResetPassword"; // <- from earlier step
+import Register from "./helpers/Register";
+import ResetPassword from "./helpers/ResetPassword";
 import Dashboard from "./helpers/Dashboard";
 import { LangProvider } from "./helpers/i18n";
 
@@ -11,24 +12,20 @@ function PrivateRoute({ token, children }) {
 }
 
 export default function App() {
-  const [token, setToken] = useState(null);
+  // ✅ read once, before first render
+  const [token, setToken] = useState(() => localStorage.getItem("demo_auth_token"));
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const t = localStorage.getItem("demo_auth_token");
-    if (t) setToken(t);
-  }, []);
 
   const handleSuccess = (t) => {
     localStorage.setItem("demo_auth_token", t);
     setToken(t);
-    navigate("/app"); // go to dashboard after OTP step
+    navigate("/app");
   };
 
   const handleLogout = () => {
     localStorage.removeItem("demo_auth_token");
     setToken(null);
-    navigate("/");    // back to login
+    navigate("/");
   };
 
   return (
@@ -41,7 +38,7 @@ export default function App() {
           element={
             <Register
               onCancel={() => navigate("/")}
-              onSuccess={() => navigate("/")} // after mock registration
+              onSuccess={() => navigate("/")}
             />
           }
         />
@@ -50,12 +47,12 @@ export default function App() {
           element={
             <ResetPassword
               onCancel={() => navigate("/")}
-              onSuccess={() => navigate("/")} // after mock reset
+              onSuccess={() => navigate("/")}
             />
           }
         />
 
-        {/* Private (guarded) */}
+        {/* Private */}
         <Route
           path="/app/*"
           element={

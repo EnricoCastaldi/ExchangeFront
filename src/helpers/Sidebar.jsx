@@ -1,4 +1,4 @@
-// Sidebar.jsx
+// src/helpers/Sidebar.jsx
 import {
   Users,
   Sprout,
@@ -9,54 +9,50 @@ import {
   UserCog,
   ArrowLeftRight,
 } from "lucide-react";
+import { NavLink } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { useI18n } from "./i18n";
 
 const MENU = [
-  { key: "EXCHANGE", icon: ArrowLeftRight },
-  { key: "CUSTOMERS", icon: Users },
-  { key: "USERS", icon: UserCog },     
-  { key: "ITEM", icon: Sprout },
-  { key: "VENDORS", icon: Building2 },
-  { key: "BUY", icon: ShoppingCart },
-  { key: "SELL", icon: Coins },
+  { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
+  { key: "CUSTOMERS", icon: Users, to: "/app/customers" },
+  { key: "USERS", icon: UserCog, to: "/app/users" },
+  { key: "ITEM", icon: Sprout, to: "/app/items" },
+  { key: "VENDORS", icon: Building2, to: "/app/vendors" },
+  { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
+  { key: "SELL", icon: Coins, to: "/app/sell" },
 ];
 
-export default function Sidebar({ active, onSelect, onLogout }) {
+export default function Sidebar({ onLogout }) {
   const { t } = useI18n();
 
   return (
     <aside className="bg-red-700 text-white h-full w-56 flex flex-col border-r border-white/10">
-{/* Logo only (≈10% smaller, left-aligned) */}
-<div className="flex items-center px-4 py-5 border-b border-white/10">
-  <img
-    src={logo}
-    alt="logo"
-    className="h-14 md:h-[72px] w-auto object-contain drop-shadow-sm"
-  />
-</div>
+      {/* Logo */}
+      <div className="flex items-center px-4 py-5 border-b border-white/10">
+        <img
+          src={logo}
+          alt="logo"
+          className="h-14 md:h-[72px] w-auto object-contain drop-shadow-sm"
+        />
+      </div>
 
-
-
-
-
-      {/* Menu items */}
+      {/* Menu */}
       <nav className="flex-1 py-2 space-y-1">
-        {MENU.map((item) => {
-          const Icon = item.icon;
-          const isActive = active === item.key;
-          return (
-            <button
-              key={item.key}
-              onClick={() => onSelect(item.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold tracking-wide rounded-md transition 
-                ${isActive ? "bg-white/20" : "hover:bg-white/10"}`}
-            >
-              <Icon size={18} className="shrink-0" />
-              <span>{t.menu[item.key]}</span>
-            </button>
-          );
-        })}
+        {MENU.map(({ key, icon: Icon, to }) => (
+          <NavLink
+            key={key}
+            to={to}
+            className={({ isActive }) =>
+              `w-full flex items-center gap-3 px-3 py-2.5 text-sm font-semibold tracking-wide rounded-md transition ${
+                isActive ? "bg-white/20" : "hover:bg-white/10"
+              }`
+            }
+          >
+            <Icon size={18} className="shrink-0" />
+            <span>{t.menu[key]}</span>
+          </NavLink>
+        ))}
       </nav>
 
       {/* Logout */}
