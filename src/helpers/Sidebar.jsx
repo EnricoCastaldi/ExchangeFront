@@ -16,9 +16,9 @@ import { useI18n } from "./i18n";
 const MENU = [
   { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
   { key: "CUSTOMERS", icon: Users, to: "/app/customers" },
+    { key: "VENDORS", icon: Building2, to: "/app/vendors" },
   { key: "USERS", icon: UserCog, to: "/app/users" },
   { key: "ITEM", icon: Sprout, to: "/app/items" },
-  { key: "VENDORS", icon: Building2, to: "/app/vendors" },
   { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
   { key: "SELL", icon: Coins, to: "/app/sell" },
 ];
