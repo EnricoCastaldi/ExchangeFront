@@ -31,7 +31,8 @@ import {
   BadgePercent,
   UserRound,
   CheckCircle2, 
-  AlertTriangle 
+  AlertTriangle ,
+  SlidersHorizontal
 } from "lucide-react";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
@@ -93,6 +94,8 @@ export default function Customers() {
   const [region, setRegion] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+  const [showFilters, setShowFilters] = useState(false);
+const activeFilterCount = [blocked, country, region].filter(Boolean).length;
 
 const [notice, setNotice] = useState(null); // { type: 'success'|'error', text: string }
 const showNotice = (type, text, ms = 3000) => {
@@ -266,105 +269,132 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
 )}
 
       {/* Controls */}
-      <form
-        onSubmit={onSearch}
-        className="flex w-full flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/70 p-2 shadow-sm"
+<form
+  onSubmit={onSearch}
+  className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+>
+  {/* Row 1: Search + Filters toggle + Add button */}
+  <div className="flex flex-wrap items-center gap-2">
+    {/* Search with integrated submit icon */}
+    <div className="relative flex-1 min-w-[220px]">
+      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={F.searchPh}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
+      />
+      <button
+        type="submit"
+        title={C?.controls?.searchBtn || "Search"}
+        aria-label={C?.controls?.searchBtn || "Search"}
+        className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
       >
-        {/* search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={F.searchPh}
-            className="h-9 w-72 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-          />
-        </div>
+        <Search size={14} />
+      </button>
+    </div>
 
-        {/* blocked */}
-        <div className="relative">
-          <select
-            value={blocked}
-            onChange={(e) => {
-              setBlocked(e.target.value);
-              setPage(1);
-            }}
-            className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-          >
-            <option value="">{F.all}</option>
-            <option value="none">{F.blocked.none}</option>
-            <option value="ship">{F.blocked.ship}</option>
-            <option value="invoice">{F.blocked.invoice}</option>
-            <option value="all">{F.blocked.all}</option>
-          </select>
-        </div>
+    {/* Filters toggle (mobile only; on desktop filters are always shown) */}
+    <button
+      type="button"
+      onClick={() => setShowFilters((v) => !v)}
+      className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
+      aria-expanded={showFilters}
+      aria-controls="customer-filters-panel"
+    >
+      {/* same icon as Vendors or change to SlidersHorizontal if you import it */}
+      <SlidersHorizontal  size={16} className="opacity-70" />
+      {C?.controls?.filters || "Filters"}
+      {activeFilterCount > 0 && (
+        <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+          {activeFilterCount}
+        </span>
+      )}
+    </button>
 
-        {/* country */}
-        <div className="relative">
-          <Globe className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            value={country}
-            onChange={(e) => setCountry(e.target.value.toUpperCase())}
-            placeholder={F.countryPh}
-            className="h-9 w-[140px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-          />
-        </div>
+    {/* Add customer — emphasized primary button */}
+    <button
+      type="button"
+      onClick={onAddClick}
+      className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+    >
+      <Plus size={16} />
+      {F.addBtn}
+    </button>
+  </div>
 
-        {/* region */}
-        <div className="relative">
-          <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            placeholder={F.regionPh}
-            className="h-9 w-[160px] rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-          />
-        </div>
+  {/* Row 2: Filters row (always visible on md+, collapsible on mobile) */}
+  <div
+    id="customer-filters-panel"
+    className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
+      showFilters ? "grid" : "hidden md:grid"
+    }`}
+  >
+    {/* blocked */}
+    <select
+      value={blocked}
+      onChange={(e) => { setBlocked(e.target.value); setPage(1); }}
+      className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+    >
+      <option value="">{F.all}</option>
+      <option value="none">{F.blocked.none}</option>
+      <option value="ship">{F.blocked.ship}</option>
+      <option value="invoice">{F.blocked.invoice}</option>
+      <option value="all">{F.blocked.all}</option>
+    </select>
 
-        {/* search button */}
-        <button
-          type="submit"
-          className="h-9 rounded-xl border border-slate-200 bg-white px-4 text-sm hover:bg-slate-50"
-        >
-          {F.searchBtn}
-        </button>
+    {/* country */}
+    <div className="relative">
+      <Globe className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      <input
+        value={country}
+        onChange={(e) => setCountry(e.target.value.toUpperCase())}
+        placeholder={F.countryPh}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
+      />
+    </div>
 
-        {/* active filter chips */}
-        <div className="flex flex-wrap items-center gap-1 pl-1">
-          {blocked && (
-            <Chip
-              clearTitle={C?.modal?.cancel || "Clear"}
-              onClear={() => setBlocked("")}
-              label={`${C?.table?.blocked || "Blocked"}: ${
-                F.blocked[blocked] || blocked
-              }`}
-            />
-          )}
-          {country && (
-            <Chip
-              clearTitle={C?.modal?.cancel || "Clear"}
-              onClear={() => setCountry("")}
-              label={`${C?.table?.country || "Country"}: ${country}`}
-            />
-          )}
-          {region && (
-            <Chip
-              clearTitle={C?.modal?.cancel || "Clear"}
-              onClear={() => setRegion("")}
-              label={`${C?.table?.city || "City/Region"}: ${region}`}
-            />
-          )}
-        </div>
+    {/* region */}
+    <div className="relative">
+      <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+      <input
+        value={region}
+        onChange={(e) => setRegion(e.target.value)}
+        placeholder={F.regionPh}
+        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
+      />
+    </div>
 
-        {/* add button */}
-        <button
-          type="button"
-          onClick={onAddClick}
-          className="ml-auto inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm hover:bg-slate-50"
-        >
-          <Plus size={16} /> {F.addBtn}
-        </button>
-      </form>
+    {/* (empty spacer to fill md 4th column neatly) */}
+    <div className="hidden md:block" />
+  </div>
+
+  {/* Active filter chips */}
+  <div className="mt-2 flex flex-wrap items-center gap-1">
+    {blocked && (
+      <Chip
+        clearTitle={C?.modal?.cancel || "Clear"}
+        onClear={() => setBlocked("")}
+        label={`${C?.table?.blocked || "Blocked"}: ${F.blocked[blocked] || blocked}`}
+      />
+    )}
+    {country && (
+      <Chip
+        clearTitle={C?.modal?.cancel || "Clear"}
+        onClear={() => setCountry("")}
+        label={`${C?.table?.country || "Country"}: ${country}`}
+      />
+    )}
+    {region && (
+      <Chip
+        clearTitle={C?.modal?.cancel || "Clear"}
+        onClear={() => setRegion("")}
+        label={`${C?.table?.city || "City/Region"}: ${region}`}
+      />
+    )}
+  </div>
+</form>
+
 
 {/* Table */}
 <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
@@ -1355,27 +1385,6 @@ function Field({ label, icon: Icon, error, children }) {
         ].join(" "),
       })
     : children;
-
-
-    function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
-  const active = sortBy === id;
-  const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
-  return (
-    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
-      <button
-        type="button"
-        onClick={() => onSort(id)}
-        className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-50"
-        title="Sort"
-      >
-        <span>{children}</span>
-        <span className={`text-xs ${active ? "opacity-100" : "opacity-60"}`}>
-          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
-    </th>
-  );
-}
 
 
   return (
