@@ -3,3 +3,9 @@
 @tailwind utilities;
 
 /* optional: custom css variables or tweaks */
+/* keep scrolling but hide the native scrollbar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* safety: ensure no horizontal overflow shows */
+aside { overflow-x: hidden; }

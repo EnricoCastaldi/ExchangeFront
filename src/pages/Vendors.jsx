@@ -535,53 +535,29 @@ const clearAllFilters = () => {
                       <tr key={`${v._id}-details`}>
                         <td colSpan={11} className="bg-slate-50 border-t">
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                            <KV label={L.name2}>{v.name2 || "—"}</KV>
-                            <KV label={L.address}>{v.address || "—"}</KV>
-                            <KV label={L.address2}>{v.address2 || "—"}</KV>
-                            <KV label={L.postCode}>{v.postCode || "—"}</KV>
-                            <KV label={L.region}>{v.region || "—"}</KV>
-                            <KV label={L.nip}>{v.nip || "—"}</KV>
-                            <KV label={L.email2}>{v.email2 || "—"}</KV>
-                            <KV label={L.homePage}>{v.homePage || "—"}</KV>
+                        <KV label={L.name2} icon={FileText}>{v.name2 || "—"}</KV>
+<KV label={L.address} icon={Building}>{v.address || "—"}</KV>
+<KV label={L.address2} icon={Building}>{v.address2 || "—"}</KV>
+<KV label={L.postCode} icon={Hash}>{v.postCode || "—"}</KV>
+<KV label={L.region} icon={MapPin}>{v.region || "—"}</KV>
+<KV label={L.nip} icon={Hash}>{v.nip || "—"}</KV>
+<KV label={L.email2} icon={Mail}>{v.email2 || "—"}</KV>
+<KV label={L.homePage} icon={Globe}>{v.homePage || "—"}</KV>
 
-                            <KV label={L.currencyCode}>
-                              {v.currencyCode || "—"}
-                            </KV>
-                            <KV label={L.priority}>
-                              {v.priority ?? "—"}
-                            </KV>
-                            <KV label={L.paymentMethodCode}>
-                              {v.paymentMethodCode || "—"}
-                            </KV>
-                            <KV label={L.paymentTermsCode}>
-                              {v.paymentTermsCode || "—"}
-                            </KV>
-                            <KV label={L.languageCode}>
-                              {v.languageCode || "—"}
-                            </KV>
+<KV label={L.currencyCode} icon={DollarSign}>{v.currencyCode || "—"}</KV>
+<KV label={L.priority} icon={BadgePercent}>{v.priority ?? "—"}</KV>
+<KV label={L.paymentMethodCode} icon={CreditCard}>{v.paymentMethodCode || "—"}</KV>
+<KV label={L.paymentTermsCode} icon={CreditCard}>{v.paymentTermsCode || "—"}</KV>
+<KV label={L.languageCode} icon={Languages}>{v.languageCode || "—"}</KV>
 
-                            <KV label={L.vendorPostingGroup}>
-                              {v.vendorPostingGroup || "—"}
-                            </KV>
-                            <KV label={L.vendorPriceGroup}>
-                              {v.vendorPriceGroup || "—"}
-                            </KV>
-                            <KV label={L.vendorDiscGroup}>
-                              {v.vendorDiscGroup || "—"}
-                            </KV>
-                            <KV label={L.purchaserCode}>
-                              {v.purchaserCode || "—"}
-                            </KV>
+<KV label={L.vendorPostingGroup} icon={Tag}>{v.vendorPostingGroup || "—"}</KV>
+<KV label={L.vendorPriceGroup} icon={Tag}>{v.vendorPriceGroup || "—"}</KV>
+<KV label={L.vendorDiscGroup} icon={Tag}>{v.vendorDiscGroup || "—"}</KV>
+<KV label={L.purchaserCode} icon={UserRound}>{v.purchaserCode || "—"}</KV>
 
-                            <KV label={L.shipmentMethodCode}>
-                              {v.shipmentMethodCode || "—"}
-                            </KV>
-                            <KV label={L.shippingAgentCode}>
-                              {v.shippingAgentCode || "—"}
-                            </KV>
-                            <KV label={L.rr}>
-                              {v.rr ? (V?.labels?.yes || "Yes") : (V?.labels?.no || "No")}
-                            </KV>
+<KV label={L.shipmentMethodCode} icon={Truck}>{v.shipmentMethodCode || "—"}</KV>
+<KV label={L.shippingAgentCode} icon={Ship}>{v.shippingAgentCode || "—"}</KV>
+<KV label={L.rr} icon={BadgePercent}>{v.rr ? (V?.labels?.yes || "Yes") : (V?.labels?.no || "No")}</KV>
 
                             {v.hasPicture ? (
                               <div className="col-span-1 md:col-span-3 flex items-center gap-3">
@@ -748,10 +724,14 @@ function blockedChip(v, V) {
   return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{label}</span>;
 }
 
-function KV({ label, children }) {
+// replace KV with icon-aware version
+function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
-      <div className="col-span-1 text-slate-500">{label}</div>
+      <div className="col-span-1 text-slate-500 flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-slate-400" />}
+        {label}
+      </div>
       <div className="col-span-2 font-medium">{children}</div>
     </div>
   );

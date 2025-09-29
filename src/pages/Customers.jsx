@@ -472,26 +472,26 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
                 <tr key={`${c._id}-details`}>
                   <td colSpan={11} className="bg-slate-50 border-t">
                     <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                      <KV label={L.name2}>{c.name2 || "—"}</KV>
-                      <KV label={L.address}>{c.address || "—"}</KV>
-                      <KV label={L.address2}>{c.address2 || "—"}</KV>
-                      <KV label={L.postCode}>{c.postCode || "—"}</KV>
-                      <KV label={L.region}>{c.region || "—"}</KV>
-                      <KV label={L.nip}>{c.nip || "—"}</KV>
-                      <KV label={L.email2}>{c.email2 || "—"}</KV>
-                      <KV label={L.homePage}>{c.homePage || "—"}</KV>
-                      <KV label={L.billToCustomerNo}>{c.billToCustomerNo || "—"}</KV>
-                      <KV label={L.currencyCode}>{c.currencyCode || "—"}</KV>
-                      <KV label={L.priority}>{c.priority ?? "—"}</KV>
-                      <KV label={L.paymentMethodCode}>{c.paymentMethodCode || "—"}</KV>
-                      <KV label={L.paymentTermsCode}>{c.paymentTermsCode || "—"}</KV>
-                      <KV label={L.languageCode}>{c.languageCode || "—"}</KV>
-                      <KV label={L.customerPostingGroup}>{c.customerPostingGroup || "—"}</KV>
-                      <KV label={L.customerPriceGroup}>{c.customerPriceGroup || "—"}</KV>
-                      <KV label={L.customerDiscGroup}>{c.customerDiscGroup || "—"}</KV>
-                      <KV label={L.salespersonCode}>{c.salespersonCode || "—"}</KV>
-                      <KV label={L.shipmentMethodCode}>{c.shipmentMethodCode || "—"}</KV>
-                      <KV label={L.shippingAgentCode}>{c.shippingAgentCode || "—"}</KV>
+<KV label={L.name2} icon={FileText}>{c.name2 || "—"}</KV>
+<KV label={L.address} icon={Building}>{c.address || "—"}</KV>
+<KV label={L.address2} icon={Building}>{c.address2 || "—"}</KV>
+<KV label={L.postCode} icon={Hash}>{c.postCode || "—"}</KV>
+<KV label={L.region} icon={MapPin}>{c.region || "—"}</KV>
+<KV label={L.nip} icon={Hash}>{c.nip || "—"}</KV>
+<KV label={L.email2} icon={Mail}>{c.email2 || "—"}</KV>
+<KV label={L.homePage} icon={Globe}>{c.homePage || "—"}</KV>
+<KV label={L.billToCustomerNo} icon={IdCard}>{c.billToCustomerNo || "—"}</KV>
+<KV label={L.currencyCode} icon={DollarSign}>{c.currencyCode || "—"}</KV>
+<KV label={L.priority} icon={BadgePercent}>{c.priority ?? "—"}</KV>
+<KV label={L.paymentMethodCode} icon={CreditCard}>{c.paymentMethodCode || "—"}</KV>
+<KV label={L.paymentTermsCode} icon={CreditCard}>{c.paymentTermsCode || "—"}</KV>
+<KV label={L.languageCode} icon={Languages}>{c.languageCode || "—"}</KV>
+<KV label={L.customerPostingGroup} icon={Tag}>{c.customerPostingGroup || "—"}</KV>
+<KV label={L.customerPriceGroup} icon={Tag}>{c.customerPriceGroup || "—"}</KV>
+<KV label={L.customerDiscGroup} icon={BadgePercent}>{c.customerDiscGroup || "—"}</KV>
+<KV label={L.salespersonCode} icon={UserRound}>{c.salespersonCode || "—"}</KV>
+<KV label={L.shipmentMethodCode} icon={Truck}>{c.shipmentMethodCode || "—"}</KV>
+<KV label={L.shippingAgentCode} icon={Ship}>{c.shippingAgentCode || "—"}</KV>
 
                       {c.hasPicture ? (
                         <div className="col-span-1 md:col-span-3 flex items-center gap-3">
@@ -676,10 +676,14 @@ function blockedChip(v, C) {
   );
 }
 
-function KV({ label, children }) {
+// replace KV with icon-aware version
+function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
-      <div className="col-span-1 text-slate-500">{label}</div>
+      <div className="col-span-1 text-slate-500 flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-slate-400" />}
+        {label}
+      </div>
       <div className="col-span-2 font-medium">{children}</div>
     </div>
   );

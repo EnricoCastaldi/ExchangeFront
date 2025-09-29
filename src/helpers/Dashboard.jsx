@@ -13,6 +13,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import Customers from "../pages/Customers";
 import Items from "../pages/Items";
+import Parameters from "../pages/Parameters";
 import Vendors from "../pages/Vendors";
 import Buy from "../pages/Buy";
 import Sell from "../pages/Sell";
@@ -110,6 +111,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="customers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="items" element={<Items />} />
+            <Route path="parameters" element={<Parameters/>} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
             <Route path="sell" element={<Sell />} />

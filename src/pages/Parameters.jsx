@@ -1,4 +1,4 @@
-// src/pages/Items.jsx
+// src/pages/Parameters.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
@@ -10,43 +10,118 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
-  SlidersHorizontal,
-  Hash,
-  Tag,
-  FileText,
-  Ruler,
-  Boxes,
-  DollarSign,
-  Calendar, 
+  SlidersHorizontal, // filters toggle
+  Hash,              // code
+  FileText,          // description
+  Tag,               // type label
+  Calculator,        // decimal
+  Type as TypeIcon,  // text
+  ToggleRight,       // boolean
+  ArrowDown01,       // min
+  ArrowUp01,         // max
+  Equal,             // default
+  Calendar,  
 } from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-// helper: handle id or _id from API
-const getId = (row) => row?._id || row?.id;
-
-export default function Items() {
+export default function Parameters() {
   const { t, locale } = useI18n();
-  const I = t?.items || {};
+  const P = t?.parameters || {};
 
-  // --- UI State ---
+  // ---------- Localized labels with sensible fallbacks ----------
+  const L = {
+    title: P.title || "Parameters",
+    controls: {
+      searchPlaceholder: P?.controls?.searchPlaceholder || "Search: code, description",
+      searchBtn: P?.controls?.searchBtn || "Search",
+      filters: P?.controls?.filters || "Filters",
+      addBtn: P?.controls?.addBtn || "Add parameter",
+      allTypes: P?.controls?.allTypes || "All types",
+      allStatuses: P?.controls?.allStatuses || "All statuses",
+      statuses: {
+        active: P?.controls?.statuses?.active || "Active",
+        inactive: P?.controls?.statuses?.inactive || "Inactive",
+      },
+    },
+ table: {
+  code: P?.table?.code || "Param. Code",
+  description: P?.table?.description || "Description",
+  type: P?.table?.type || "Type",
+  // use either 'min' or 'minValue' from i18n
+  min: P?.table?.min || P?.table?.minValue || "Min",
+  max: P?.table?.max || P?.table?.maxValue || "Max",
+  defaultValue: P?.table?.defaultValue || "Default",
+  status: P?.table?.status || "Status",
+  created: P?.table?.created || "Created",
+  actions: P?.table?.actions || "",
+  loading: P?.table?.loading || "Loading…",
+  empty: P?.table?.empty || "No parameters",
+  dash: P?.table?.dash || "—",
+},
+    details: {
+      id: P?.details?.id || "ID",
+      code: P?.details?.code || "Param. Code",
+      description: P?.details?.description || "Description",
+      type: P?.details?.type || "Type",
+      min: P?.details?.min || "Min value",
+      max: P?.details?.max || "Max value",
+      defaultValue: P?.details?.defaultValue || "Default value",
+      active: P?.details?.active || "Active",
+      created: P?.details?.created || "Created",
+      updated: P?.details?.updated || "Updated",
+    },
+    modal: {
+      titleNew: P?.modal?.titleNew || "Add parameter",
+      titleEdit: P?.modal?.titleEdit || "Edit parameter",
+      add: P?.modal?.add || "Add",
+      save: P?.modal?.save || "Save",
+      cancel: P?.modal?.cancel || "Cancel",
+      fields: {
+        code: P?.modal?.fields?.code || "Param. Code *",
+        description: P?.modal?.fields?.description || "Description",
+        type: P?.modal?.fields?.type || "Param. Type",
+        min: P?.modal?.fields?.min || "Min value (decimal)",
+        max: P?.modal?.fields?.max || "Max value (decimal)",
+        defaultValue: P?.modal?.fields?.defaultValue || "Default value",
+        active: P?.modal?.fields?.active || "Active",
+      },
+      required: P?.modal?.required || "Please fill required fields.",
+    },
+    alerts: {
+      loadFail: P?.alerts?.loadFail || "Failed to load parameters.",
+      requestFail: P?.alerts?.requestFail || "Request failed.",
+      deleteConfirm: P?.alerts?.deleteConfirm || "Delete this parameter?",
+      deleted: P?.alerts?.deleted || "Deleted.",
+      created: P?.alerts?.created || "Created.",
+      updated: P?.alerts?.updated || "Updated.",
+    },
+    footer: {
+      meta: P?.footer?.meta || ((total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`),
+      perPage: (n) => (P?.footer?.perPage ? P.footer.perPage(n) : `${n} / page`),
+      prev: P?.footer?.prev || "Prev",
+      next: P?.footer?.next || "Next",
+    },
+    a11y: {
+      toggleDetails: P?.a11y?.toggleDetails || "Toggle details",
+    },
+  };
+
+  // ---------- State ----------
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
-  const [type, setType] = useState("");
-  const [ipg, setIpg] = useState(""); // inventory posting group
-  const [active, setActive] = useState(""); // true/false/""
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+  const [type, setType] = useState(""); // text | decimal | boolean | ""
+  const [active, setActive] = useState(""); // "", "true", "false"
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [type, ipg, active, minPrice, maxPrice].filter(Boolean).length;
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+
   const [data, setData] = useState({ data: [], total: 0, pages: 0, page: 1 });
 
   const [sortBy, setSortBy] = useState("createdAt");
-  const [sortDir, setSortDir] = useState("desc"); // 'asc' | 'desc'
+  const [sortDir, setSortDir] = useState("desc");
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -58,97 +133,9 @@ export default function Items() {
     if (ms) setTimeout(() => setNotice(null), ms);
   };
 
-  const L = {
-    pageTitle: I.pageTitle || "Items",
-    controls: {
-      searchPlaceholder: I?.controls?.searchPlaceholder || "Search by No/Description…",
-      searchBtn: I?.controls?.searchBtn || "Search",
-      filters: I?.controls?.filters || "Filters",
-      addBtn: I?.controls?.addBtn || "Add item",
-      allTypes: I?.controls?.allTypes || "All types",
-      allStatuses: I?.controls?.allStatuses || "All statuses",
-      statuses: {
-        active: I?.controls?.statuses?.active || "Active",
-        inactive: I?.controls?.statuses?.inactive || "Inactive",
-        closed: I?.controls?.statuses?.closed || "Closed",
-      },
-    },
-    table: {
-      exp: "",
-      no: I?.table?.no || "No.",
-      no2: I?.table?.no2 || "No. 2",
-      type: I?.table?.type || "Type",
-      description: I?.table?.description || "Description",
-      unit: I?.table?.unit || "Base UoM",
-      ipg: I?.table?.ipg || "Inventory Posting Group",
-      unitPrice: I?.table?.unitPrice || "Unit Price",
-      status: I?.table?.status || "Status",
-      created: I?.table?.created || "Created",
-      actions: I?.table?.actions || "Actions",
-      loading: I?.table?.loading || "Loading…",
-      empty: I?.table?.empty || "No results",
-      dash: "—",
-    },
-    details: {
-      id: I?.details?.id || "ID",
-      no: I?.details?.no || "No.",
-      no2: I?.details?.no2 || "No. 2",
-      type: I?.details?.type || "Type",
-      description: I?.details?.description || "Description",
-      description2: I?.details?.description2 || "Description 2",
-      baseUnitOfMeasure: I?.details?.baseUnitOfMeasure || "Base Unit of Measure",
-      inventoryPostingGroup: I?.details?.inventoryPostingGroup || "Inventory Posting Group",
-      unitPrice: I?.details?.unitPrice || "Unit Price",
-      active: I?.details?.active || "Active",
-      created: I?.details?.created || "Created",
-      updated: I?.details?.updated || "Updated",
-    },
-    modal: {
-      titleNew: I?.modal?.titleNew || "Add item",
-      titleEdit: I?.modal?.titleEdit || "Edit item",
-      add: I?.modal?.add || "Add",
-      save: I?.modal?.save || "Save",
-      cancel: I?.modal?.cancel || "Cancel",
-      fields: {
-        no: I?.modal?.fields?.no || "No.",
-        no2: I?.modal?.fields?.no2 || "No. 2",
-        type: I?.modal?.fields?.type || "Type",
-        description: I?.modal?.fields?.description || "Description",
-        description2: I?.modal?.fields?.description2 || "Description 2",
-        unit: I?.modal?.fields?.unit || "Base Unit of Measure",
-        ipg: I?.modal?.fields?.ipg || "Inventory Posting Group",
-        unitPrice: I?.modal?.fields?.unitPrice || "Unit Price",
-        active: I?.modal?.fields?.active || "Active",
-      },
-      required: I?.modal?.required || "Please fill required fields.",
-    },
-    alerts: {
-      requestFail: I?.alerts?.requestFail || "Request failed.",
-      loadFail: I?.alerts?.loadFail || "Failed to load items.",
-      deleteConfirm: I?.alerts?.deleteConfirm || "Are you sure to delete this item?",
-      deleted: I?.alerts?.deleted || "Deleted.",
-      created: I?.alerts?.created || "Created.",
-      updated: I?.alerts?.updated || "Updated.",
-    },
-    footer: {
-      prev: I?.footer?.prev || "Prev",
-      next: I?.footer?.next || "Next",
-      perPage: (n) => (I?.footer?.perPage ? I.footer.perPage(n) : `${n}/page`),
-      meta:
-        I?.footer?.meta ||
-        ((total, page, pages) => `Total ${total.toLocaleString()} • Page ${page}/${pages || 1}`),
-    },
-    a11y: {
-      toggleDetails: I?.a11y?.toggleDetails || "Toggle details",
-    },
-  };
+  const activeFilterCount = [type, active].filter(Boolean).length;
 
-  const onSort = (by) => {
-    setSortDir(sortBy === by ? (sortDir === "asc" ? "desc" : "asc") : "asc");
-    setSortBy(by);
-    setPage(1);
-  };
-
+  // ---------- Data ----------
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -159,12 +146,9 @@ export default function Items() {
       });
       if (q) params.set("query", q);
       if (type) params.set("type", type);
-      if (ipg) params.set("ipg", ipg);
       if (active !== "") params.set("active", active);
-      if (minPrice !== "") params.set("minPrice", minPrice);
-      if (maxPrice !== "") params.set("maxPrice", maxPrice);
 
-      const res = await fetch(`${API}/api/mitems?${params.toString()}`);
+      const res = await fetch(`${API}/api/params?${params.toString()}`);
       const json = await res.json();
       setData(json);
     } catch {
@@ -177,7 +161,7 @@ export default function Items() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line
-  }, [page, limit, type, ipg, active, minPrice, maxPrice, sortBy, sortDir]);
+  }, [page, limit, type, active, sortBy, sortDir]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -188,7 +172,7 @@ export default function Items() {
   const onDelete = async (id) => {
     if (!window.confirm(L.alerts.deleteConfirm)) return;
     try {
-      const res = await fetch(`${API}/api/mitems/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/params/${id}`, { method: "DELETE" });
       if (res.status === 204) {
         showNotice("success", L.alerts.deleted);
         fetchData();
@@ -201,31 +185,19 @@ export default function Items() {
     }
   };
 
+  // client-side sort parity
   const rows = useMemo(() => {
     const arr = [...(data?.data || [])];
     const dir = sortDir === "asc" ? 1 : -1;
 
-    const keyMap = {
-      no: "no",
-      no2: "no2",
-      type: "type",
-      description: "description",
-      baseUnitOfMeasure: "baseUnitOfMeasure",
-      inventoryPostingGroup: "inventoryPostingGroup",
-      unitPrice: "unitPrice",
-      active: "active",
-      createdAt: "createdAt",
-    };
-    const k = keyMap[sortBy] || sortBy;
-
+    const k = sortBy;
     const get = (r) => {
       const v = r?.[k];
-      if (k === "unitPrice") return Number(v) || 0;
       if (k === "createdAt") return v ? new Date(v).getTime() : 0;
+      if (k === "defaultValue" || k === "minValue" || k === "maxValue") return Number(v) || 0;
       if (k === "active") return r.active ? 1 : 0;
       return (v ?? "").toString().toLowerCase();
     };
-
     arr.sort((a, b) => {
       const av = get(a), bv = get(b);
       if (av < bv) return -1 * dir;
@@ -235,10 +207,18 @@ export default function Items() {
     return arr;
   }, [data.data, sortBy, sortDir]);
 
+  const onSort = (by) => {
+    setSortDir(sortBy === by ? (sortDir === "asc" ? "desc" : "asc") : "asc");
+    setSortBy(by);
+    setPage(1);
+  };
+
   const handleSubmit = async (form) => {
-    const isEdit = Boolean(editing && getId(editing));
-    const url = isEdit ? `${API}/api/mitems/${getId(editing)}` : `${API}/api/mitems`;
+    const isEdit = Boolean(editing?.id || editing?._id);
+    const id = editing?.id || editing?._id;
+    const url = isEdit ? `${API}/api/params/${id}` : `${API}/api/params`;
     const method = isEdit ? "PUT" : "POST";
+
     try {
       const res = await fetch(url, {
         method,
@@ -247,6 +227,7 @@ export default function Items() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) return showNotice("error", json.message || L.alerts.requestFail);
+
       showNotice("success", isEdit ? L.alerts.updated : L.alerts.created);
       setOpen(false);
       setEditing(null);
@@ -257,8 +238,7 @@ export default function Items() {
     }
   };
 
-  const isEditing = Boolean(editing && getId(editing)); // for modal title
-
+  // ---------- UI ----------
   return (
     <div className="space-y-4">
       {notice && (
@@ -269,7 +249,6 @@ export default function Items() {
 
       {/* Search & Filters */}
       <form onSubmit={onSearch} className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm">
-        {/* Row 1 */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -294,7 +273,7 @@ export default function Items() {
             onClick={() => setShowFilters((v) => !v)}
             className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
             aria-expanded={showFilters}
-            aria-controls="items-filters-panel"
+            aria-controls="params-filters-panel"
           >
             <SlidersHorizontal size={16} />
             {L.controls.filters}
@@ -318,14 +297,13 @@ export default function Items() {
           </button>
         </div>
 
-        {/* Row 2: Filters */}
+        {/* Filters */}
         <div
-          id="items-filters-panel"
+          id="params-filters-panel"
           className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-3 ${
             showFilters ? "grid" : "hidden md:grid"
           }`}
         >
-          {/* Type */}
           <select
             value={type}
             onChange={(e) => {
@@ -335,22 +313,11 @@ export default function Items() {
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
             <option value="">{L.controls.allTypes}</option>
-            <option value="Item">Item</option>
-            <option value="Service">Service</option>
+            <option value="decimal">decimal</option>
+            <option value="text">text</option>
+            <option value="boolean">boolean</option>
           </select>
 
-          {/* Inventory Posting Group */}
-          <input
-            value={ipg}
-            onChange={(e) => {
-              setIpg(e.target.value);
-              setPage(1);
-            }}
-            placeholder={L.table.ipg}
-            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-          />
-
-          {/* Active */}
           <select
             value={active}
             onChange={(e) => {
@@ -361,48 +328,21 @@ export default function Items() {
           >
             <option value="">{L.controls.allStatuses}</option>
             <option value="true">{L.controls.statuses.active}</option>
-            <option value="false">Inactive</option>
+            <option value="false">{L.controls.statuses.inactive}</option>
           </select>
 
-          {/* Price range */}
-          <div className="grid grid-cols-2 gap-2 md:col-span-3">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value)}
-              placeholder={`${L.table.unitPrice} min`}
-              className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-            />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value)}
-              placeholder={`${L.table.unitPrice} max`}
-              className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-            />
-          </div>
+          <div />
         </div>
 
-        {/* Active filter chips */}
+        {/* Filter chips */}
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {type && <Chip label={`${L.table.type}: ${type}`} onClear={() => setType("")} clearTitle={L.modal.cancel} />}
-          {ipg && <Chip label={`${L.table.ipg}: ${ipg}`} onClear={() => setIpg("")} clearTitle={L.modal.cancel} />}
           {active !== "" && (
             <Chip
-              label={`${L.table.status}: ${active === "true" ? L.controls.statuses.active : "Inactive"}`}
+              label={`${L.table.status}: ${active === "true" ? L.controls.statuses.active : L.controls.statuses.inactive}`}
               onClear={() => setActive("")}
               clearTitle={L.modal.cancel}
             />
-          )}
-          {minPrice !== "" && (
-            <Chip label={`${L.table.unitPrice} ≥ ${minPrice}`} onClear={() => setMinPrice("")} clearTitle={L.modal.cancel} />
-          )}
-          {maxPrice !== "" && (
-            <Chip label={`${L.table.unitPrice} ≤ ${maxPrice}`} onClear={() => setMaxPrice("")} clearTitle={L.modal.cancel} />
           )}
         </div>
       </form>
@@ -413,59 +353,56 @@ export default function Items() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                {[
-                  <Th key="exp" />,
-                  <SortableTh key="no" id="no" {...{ sortBy, sortDir, onSort }}>{L.table.no}</SortableTh>,
-                  <SortableTh key="no2" id="no2" {...{ sortBy, sortDir, onSort }}>{L.table.no2}</SortableTh>,
-                  <SortableTh key="type" id="type" {...{ sortBy, sortDir, onSort }}>{L.table.type}</SortableTh>,
-                  <SortableTh key="description" id="description" {...{ sortBy, sortDir, onSort }}>{L.table.description}</SortableTh>,
-                  <SortableTh key="baseUnitOfMeasure" id="baseUnitOfMeasure" {...{ sortBy, sortDir, onSort }}>{L.table.unit}</SortableTh>,
-                  <SortableTh key="inventoryPostingGroup" id="inventoryPostingGroup" {...{ sortBy, sortDir, onSort }}>{L.table.ipg}</SortableTh>,
-                  <SortableTh key="unitPrice" id="unitPrice" className="text-right" {...{ sortBy, sortDir, onSort }}>{L.table.unitPrice}</SortableTh>,
-                  <SortableTh key="active" id="active" {...{ sortBy, sortDir, onSort }}>{L.table.status}</SortableTh>,
-                  <SortableTh key="createdAt" id="createdAt" {...{ sortBy, sortDir, onSort }}>{L.table.created}</SortableTh>,
-                  <Th key="actions" className="text-right">{L.table.actions}</Th>,
-                ]}
+                <Th />
+                <SortableTh id="code" {...{ sortBy, sortDir, onSort }}>{L.table.code}</SortableTh>
+                <SortableTh id="description" {...{ sortBy, sortDir, onSort }}>{L.table.description}</SortableTh>
+                <SortableTh id="type" {...{ sortBy, sortDir, onSort }}>{L.table.type}</SortableTh>
+                <SortableTh id="minValue" {...{ sortBy, sortDir, onSort }} className="text-right">{L.table.min}</SortableTh>
+                <SortableTh id="maxValue" {...{ sortBy, sortDir, onSort }} className="text-right">{L.table.max}</SortableTh>
+                <SortableTh id="defaultValue" {...{ sortBy, sortDir, onSort }} className="text-right">
+                  {L.table.defaultValue}
+                </SortableTh>
+                <SortableTh id="active" {...{ sortBy, sortDir, onSort }}>{L.table.status}</SortableTh>
+                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>{L.table.created}</SortableTh>
+                <Th className="text-right">{L.table.actions}</Th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={12} className="p-6 text-center text-slate-500">
+                  <td colSpan={10} className="p-6 text-center text-slate-500">
                     {L.table.loading}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-6 text-center text-slate-500">
+                  <td colSpan={10} className="p-6 text-center text-slate-500">
                     {L.table.empty}
                   </td>
                 </tr>
               ) : (
                 rows.flatMap((r) => {
-                  const id = getId(r);
                   const mainRow = (
-                    <tr key={id} className="border-t">
+                    <tr key={r.id || r._id} className="border-t">
                       <Td className="w-8">
                         <button
                           className="p-1 rounded hover:bg-slate-100"
-                          onClick={() => setExpandedId((cur) => (cur === id ? null : id))}
+                          onClick={() => setExpandedId((id) => (id === (r.id || r._id) ? null : r.id || r._id))}
                           aria-label={L.a11y.toggleDetails}
                           title={L.a11y.toggleDetails}
                         >
-                          {expandedId === id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          {expandedId === (r.id || r._id) ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                         </button>
                       </Td>
-                      <Td className="font-mono">{r.no}</Td>
-                      <Td className="font-mono">{r.no2 || L.table.dash}</Td>
-                      <Td>{typeChip(r.type)}</Td>
-                      <Td className="max-w-[340px] truncate" title={r.description}>
+                      <Td className="font-mono">{r.code}</Td>
+                      <Td className="truncate max-w-[360px]" title={r.description}>
                         {r.description || L.table.dash}
                       </Td>
-                      <Td>{r.baseUnitOfMeasure || L.table.dash}</Td>
-                      <Td>{r.inventoryPostingGroup || L.table.dash}</Td>
-                      <Td className="text-right">{fmtPrice(r.unitPrice)}</Td>
+                      <Td>{typeChip(r.type)}</Td>
+                      <Td className="text-right">{r.type === "decimal" ? fmtNum(r.minValue, locale) : L.table.dash}</Td>
+                      <Td className="text-right">{r.type === "decimal" ? fmtNum(r.maxValue, locale) : L.table.dash}</Td>
+                      <Td className="text-right">{fmtDefault(r)}</Td>
                       <Td>{activeChip(r.active)}</Td>
                       <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}</Td>
                       <Td>
@@ -481,7 +418,7 @@ export default function Items() {
                           </button>
                           <button
                             className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
-                            onClick={() => onDelete(id)}
+                            onClick={() => onDelete(r.id || r._id)}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -491,30 +428,31 @@ export default function Items() {
                   );
 
                   const detailsRow =
-                    expandedId === id ? (
-                      <tr key={`${id}-details`}>
-                        <td colSpan={12} className="bg-slate-50 border-t">
+                    expandedId === (r.id || r._id) ? (
+                      <tr key={(r.id || r._id) + "-details"}>
+                        <td colSpan={10} className="bg-slate-50 border-t">
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                            <KV label={L.details.id} icon={Hash}>{id || L.table.dash}</KV>
-<KV label={L.details.no} icon={Hash}>{r.no || L.table.dash}</KV>
-<KV label={L.details.no2} icon={Hash}>{r.no2 || L.table.dash}</KV>
-<KV label={L.details.type} icon={Tag}>{typeChip(r.type)}</KV>
-<KV label={L.details.baseUnitOfMeasure} icon={Ruler}>{r.baseUnitOfMeasure || L.table.dash}</KV>
-<KV label={L.details.inventoryPostingGroup} icon={Boxes}>{r.inventoryPostingGroup || L.table.dash}</KV>
-<KV label={L.details.unitPrice} icon={DollarSign}>{fmtPrice(r.unitPrice)}</KV>
-<KV label={L.details.active} icon={CheckCircle2}>{activeChip(r.active)}</KV>
-<div className="md:col-span-3">
-  <KV label={L.details.description} icon={FileText}>{r.description || L.table.dash}</KV>
-</div>
-<div className="md:col-span-3">
-  <KV label={L.details.description2} icon={FileText}>{r.description2 || L.table.dash}</KV>
-</div>
+<KV label={L.details.id} icon={Hash}>{r.id || r._id}</KV>
+<KV label={L.details.code} icon={Hash}>{r.code}</KV>
+<KV label={L.details.type} icon={Tag}>{typeChip(r.type, L)}</KV>
+<KV label={L.details.defaultValue} icon={Equal}>{fmtDefault(r)}</KV>
+<KV label={L.details.active} icon={ToggleRight}>{activeChip(r.active, L)}</KV>
 <KV label={L.details.created} icon={Calendar}>
   {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
 </KV>
 <KV label={L.details.updated} icon={Calendar}>
   {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
 </KV>
+{r.type === "decimal" && (
+  <>
+    <KV label={L.details.min} icon={ArrowDown01}>{fmtNum(r.minValue, locale)}</KV>
+    <KV label={L.details.max} icon={ArrowUp01}>{fmtNum(r.maxValue, locale)}</KV>
+  </>
+)}
+<div className="md:col-span-3">
+  <KV label={L.details.description} icon={FileText}>{r.description || L.table.dash}</KV>
+</div>
+
                           </div>
                         </td>
                       </tr>
@@ -566,13 +504,13 @@ export default function Items() {
       {/* Modal */}
       {open && (
         <Modal
-          title={isEditing ? L.modal.titleEdit : L.modal.titleNew}
+          title={editing ? L.modal.titleEdit : L.modal.titleNew}
           onClose={() => {
             setOpen(false);
             setEditing(null);
           }}
         >
-          <ItemForm
+          <ParameterForm
             initial={editing}
             onCancel={() => {
               setOpen(false);
@@ -587,7 +525,7 @@ export default function Items() {
   );
 }
 
-/* ---------- Small atoms ---------- */
+/* ---------- Tiny atoms ---------- */
 function Th({ children, className = "" }) {
   return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
 }
@@ -606,7 +544,6 @@ function KV({ label, icon: Icon, children }) {
     </div>
   );
 }
-
 
 function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
   const active = sortBy === id;
@@ -627,42 +564,30 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
     </th>
   );
 }
-
 function Chip({ label, onClear, clearTitle = "Clear" }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">
       {label}
-      <button
-        type="button"
-        onClick={onClear}
-        className="rounded-full p-0.5 hover:bg-white"
-        title={clearTitle}
-        aria-label={clearTitle}
-      >
+      <button type="button" onClick={onClear} className="rounded-full p-0.5 hover:bg-white" title={clearTitle} aria-label={clearTitle}>
         <X size={12} className="text-slate-500" />
       </button>
     </span>
   );
 }
-
 function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
-  const wrap = isSuccess
-    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-    : "bg-red-50 border-red-200 text-red-800";
+  const wrap =
+    isSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800";
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
-        ✕
-      </button>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
     </div>
   );
 }
-
-function Modal({ children, onClose, title = "Item" }) {
+function Modal({ children, onClose, title = "Parameter" }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -680,162 +605,200 @@ function Modal({ children, onClose, title = "Item" }) {
 }
 
 /* ---------- Helpers ---------- */
-function typeChip(typeRaw) {
-  const v = String(typeRaw || "Item");
+function typeChip(vRaw, L) {
+  const v = String(vRaw || "decimal").toLowerCase();
+  const label = (L?.controls?.types && L.controls.types[v]) ? L.controls.types[v] : v;
   const cls =
-    v === "Service"
+    v === "text"
       ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+      : v === "boolean"
+      ? "bg-amber-50 text-amber-700 border border-amber-200"
       : "bg-sky-50 text-sky-700 border border-sky-200";
-  return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{v}</span>;
+  return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{label}</span>;
 }
-function activeChip(on) {
+function activeChip(on, L) {
+  const txt = on ? (L?.controls?.statuses?.active || "Active") 
+                 : (L?.controls?.statuses?.inactive || "Inactive");
   return (
     <span
       className={`px-2 py-1 rounded text-xs font-semibold ${
-        on
-          ? "bg-green-50 text-green-700 border border-green-200"
-          : "bg-slate-100 text-slate-700 border border-slate-200"
+        on ? "bg-green-50 text-green-700 border border-green-200"
+           : "bg-slate-100 text-slate-700 border border-slate-200"
       }`}
     >
-      {on ? "ACTIVE" : "INACTIVE"}
+      {String(txt).toUpperCase()}
     </span>
   );
 }
-function fmtPrice(v) {
-  const n =
-    typeof v === "number"
-      ? v
-      : v && typeof v === "object" && v.$numberDecimal
-      ? Number(v.$numberDecimal)
-      : Number(v) || 0;
-  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function fmtNum(v, locale) {
+  if (v == null || v === "") return "0";
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n.toLocaleString(locale, { maximumFractionDigits: 6 }) : "0";
+}
+function fmtDefault(r) {
+  if (r.type === "decimal") return fmtNum(r.defaultValue ?? r.defaultValueDecimal, undefined);
+  if (r.type === "boolean") return r.defaultValue === true ? "true" : r.defaultValue === false ? "false" : "—";
+  return r.defaultValue || r.defaultValueText || "—";
 }
 
-function ItemForm({ initial, onSubmit, onCancel, L }) {
-  const isEdit = Boolean(initial && (initial._id || initial.id));
+/* ---------- Form ---------- */
+function ParameterForm({ initial, onSubmit, onCancel, L }) {
+  const isEdit = Boolean(initial?.id || initial?._id);
 
-  const [no, setNo] = useState(initial?.no || "");
-  const [no2, setNo2] = useState(initial?.no2 || "");
-  const [type, setType] = useState(initial?.type || "Item");
+  const [code, setCode] = useState(initial?.code || "");
   const [description, setDescription] = useState(initial?.description || "");
-  const [description2, setDescription2] = useState(initial?.description2 || "");
-  const [baseUnitOfMeasure, setBaseUnitOfMeasure] = useState(initial?.baseUnitOfMeasure || "");
-  const [inventoryPostingGroup, setInventoryPostingGroup] = useState(initial?.inventoryPostingGroup || "");
-  const [unitPrice, setUnitPrice] = useState(initial?.unitPrice ?? 0);
+  const [type, setType] = useState(initial?.type || "decimal");
+  const [minValue, setMinValue] = useState(initial?.minValue ?? "");
+  const [maxValue, setMaxValue] = useState(initial?.maxValue ?? "");
+  const [defaultValue, setDefaultValue] = useState(
+    initial?.defaultValue ??
+      initial?.defaultValueDecimal ??
+      initial?.defaultValueText ??
+      (typeof initial?.defaultValueBoolean === "boolean" ? initial.defaultValueBoolean : "")
+  );
   const [active, setActive] = useState(initial?.active ?? true);
+
+  // Reset numeric fields when switching type
+  useEffect(() => {
+    if (type !== "decimal") {
+      setMinValue("");
+      setMaxValue("");
+      if (type === "boolean") setDefaultValue(String(Boolean(defaultValue)) === "true");
+      if (type === "text") setDefaultValue(typeof defaultValue === "string" ? defaultValue : "");
+    } else {
+      if (typeof defaultValue === "boolean") setDefaultValue(defaultValue ? "1" : "0");
+    }
+    // eslint-disable-next-line
+  }, [type]);
 
   const submit = (e) => {
     e.preventDefault();
-    if (!no.trim()) {
+    if (!code.trim()) {
       alert(L.modal.required);
       return;
     }
     const payload = {
-      no: no.trim(),
-      no2: no2.trim() || null,
+      code: code.trim(),
+      description: description.trim(),
       type,
-      description: description.trim() || null,
-      description2: description2.trim() || null,
-      baseUnitOfMeasure: baseUnitOfMeasure.trim() || null,
-      inventoryPostingGroup: inventoryPostingGroup.trim() || null,
-      unitPrice: Number(unitPrice) || 0,
       active: Boolean(active),
     };
+
+    if (type === "decimal") {
+      payload.minValue = minValue === "" ? null : Number(minValue);
+      payload.maxValue = maxValue === "" ? null : Number(maxValue);
+      payload.defaultValue = defaultValue === "" ? null : Number(defaultValue);
+    } else if (type === "boolean") {
+      payload.defaultValue = Boolean(defaultValue);
+    } else {
+      payload.defaultValue = (defaultValue ?? "").toString();
+    }
+
     onSubmit(payload);
   };
+
+  // Choose icon for type selector and default field
+  const typeIcon = type === "decimal" ? Calculator : type === "text" ? TypeIcon : ToggleRight;
+  const defaultIcon = Equal;
 
   return (
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label={L.modal.fields.no} icon={Hash}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono"
-            value={no}
-            onChange={(e) => setNo(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.no2} icon={Hash}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono"
-            value={no2}
-            onChange={(e) => setNo2(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.type} icon={Tag}>
+<Field label={L.modal.fields.code} icon={Hash}>
+  <input
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+    value={code}
+    onChange={(e) => setCode(e.target.value)}
+  />
+</Field>
+        <Field label={L.modal.fields.type} icon={typeIcon}>
           <select
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
             value={type}
             onChange={(e) => setType(e.target.value)}
           >
-            <option value="Item">Item</option>
-            <option value="Service">Service</option>
+            <option value="decimal">decimal</option>
+            <option value="text">text</option>
+            <option value="boolean">boolean</option>
           </select>
         </Field>
 
-        <Field label={L.modal.fields.unit} icon={Ruler}>
+        <Field label={L.modal.fields.description} icon={FileText}>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={baseUnitOfMeasure}
-            onChange={(e) => setBaseUnitOfMeasure(e.target.value)}
-            placeholder="e.g., PCS, KG, TON"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
           />
         </Field>
 
-        <Field label={L.modal.fields.ipg} icon={Boxes}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={inventoryPostingGroup}
-            onChange={(e) => setInventoryPostingGroup(e.target.value)}
-            placeholder="e.g., RAW, FINISHED"
-          />
-        </Field>
-
-        <Field label={L.modal.fields.unitPrice} icon={DollarSign}>
-          <div className="relative">
-            <input
-              type="number"
-              step="0.01"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
-              value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
-            />
-            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-              $
-            </span>
-          </div>
-        </Field>
-
-        <Field label={L.modal.fields.active} icon={CheckCircle2}>
+        <Field label={L.modal.fields.active} icon={ToggleRight}>
           <select
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
             value={String(active)}
             onChange={(e) => setActive(e.target.value === "true")}
           >
             <option value="true">{L.controls.statuses.active}</option>
-            <option value="false">Inactive</option>
+            <option value="false">{L.controls.statuses.inactive}</option>
           </select>
         </Field>
 
-        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label={L.modal.fields.description} icon={FileText}>
-            <textarea
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+        {/* Decimal-only fields */}
+        {type === "decimal" && (
+          <>
+            <Field label={L.modal.fields.min} icon={ArrowDown01}>
+              <input
+                type="number"
+                step="0.000001"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+                value={minValue}
+                onChange={(e) => setMinValue(e.target.value)}
+                placeholder="e.g. 0"
+              />
+            </Field>
+
+            <Field label={L.modal.fields.max} icon={ArrowUp01}>
+              <input
+                type="number"
+                step="0.000001"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+                value={maxValue}
+                onChange={(e) => setMaxValue(e.target.value)}
+                placeholder="e.g. 100"
+              />
+            </Field>
+          </>
+        )}
+
+        {/* Default value (varies by type) */}
+        <Field label={L.modal.fields.defaultValue} icon={defaultIcon}>
+          {type === "decimal" ? (
+            <input
+              type="number"
+              step="0.000001"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={defaultValue}
+              onChange={(e) => setDefaultValue(e.target.value)}
+              placeholder="e.g. 10"
             />
-          </Field>
-          <Field label={L.modal.fields.description2} icon={FileText}>
-            <textarea
+          ) : type === "boolean" ? (
+            <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              rows={3}
-              value={description2}
-              onChange={(e) => setDescription2(e.target.value)}
+              value={String(Boolean(defaultValue))}
+              onChange={(e) => setDefaultValue(e.target.value === "true")}
+            >
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          ) : (
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={defaultValue ?? ""}
+              onChange={(e) => setDefaultValue(e.target.value)}
+              placeholder="text default"
             />
-          </Field>
-        </div>
+          )}
+        </Field>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
@@ -854,14 +817,14 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
   );
 }
 
-
-function Field({ label, icon: Icon, error, children }) {
+/* Upgraded Field with optional icon support */
+function Field({ label, icon: Icon, children }) {
+  // If the child is an input/select/textarea, add left padding when icon exists
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
         className: [
           children.props.className || "",
           Icon ? " pl-9" : "",
-          error ? " border-red-300 focus:border-red-400" : "",
         ].join(" "),
       })
     : children;
@@ -881,8 +844,6 @@ function Field({ label, icon: Icon, error, children }) {
         )}
         {child}
       </div>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </label>
   );
 }
-
