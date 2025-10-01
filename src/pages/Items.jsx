@@ -21,7 +21,12 @@ import {
 } from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API =
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://api.217.154.88.40.sslip.io");
+
 
 // helper: handle id or _id from API
 const getId = (row) => row?._id || row?.id;

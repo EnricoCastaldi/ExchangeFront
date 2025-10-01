@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Trash2, Pencil, X } from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
-const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
+const API =
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://api.217.154.88.40.sslip.io");
+
 
 export default function Sell() {
   const { t, locale } = useI18n();
