@@ -30,15 +30,17 @@ import {
   Tag,
   BadgePercent,
   UserRound,
-  CheckCircle2, 
-  AlertTriangle ,
-  SlidersHorizontal
+  CheckCircle2,
+  AlertTriangle,
+  SlidersHorizontal,
 } from "lucide-react";
 
 const API = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
+
 export default function Customers() {
   const { t, locale } = useI18n();
+  const COL_COUNT = 12;
   const C = t.customers || {};
   // localized helpers for filters (with safe fallbacks)
   const F = {
@@ -61,8 +63,45 @@ export default function Customers() {
     addBtn: C?.controls?.addBtn || "Add Customer",
   };
 
-  const L = C?.details || {
+  // Customer type labels (from i18n with safe fallbacks)
+const TYPE_ORDER = ["mlyn", "skup", "trader", "wytwornia_pasz"];
+const CT = C.customerTypeLabels || {
+  mlyn: "Mill",
+  skup: "Procurement",
+  trader: "Trader",
+  wytwornia_pasz: "Feed Mill",
+};
+const typeLabel = (v) => {
+  const key = String(v || "").toLowerCase();
+  return CT[key] || (v || "—");
+};
+
+// inside Customers(), after typeLabel(...)
+function customerTypeChip(v) {
+  const key = String(v || "").toLowerCase();
+
+  const cls =
+    key === "mlyn"
+      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+      : key === "skup"
+      ? "bg-amber-50 text-amber-700 border border-amber-200"
+      : key === "trader"
+      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+      : key === "wytwornia_pasz"
+      ? "bg-purple-50 text-blu-700 border border-purple-200"
+      : "bg-slate-50 text-slate-700 border border-slate-200";
+
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>
+      {typeLabel(key)}
+    </span>
+  );
+}
+
+
+  const DEFAULT_DETAILS = {
     name2: "Name 2",
+    customerType: "Customer type",
     address: "Address",
     address2: "Address 2",
     postCode: "Post code",
@@ -85,6 +124,7 @@ export default function Customers() {
     picture: "Picture",
     noPicture: "No picture",
   };
+  const L = { ...DEFAULT_DETAILS, ...(C?.details || {}) };
 
   // filters / paging
   const [loading, setLoading] = useState(false);
@@ -95,22 +135,21 @@ export default function Customers() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
-const activeFilterCount = [blocked, country, region].filter(Boolean).length;
+  const activeFilterCount = [blocked, country, region].filter(Boolean).length;
 
-const [notice, setNotice] = useState(null); // { type: 'success'|'error', text: string }
-const showNotice = (type, text, ms = 3000) => {
-  setNotice({ type, text });
-  if (ms) setTimeout(() => setNotice(null), ms);
-};
+  const [notice, setNotice] = useState(null); // { type: 'success'|'error', text: string }
+  const showNotice = (type, text, ms = 3000) => {
+    setNotice({ type, text });
+    if (ms) setTimeout(() => setNotice(null), ms);
+  };
 
-const [sortBy, setSortBy] = useState("createdAt"); // default column
-const [sortDir, setSortDir] = useState("desc");    // 'asc' | 'desc'
-const onSort = (by) => {
-  setSortDir(sortBy === by ? (sortDir === "asc" ? "desc" : "asc") : "asc");
-  setSortBy(by);
-  setPage(1);
-};
-
+  const [sortBy, setSortBy] = useState("createdAt"); // default column
+  const [sortDir, setSortDir] = useState("desc"); // 'asc' | 'desc'
+  const onSort = (by) => {
+    setSortDir(sortBy === by ? (sortDir === "asc" ? "desc" : "asc") : "asc");
+    setSortBy(by);
+    setPage(1);
+  };
 
   // list data
   const [data, setData] = useState({ data: [], total: 0, pages: 0, page: 1 });
@@ -120,27 +159,29 @@ const onSort = (by) => {
   const [editing, setEditing] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
-const fetchData = async () => {
-  setLoading(true);
-  try {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-    if (q) params.set("q", q);
-    if (blocked) params.set("blocked", blocked);
-    if (country) params.set("country", country);
-    if (region) params.set("region", region);
-  params.set("sortBy", sortBy);
-params.set("sortDir", sortDir);
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+      if (q) params.set("q", q);
+      if (blocked) params.set("blocked", blocked);
+      if (country) params.set("country", country);
+      if (region) params.set("region", region);
+      params.set("sortBy", sortBy);
+      params.set("sortDir", sortDir);
 
-    const res = await fetch(`${API}/api/mcustomers?${params.toString()}`);
-    const json = await res.json();
-    setData(json);
-  } catch {
-    showNotice("error", C?.alerts?.loadFail || "Failed to load customers.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+      const res = await fetch(`${API}/api/mcustomers?${params.toString()}`);
+      const json = await res.json();
+      setData(json);
+    } catch {
+      showNotice("error", C?.alerts?.loadFail || "Failed to load customers.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchData(); /* eslint-disable-next-line */
@@ -161,405 +202,526 @@ params.set("sortDir", sortDir);
     setOpen(true);
   };
 
-const onDelete = async (_id) => {
-  if (!window.confirm(C?.alerts?.deleteConfirm || "Delete this customer?")) return;
-  try {
-    const res = await fetch(`${API}/api/mcustomers/${_id}`, { method: "DELETE" });
-    if (res.status === 204) {
-      if (expandedId === _id) setExpandedId(null);
-      showNotice("success", C?.alerts?.deleted || "Customer deleted.");
-      fetchData();
-    } else {
-      const json = await res.json().catch(() => ({}));
-      showNotice("error", json?.message || C?.alerts?.requestFail || "Request failed");
+  const onDelete = async (_id) => {
+    if (!window.confirm(C?.alerts?.deleteConfirm || "Delete this customer?"))
+      return;
+    try {
+      const res = await fetch(`${API}/api/mcustomers/${_id}`, {
+        method: "DELETE",
+      });
+      if (res.status === 204) {
+        if (expandedId === _id) setExpandedId(null);
+        showNotice("success", C?.alerts?.deleted || "Customer deleted.");
+        fetchData();
+      } else {
+        const json = await res.json().catch(() => ({}));
+        showNotice(
+          "error",
+          json?.message || C?.alerts?.requestFail || "Request failed"
+        );
+      }
+    } catch {
+      showNotice("error", C?.alerts?.requestFail || "Request failed");
     }
-  } catch {
-    showNotice("error", C?.alerts?.requestFail || "Request failed");
-  }
-};
-
-const rows = useMemo(() => {
-  const arr = [...(data?.data || [])];
-  const dir = sortDir === "asc" ? 1 : -1;
-
-  const keyMap = {
-    no: "no",
-    name: "name",
-    email: "email",
-    phone: "phoneNo",
-    country: "countryRegionCode",
-    city: "city",
-    blocked: "blocked",
-    creditLimit: "creditLimit",
-    createdAt: "createdAt",
-  };
-  const k = keyMap[sortBy] || sortBy;
-
-  const val = (r) => {
-    const v = r?.[k];
-    if (k === "creditLimit") return Number(v) || 0;
-    if (k === "createdAt")  return v ? new Date(v).getTime() : 0;
-    return (v ?? "").toString().toLowerCase();
   };
 
-  arr.sort((a, b) => {
-    const av = val(a), bv = val(b);
-    if (av < bv) return -1 * dir;
-    if (av > bv) return  1 * dir;
-    return 0;
-  });
-  return arr;
-}, [data.data, sortBy, sortDir]);
+  const rows = useMemo(() => {
+    const arr = [...(data?.data || [])];
+    const dir = sortDir === "asc" ? 1 : -1;
 
+    const keyMap = {
+      no: "no",
+      name: "name",
+      email: "email",
+      phone: "phoneNo",
+      country: "countryRegionCode",
+      customerType: "customerType",
+      city: "city",
+      blocked: "blocked",
+      creditLimit: "creditLimit",
+      createdAt: "createdAt",
+    };
+    const k = keyMap[sortBy] || sortBy;
 
+    const val = (r) => {
+      const v = r?.[k];
+      if (k === "creditLimit") return Number(v) || 0;
+      if (k === "createdAt") return v ? new Date(v).getTime() : 0;
+      if (k === "customerType") return typeLabel(v).toLowerCase();
+      return (v ?? "").toString().toLowerCase();
+    };
 
-const handleSubmit = async (form) => {
-  const isEdit = Boolean(editing?._id);
-  const url = isEdit ? `${API}/api/mcustomers/${editing._id}` : `${API}/api/mcustomers`;
-  const method = isEdit ? "PUT" : "POST";
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+    arr.sort((a, b) => {
+      const av = val(a),
+        bv = val(b);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
     });
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) return showNotice("error", json?.message || C?.alerts?.requestFail || "Request failed");
+    return arr;
+  }, [data.data, sortBy, sortDir]);
 
-    showNotice("success", isEdit ? (C?.alerts?.updated || "Customer updated.") : (C?.alerts?.created || "Customer created."));
-    setOpen(false);
-    setEditing(null);
-    setPage(1);
-    fetchData();
-  } catch {
-    showNotice("error", C?.alerts?.requestFail || "Request failed");
-  }
-};
+  const handleSubmit = async (form) => {
+    const isEdit = Boolean(editing?._id);
+    const url = isEdit
+      ? `${API}/api/mcustomers/${editing._id}`
+      : `${API}/api/mcustomers`;
+    const method = isEdit ? "PUT" : "POST";
 
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return showNotice(
+          "error",
+          json?.message || C?.alerts?.requestFail || "Request failed"
+        );
 
-// put this near your Th/Td helpers
-function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
-  const active = sortBy === id;
-  const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
-  return (
-    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
-      <button
-        type="button"
-        onClick={() => onSort(id)}
-        className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-50"
-        title="Sort"
+      showNotice(
+        "success",
+        isEdit
+          ? C?.alerts?.updated || "Customer updated."
+          : C?.alerts?.created || "Customer created."
+      );
+      setOpen(false);
+      setEditing(null);
+      setPage(1);
+      fetchData();
+    } catch {
+      showNotice("error", C?.alerts?.requestFail || "Request failed");
+    }
+  };
+
+  // put this near your Th/Td helpers
+  function SortableTh({
+    id,
+    sortBy,
+    sortDir,
+    onSort,
+    children,
+    className = "",
+  }) {
+    const active = sortBy === id;
+    const ariaSort = active
+      ? sortDir === "asc"
+        ? "ascending"
+        : "descending"
+      : "none";
+    return (
+      <th
+        aria-sort={ariaSort}
+        className={`text-left px-4 py-3 font-medium ${className}`}
       >
-        <span>{children}</span>
-        <span className={`text-xs ${active ? "opacity-100" : "opacity-60"}`}>
-          {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
-    </th>
-  );
-}
-
+        <button
+          type="button"
+          onClick={() => onSort(id)}
+          className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-50"
+          title="Sort"
+        >
+          <span>{children}</span>
+          <span className={`text-xs ${active ? "opacity-100" : "opacity-60"}`}>
+            {active ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+          </span>
+        </button>
+      </th>
+    );
+  }
 
   return (
     <div className="space-y-4">
-{notice && (
-  <Toast type={notice.type} onClose={() => setNotice(null)}>
-    {notice.text}
-  </Toast>
-)}
+      {notice && (
+        <Toast type={notice.type} onClose={() => setNotice(null)}>
+          {notice.text}
+        </Toast>
+      )}
 
       {/* Controls */}
-<form
-  onSubmit={onSearch}
-  className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
->
-  {/* Row 1: Search + Filters toggle + Add button */}
-  <div className="flex flex-wrap items-center gap-2">
-    {/* Search with integrated submit icon */}
-    <div className="relative flex-1 min-w-[220px]">
-      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={F.searchPh}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
-      />
-      <button
-        type="submit"
-        title={C?.controls?.searchBtn || "Search"}
-        aria-label={C?.controls?.searchBtn || "Search"}
-        className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
       >
-        <Search size={14} />
-      </button>
-    </div>
+        {/* Row 1: Search + Filters toggle + Add button */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search with integrated submit icon */}
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={F.searchPh}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
+            />
+            <button
+              type="submit"
+              title={C?.controls?.searchBtn || "Search"}
+              aria-label={C?.controls?.searchBtn || "Search"}
+              className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+            >
+              <Search size={14} />
+            </button>
+          </div>
 
-    {/* Filters toggle (mobile only; on desktop filters are always shown) */}
-    <button
-      type="button"
-      onClick={() => setShowFilters((v) => !v)}
-      className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
-      aria-expanded={showFilters}
-      aria-controls="customer-filters-panel"
-    >
-      {/* same icon as Vendors or change to SlidersHorizontal if you import it */}
-      <SlidersHorizontal  size={16} className="opacity-70" />
-      {C?.controls?.filters || "Filters"}
-      {activeFilterCount > 0 && (
-        <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
-          {activeFilterCount}
-        </span>
-      )}
-    </button>
+          {/* Filters toggle (mobile only; on desktop filters are always shown) */}
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
+            aria-expanded={showFilters}
+            aria-controls="customer-filters-panel"
+          >
+            {/* same icon as Vendors or change to SlidersHorizontal if you import it */}
+            <SlidersHorizontal size={16} className="opacity-70" />
+            {C?.controls?.filters || "Filters"}
+            {activeFilterCount > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
-    {/* Add customer — emphasized primary button */}
-    <button
-      type="button"
-      onClick={onAddClick}
-      className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
-    >
-      <Plus size={16} />
-      {F.addBtn}
-    </button>
-  </div>
+          {/* Add customer — emphasized primary button */}
+          <button
+            type="button"
+            onClick={onAddClick}
+            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+          >
+            <Plus size={16} />
+            {F.addBtn}
+          </button>
+        </div>
 
-  {/* Row 2: Filters row (always visible on md+, collapsible on mobile) */}
-  <div
-    id="customer-filters-panel"
-    className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
-      showFilters ? "grid" : "hidden md:grid"
-    }`}
-  >
-    {/* blocked */}
-    <select
-      value={blocked}
-      onChange={(e) => { setBlocked(e.target.value); setPage(1); }}
-      className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-    >
-      <option value="">{F.all}</option>
-      <option value="none">{F.blocked.none}</option>
-      <option value="ship">{F.blocked.ship}</option>
-      <option value="invoice">{F.blocked.invoice}</option>
-      <option value="all">{F.blocked.all}</option>
-    </select>
+        {/* Row 2: Filters row (always visible on md+, collapsible on mobile) */}
+        <div
+          id="customer-filters-panel"
+          className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
+            showFilters ? "grid" : "hidden md:grid"
+          }`}
+        >
+          {/* blocked */}
+          <select
+            value={blocked}
+            onChange={(e) => {
+              setBlocked(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+          >
+            <option value="">{F.all}</option>
+            <option value="none">{F.blocked.none}</option>
+            <option value="ship">{F.blocked.ship}</option>
+            <option value="invoice">{F.blocked.invoice}</option>
+            <option value="all">{F.blocked.all}</option>
+          </select>
 
-    {/* country */}
-    <div className="relative">
-      <Globe className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-      <input
-        value={country}
-        onChange={(e) => setCountry(e.target.value.toUpperCase())}
-        placeholder={F.countryPh}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-      />
-    </div>
+          {/* country */}
+          <div className="relative">
+            <Globe className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={country}
+              onChange={(e) => setCountry(e.target.value.toUpperCase())}
+              placeholder={F.countryPh}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
+            />
+          </div>
 
-    {/* region */}
-    <div className="relative">
-      <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-      <input
-        value={region}
-        onChange={(e) => setRegion(e.target.value)}
-        placeholder={F.regionPh}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-      />
-    </div>
+          {/* region */}
+          <div className="relative">
+            <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder={F.regionPh}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
+            />
+          </div>
 
-    {/* (empty spacer to fill md 4th column neatly) */}
-    <div className="hidden md:block" />
-  </div>
+          {/* (empty spacer to fill md 4th column neatly) */}
+          <div className="hidden md:block" />
+        </div>
 
-  {/* Active filter chips */}
-  <div className="mt-2 flex flex-wrap items-center gap-1">
-    {blocked && (
-      <Chip
-        clearTitle={C?.modal?.cancel || "Clear"}
-        onClear={() => setBlocked("")}
-        label={`${C?.table?.blocked || "Blocked"}: ${F.blocked[blocked] || blocked}`}
-      />
-    )}
-    {country && (
-      <Chip
-        clearTitle={C?.modal?.cancel || "Clear"}
-        onClear={() => setCountry("")}
-        label={`${C?.table?.country || "Country"}: ${country}`}
-      />
-    )}
-    {region && (
-      <Chip
-        clearTitle={C?.modal?.cancel || "Clear"}
-        onClear={() => setRegion("")}
-        label={`${C?.table?.city || "City/Region"}: ${region}`}
-      />
-    )}
-  </div>
-</form>
+        {/* Active filter chips */}
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {blocked && (
+            <Chip
+              clearTitle={C?.modal?.cancel || "Clear"}
+              onClear={() => setBlocked("")}
+              label={`${C?.table?.blocked || "Blocked"}: ${
+                F.blocked[blocked] || blocked
+              }`}
+            />
+          )}
+          {country && (
+            <Chip
+              clearTitle={C?.modal?.cancel || "Clear"}
+              onClear={() => setCountry("")}
+              label={`${C?.table?.country || "Country"}: ${country}`}
+            />
+          )}
+          {region && (
+            <Chip
+              clearTitle={C?.modal?.cancel || "Clear"}
+              onClear={() => setRegion("")}
+              label={`${C?.table?.city || "City/Region"}: ${region}`}
+            />
+          )}
+        </div>
+      </form>
 
-
-{/* Table */}
-<div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-  <div className="overflow-x-auto">
-    <table className="min-w-full text-sm">
-      <thead className="bg-slate-50 text-slate-600">
-        <tr>
-          <Th />{/* expand toggle column (not sortable) */}
-          <SortableTh id="no"        {...{sortBy, sortDir, onSort}}>{C?.table?.no || "No."}</SortableTh>
-          <SortableTh id="name"      {...{sortBy, sortDir, onSort}}>{C?.table?.name || "Name"}</SortableTh>
-          <SortableTh id="email"     {...{sortBy, sortDir, onSort}}>{C?.table?.email || "Email"}</SortableTh>
-          <SortableTh id="phone"     {...{sortBy, sortDir, onSort}}>{C?.table?.phone || "Phone"}</SortableTh>
-          <SortableTh id="country"   {...{sortBy, sortDir, onSort}}>{C?.table?.country || "Country"}</SortableTh>
-          <SortableTh id="city"      {...{sortBy, sortDir, onSort}}>{C?.table?.city || "City"}</SortableTh>
-          <SortableTh id="blocked"   {...{sortBy, sortDir, onSort}}>{C?.table?.blocked || "Blocked"}</SortableTh>
-          <SortableTh id="creditLimit" className="text-right pr-4" {...{sortBy, sortDir, onSort}}>
-            {C?.table?.creditLimit || "Credit limit"}
-          </SortableTh>
-          <SortableTh id="createdAt" {...{sortBy, sortDir, onSort}}>{C?.table?.created || "Created"}</SortableTh>
-          <Th>{C?.table?.actions || ""}</Th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {loading ? (
-          <tr>
-            <td colSpan={11} className="p-6 text-center text-slate-500">
-              {C?.table?.loading || "Loading…"}
-            </td>
-          </tr>
-        ) : (data.data?.length || 0) === 0 ? (
-          <tr>
-            <td colSpan={11} className="p-6 text-center text-slate-500">
-              {C?.table?.empty || "No customers"}
-            </td>
-          </tr>
-        ) : (
-          (typeof rows !== "undefined" ? rows : data.data).map((c) => (
-            <React.Fragment key={c._id}>
-              <tr className="border-t">
-                <Td className="w-8">
-                  <button
-                    className="p-1 rounded hover:bg-slate-100"
-                    onClick={() => setExpandedId((id) => (id === c._id ? null : c._id))}
-                    aria-label="Toggle details"
-                    title="Toggle details"
-                  >
-                    {expandedId === c._id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </button>
-                </Td>
-                <Td className="font-mono">{displayCustomerKey(c)}</Td>
-                <Td className="font-medium">{c.name}</Td>
-                <Td className="text-slate-600">{c.email || "—"}</Td>
-                <Td className="text-slate-600">{c.phoneNo || "—"}</Td>
-                <Td>{c.countryRegionCode || "—"}</Td>
-                <Td>{c.city || "—"}</Td>
-                <Td>{blockedChip(c.blocked, C)}</Td>
-                <Td className="text-right pr-4 font-medium">
-                  {fmtMoney(Number(c.creditLimit || 0), locale, c.currencyCode || "USD")}
-                </Td>
-                <Td>{formatDate(c.createdAt, locale, "—")}</Td>
-                <Td>
-                  <div className="flex justify-end gap-2 pr-3">
-                    <button className="p-2 rounded-lg hover:bg-slate-100" onClick={() => onEditClick(c)}>
-                      <Pencil size={16} />
-                    </button>
-                    <button className="p-2 rounded-lg hover:bg-slate-100 text-red-600" onClick={() => onDelete(c._id)}>
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </Td>
+      {/* Table */}
+      <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <Th />
+                {/* expand toggle column (not sortable) */}
+                <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.no || "No."}
+                </SortableTh>
+                <SortableTh id="name" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.name || "Name"}
+                </SortableTh>
+                <SortableTh id="email" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.email || "Email"}
+                </SortableTh>
+                <SortableTh id="phone" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.phone || "Phone"}
+                </SortableTh>
+                <SortableTh id="country" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.country || "Country"}
+                </SortableTh>
+                <SortableTh id="city" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.city || "City"}
+                </SortableTh>
+                <SortableTh id="customerType" {...{ sortBy, sortDir, onSort }}>
+                  {(C?.table && C.table.customerType) || "Customer type"}
+                </SortableTh>
+                <SortableTh id="blocked" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.blocked || "Blocked"}
+                </SortableTh>
+                <SortableTh
+                  id="creditLimit"
+                  className="text-right pr-4"
+                  {...{ sortBy, sortDir, onSort }}
+                >
+                  {C?.table?.creditLimit || "Credit limit"}
+                </SortableTh>
+                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.created || "Created"}
+                </SortableTh>
+                <Th>{C?.table?.actions || ""}</Th>
               </tr>
+            </thead>
 
-              {expandedId === c._id && (
-                <tr key={`${c._id}-details`}>
-                  <td colSpan={11} className="bg-slate-50 border-t">
-                    <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-<KV label={L.name2} icon={FileText}>{c.name2 || "—"}</KV>
-<KV label={L.address} icon={Building}>{c.address || "—"}</KV>
-<KV label={L.address2} icon={Building}>{c.address2 || "—"}</KV>
-<KV label={L.postCode} icon={Hash}>{c.postCode || "—"}</KV>
-<KV label={L.region} icon={MapPin}>{c.region || "—"}</KV>
-<KV label={L.nip} icon={Hash}>{c.nip || "—"}</KV>
-<KV label={L.email2} icon={Mail}>{c.email2 || "—"}</KV>
-<KV label={L.homePage} icon={Globe}>{c.homePage || "—"}</KV>
-<KV label={L.billToCustomerNo} icon={IdCard}>{c.billToCustomerNo || "—"}</KV>
-<KV label={L.currencyCode} icon={DollarSign}>{c.currencyCode || "—"}</KV>
-<KV label={L.priority} icon={BadgePercent}>{c.priority ?? "—"}</KV>
-<KV label={L.paymentMethodCode} icon={CreditCard}>{c.paymentMethodCode || "—"}</KV>
-<KV label={L.paymentTermsCode} icon={CreditCard}>{c.paymentTermsCode || "—"}</KV>
-<KV label={L.languageCode} icon={Languages}>{c.languageCode || "—"}</KV>
-<KV label={L.customerPostingGroup} icon={Tag}>{c.customerPostingGroup || "—"}</KV>
-<KV label={L.customerPriceGroup} icon={Tag}>{c.customerPriceGroup || "—"}</KV>
-<KV label={L.customerDiscGroup} icon={BadgePercent}>{c.customerDiscGroup || "—"}</KV>
-<KV label={L.salespersonCode} icon={UserRound}>{c.salespersonCode || "—"}</KV>
-<KV label={L.shipmentMethodCode} icon={Truck}>{c.shipmentMethodCode || "—"}</KV>
-<KV label={L.shippingAgentCode} icon={Ship}>{c.shippingAgentCode || "—"}</KV>
-
-                      {c.hasPicture ? (
-                        <div className="col-span-1 md:col-span-3 flex items-center gap-3">
-                          <ImageIcon size={14} />
-                          <span className="font-medium">{L.picture}:</span>
-                          <img
-                            src={`${API}/api/mcustomers/${c._id}/picture`}
-                            alt="customer"
-                            className="h-10 w-10 rounded object-cover border"
-                          />
-                        </div>
-                      ) : (
-                        <div className="col-span-1 md:col-span-3 flex items-center gap-2 text-slate-500">
-                          <ImageIcon size={14} />
-                          <span>{L.noPicture}</span>
-                        </div>
-                      )}
-                    </div>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                    {C?.table?.loading || "Loading…"}
                   </td>
                 </tr>
+              ) : (data.data?.length || 0) === 0 ? (
+                <tr>
+                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                    {C?.table?.empty || "No customers"}
+                  </td>
+                </tr>
+              ) : (
+                (typeof rows !== "undefined" ? rows : data.data).map((c) => (
+                  <React.Fragment key={c._id}>
+                    <tr className="border-t">
+                      <Td className="w-8">
+                        <button
+                          className="p-1 rounded hover:bg-slate-100"
+                          onClick={() =>
+                            setExpandedId((id) => (id === c._id ? null : c._id))
+                          }
+                          aria-label="Toggle details"
+                          title="Toggle details"
+                        >
+                          {expandedId === c._id ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
+                        </button>
+                      </Td>
+                      <Td className="font-mono">{displayCustomerKey(c)}</Td>
+                      <Td className="font-medium">{c.name}</Td>
+                      <Td className="text-slate-600">{c.email || "—"}</Td>
+                      <Td className="text-slate-600">{c.phoneNo || "—"}</Td>
+                      <Td>{c.countryRegionCode || "—"}</Td>
+                      <Td>{c.city || "—"}</Td>
+                      <Td>{customerTypeChip(c.customerType)}</Td>
+
+                      <Td>{blockedChip(c.blocked, C)}</Td>
+                      <Td className="text-right pr-4 font-medium">
+                        {fmtMoney(
+                          Number(c.creditLimit || 0),
+                          locale,
+                          c.currencyCode || "USD"
+                        )}
+                      </Td>
+                      <Td>{formatDate(c.createdAt, locale, "—")}</Td>
+                      <Td>
+                        <div className="flex justify-end gap-2 pr-3">
+                          <button
+                            className="p-2 rounded-lg hover:bg-slate-100"
+                            onClick={() => onEditClick(c)}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                            onClick={() => onDelete(c._id)}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </Td>
+                    </tr>
+
+                    {expandedId === c._id && (
+                      <tr key={`${c._id}-details`}>
+                           <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                            <KV label={L.name2} icon={FileText}>
+                              {c.name2 || "—"}
+                            </KV>
+                            <KV label={L.customerType} icon={Tag}>
+  {customerTypeChip(c.customerType)}
+</KV>
+                            <KV label={L.address} icon={Building}>
+                              {c.address || "—"}
+                            </KV>
+                            <KV label={L.address2} icon={Building}>
+                              {c.address2 || "—"}
+                            </KV>
+                            <KV label={L.postCode} icon={Hash}>
+                              {c.postCode || "—"}
+                            </KV>
+                            <KV label={L.region} icon={MapPin}>
+                              {c.region || "—"}
+                            </KV>
+                            <KV label={L.nip} icon={Hash}>
+                              {c.nip || "—"}
+                            </KV>
+                            <KV label={L.email2} icon={Mail}>
+                              {c.email2 || "—"}
+                            </KV>
+                            <KV label={L.homePage} icon={Globe}>
+                              {c.homePage || "—"}
+                            </KV>
+                            <KV label={L.billToCustomerNo} icon={IdCard}>
+                              {c.billToCustomerNo || "—"}
+                            </KV>
+                            <KV label={L.currencyCode} icon={DollarSign}>
+                              {c.currencyCode || "—"}
+                            </KV>
+                            <KV label={L.priority} icon={BadgePercent}>
+                              {c.priority ?? "—"}
+                            </KV>
+                            <KV label={L.paymentMethodCode} icon={CreditCard}>
+                              {c.paymentMethodCode || "—"}
+                            </KV>
+                            <KV label={L.paymentTermsCode} icon={CreditCard}>
+                              {c.paymentTermsCode || "—"}
+                            </KV>
+                            <KV label={L.languageCode} icon={Languages}>
+                              {c.languageCode || "—"}
+                            </KV>
+                            <KV label={L.customerPostingGroup} icon={Tag}>
+                              {c.customerPostingGroup || "—"}
+                            </KV>
+                            <KV label={L.customerPriceGroup} icon={Tag}>
+                              {c.customerPriceGroup || "—"}
+                            </KV>
+                            <KV label={L.customerDiscGroup} icon={BadgePercent}>
+                              {c.customerDiscGroup || "—"}
+                            </KV>
+                            <KV label={L.salespersonCode} icon={UserRound}>
+                              {c.salespersonCode || "—"}
+                            </KV>
+                            <KV label={L.shipmentMethodCode} icon={Truck}>
+                              {c.shipmentMethodCode || "—"}
+                            </KV>
+                            <KV label={L.shippingAgentCode} icon={Ship}>
+                              {c.shippingAgentCode || "—"}
+                            </KV>
+
+                            {c.hasPicture ? (
+                              <div className="col-span-1 md:col-span-3 flex items-center gap-3">
+                                <ImageIcon size={14} />
+                                <span className="font-medium">
+                                  {L.picture}:
+                                </span>
+                                <img
+                                  src={`${API}/api/mcustomers/${c._id}/picture`}
+                                  alt="customer"
+                                  className="h-10 w-10 rounded object-cover border"
+                                />
+                              </div>
+                            ) : (
+                              <div className="col-span-1 md:col-span-3 flex items-center gap-2 text-slate-500">
+                                <ImageIcon size={14} />
+                                <span>{L.noPicture}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
               )}
-            </React.Fragment>
-          ))
-        )}
-      </tbody>
-    </table>
-  </div>
+            </tbody>
+          </table>
+        </div>
 
-  {/* Footer / Pagination */}
-  <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
-    <div className="text-xs text-slate-500">
-      {(C?.footer?.meta && C.footer.meta(data.total, data.page, data.pages)) ||
-        `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
-    </div>
-    <div className="flex items-center gap-2">
-      <select
-        className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
-        value={limit}
-        onChange={(e) => {
-          setLimit(Number(e.target.value));
-          setPage(1);
-        }}
-      >
-        {[10, 20, 50, 100].map((n) => (
-          <option key={n} value={n}>
-            {(C?.footer?.perPage && C.footer.perPage(n)) || `${n} / page`}
-          </option>
-        ))}
-      </select>
+        {/* Footer / Pagination */}
+        <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
+          <div className="text-xs text-slate-500">
+            {(C?.footer?.meta &&
+              C.footer.meta(data.total, data.page, data.pages)) ||
+              `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              {[10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {(C?.footer?.perPage && C.footer.perPage(n)) || `${n} / page`}
+                </option>
+              ))}
+            </select>
 
-      <button
-        className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-        onClick={() => setPage((p) => Math.max(1, p - 1))}
-        disabled={data.page <= 1}
-      >
-        {C?.footer?.prev || "Prev"}
-      </button>
-      <button
-        className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-        onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
-        disabled={data.page >= (data.pages || 1)}
-      >
-        {C?.footer?.next || "Next"}
-      </button>
-    </div>
-  </div>
-</div>
-
+            <button
+              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={data.page <= 1}
+            >
+              {C?.footer?.prev || "Prev"}
+            </button>
+            <button
+              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+              onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
+              disabled={data.page >= (data.pages || 1)}
+            >
+              {C?.footer?.next || "Next"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Modal */}
       {open && (
@@ -570,18 +732,20 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
           }}
           title={C?.modal?.title || "Customer"}
         >
-          <CustomerForm
-            initial={editing}
-            onCancel={() => {
-              setOpen(false);
-              setEditing(null);
-            }}
-            onSubmit={handleSubmit}
-            C={C}
-          />
+        <CustomerForm
+  initial={editing}
+  onCancel={() => {
+    setOpen(false);
+    setEditing(null);
+  }}
+  onSubmit={handleSubmit}
+  C={C}
+  typeOptions={TYPE_ORDER}
+  typeLabels={CT}
+/>
+
         </Modal>
       )}
-
     </div>
   );
 }
@@ -628,7 +792,9 @@ function Toast({ type = "success", children, onClose }) {
     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
     : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
       <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
@@ -637,8 +803,6 @@ function Toast({ type = "success", children, onClose }) {
     </div>
   );
 }
-
-
 
 function formatDate(s, locale, dash = "—") {
   try {
@@ -676,6 +840,8 @@ function blockedChip(v, C) {
   );
 }
 
+
+
 // replace KV with icon-aware version
 function KV({ label, icon: Icon, children }) {
   return (
@@ -708,7 +874,8 @@ function Modal({ children, onClose, title }) {
   );
 }
 
-function CustomerForm({ initial, onSubmit, onCancel, C }) {
+function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels }) {
+
   const isEdit = Boolean(initial?._id);
 
   // ----- tabs -----
@@ -741,6 +908,9 @@ function CustomerForm({ initial, onSubmit, onCancel, C }) {
   const [no, setNo] = useState(initial?.no || "");
   const [name, setName] = useState(initial?.name || "");
   const [name2, setName2] = useState(initial?.name2 || "");
+  const [customerType, setCustomerType] = useState(
+    initial?.customerType || "mlyn"
+  );
   const [address, setAddress] = useState(initial?.address || "");
   const [address2, setAddress2] = useState(initial?.address2 || "");
   const [city, setCity] = useState(initial?.city || "");
@@ -838,6 +1008,7 @@ function CustomerForm({ initial, onSubmit, onCancel, C }) {
       /* as in your code */ no: no.trim(),
       name: name.trim(),
       name2: name2.trim() || null,
+      customerType,
       address: address.trim() || null,
       address2: address2.trim() || null,
       city: city.trim() || null,
@@ -873,8 +1044,7 @@ function CustomerForm({ initial, onSubmit, onCancel, C }) {
     onSubmit(payload);
   };
 
-
-
+  
   return (
     <form onSubmit={submit} className="space-y-4">
       {/* Tabs nav (sticky inside modal content) */}
@@ -960,6 +1130,25 @@ function CustomerForm({ initial, onSubmit, onCancel, C }) {
               required
             />
           </Field>
+          <Field
+            label={C?.modal?.fields?.customerType || "Customer type"}
+            icon={Tag}
+          >
+<select
+  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+  value={customerType}
+  onChange={(e) => setCustomerType(e.target.value)}
+>
+  {typeOptions.map((key) => (
+    <option key={key} value={key}>
+      {typeLabels[key] || key}
+    </option>
+  ))}
+</select>
+
+
+          </Field>
+
           <Field label={C?.modal?.fields?.name || "Name *"} icon={User}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1389,7 +1578,6 @@ function Field({ label, icon: Icon, error, children }) {
         ].join(" "),
       })
     : children;
-
 
   return (
     <label className="text-sm block">
