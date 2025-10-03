@@ -8,22 +8,31 @@ import {
   UserPlus,
   MailCheck,
   MessageSquare,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "../assets/logo.png";
 import background from "../assets/sfondo.jpeg";
 
+const API_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
+  (typeof window !== "undefined" ? window.__API_URL__ : "") ||
+  "http://localhost:5000";
+
 const T = {
   pl: {
     brand: "Exchange Platform",
     loginLabel: "Login",
-    loginPlaceholder: "Wpisz login",
+    loginPlaceholder: "Wpisz login (e-mail)",
     passwordLabel: "Hasło",
     passwordPlaceholder: "Wpisz hasło",
     signIn: "Zaloguj się",
     forgot: "Zapomniałeś hasła?",
     register: "Załóż nowe konto",
-    errorInvalid: "Nieprawidłowe dane (podpowiedź: 123 / 123)",
+    errorInvalid: "Nieprawidłowe dane logowania",
+    successLogin: "Zalogowano pomyślnie. Wybierz metodę weryfikacji.",
     otpTitle: "Weryfikacja dwuetapowa",
     otpSubtitle: "Wybierz metodę weryfikacji, aby kontynuować",
     otpEmail: "Weryfikacja e-mail (OTP)",
@@ -32,13 +41,14 @@ const T = {
   en: {
     brand: "Exchange Platform",
     loginLabel: "Login",
-    loginPlaceholder: "Enter login",
+    loginPlaceholder: "Enter login (email)",
     passwordLabel: "Password",
     passwordPlaceholder: "Enter password",
     signIn: "Sign in",
     forgot: "Forgot password?",
     register: "Register new account",
-    errorInvalid: "Invalid credentials (hint: 123 / 123)",
+    errorInvalid: "Invalid credentials",
+    successLogin: "Login successful. Choose a verification method.",
     otpTitle: "Two-step verification",
     otpSubtitle: "Choose a verification method to continue",
     otpEmail: "Email verification (OTP)",
@@ -50,8 +60,13 @@ export default function Login({ onSuccess }) {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("login"); // 'login' | 'otp'
+  const [sessionToken, setSessionToken] = useState(null);
+  const [sessionUser, setSessionUser] = useState(null); // capture user to build session later
+
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   // Language: default PL, persist
   const [lang, setLang] = useState(() => {
@@ -64,15 +79,36 @@ export default function Login({ onSuccess }) {
 
   const t = useMemo(() => T[lang], [lang]);
 
-  const submit = (e) => {
+  async function submit(e) {
     e.preventDefault();
     setError("");
-    if (login === "123" && password === "123") {
-      setStep("otp");
-    } else {
-      setError(t.errorInvalid);
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      // We call /api/auth/login with method: "none" to do credential-only validation
+      const r = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userEmail: login, password, method: "none" }),
+        credentials: "include",
+      });
+
+      const data = await r.json().catch(() => ({}));
+      // Always show localized error text on failure
+      if (!r.ok) throw new Error("invalid");
+
+      if (data?.token) setSessionToken(data.token);
+      if (data?.user) setSessionUser(data.user);
+
+      setSuccess(t.successLogin);
+      setStep("otp"); // keep your existing dummy OTP screen
+    } catch (_err) {
+      setError(t.errorInvalid); // localized error, no backend text
+    } finally {
+      setLoading(false);
     }
-  };
+  }
 
   // Link-aware / button fallback component
   const LinkBtn = ({ icon: Icon, children, title, to, onClick }) => {
@@ -91,7 +127,25 @@ export default function Login({ onSuccess }) {
     );
   };
 
-  const goToApp = () => onSuccess("demo-token-123");
+  // OTP buttons just enter the app (no real OTP verification)
+  const goToApp = () => {
+    // require a real token from backend — no demo fallback
+    if (!sessionToken) return;
+
+    const session = {
+      email: sessionUser?.userEmail || login,
+      permission: sessionUser?.permissionLevel || "viewer",
+      job: sessionUser?.jobTitle ?? null,
+      token: sessionToken,
+    };
+
+    try {
+      localStorage.setItem("session", JSON.stringify(session)); // main session object
+      localStorage.setItem("token", sessionToken); // backward compat if needed
+    } catch {}
+
+    onSuccess(sessionToken);
+  };
 
   return (
     <div
@@ -131,7 +185,7 @@ export default function Login({ onSuccess }) {
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
                   placeholder={t.loginPlaceholder}
-                  className="w-full rounded-xl border border-red-300/70 bg-white text-red-700 placeholder:text-red-400 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="w-full rounded-xl border border-white/30 bg-white text-red-700 placeholder:text-red-400 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
                   required
                   autoComplete="username"
                 />
@@ -146,14 +200,14 @@ export default function Login({ onSuccess }) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t.passwordPlaceholder}
-                    className="w-full rounded-xl border border-red-300/70 bg-white text-red-700 placeholder:text-red-400 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full rounded-xl border border-white/30 bg-white text-red-700 placeholder:text-red-400 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-red-500"
                     required
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
-                    className="absolute inset-y-0 right-3 my-auto text-red-600 hover:text-red-800 transition"
+                    className="absolute inset-y-0 right-3 my-auto text-red-50/90 hover:text-white transition"
                     aria-label={show ? "Hide password" : "Show password"}
                     title={show ? "Hide password" : "Show password"}
                   >
@@ -162,27 +216,44 @@ export default function Login({ onSuccess }) {
                 </div>
               </div>
 
-              {/* Error */}
+              {/* Success / Error banners */}
+              {success && (
+                <div className="flex items-start gap-3 rounded-xl border border-emerald-300/50 bg-emerald-500/20 text-emerald-50 px-4 py-3 text-sm">
+                  <CheckCircle2 className="mt-0.5" size={18} />
+                  <span>{success}</span>
+                </div>
+              )}
               {error && (
                 <div
-                  className="rounded-xl border border-white/40 bg-white/20 text-white px-4 py-3 text-sm"
+                  className="flex items-start gap-3 rounded-xl border border-red-300/50 bg-red-500/20 text-red-50 px-4 py-3 text-sm"
                   role="alert"
                 >
-                  {error}
+                  <AlertCircle className="mt-0.5" size={18} />
+                  <span>{error}</span>
                 </div>
               )}
 
               {/* Submit */}
               <button
                 type="submit"
-                className="relative w-full overflow-hidden rounded-2xl bg-white/10 border border-white/30 backdrop-blur-md shadow-lg text-white font-semibold py-3 transition hover:bg-white/15 active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-white/40"
+                disabled={loading}
+                className="relative w-full overflow-hidden rounded-2xl bg-white/10 border border-white/30 backdrop-blur-md shadow-lg text-white font-semibold py-3 transition hover:bg-white/15 active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-white/40 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent"
-                  style={{ animation: "sheen 2s infinite" }}
-                />
-                {t.signIn}
+                {loading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="animate-spin" size={18} />
+                    {t.signIn}
+                  </span>
+                ) : (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                      style={{ animation: "sheen 2s infinite" }}
+                    />
+                    {t.signIn}
+                  </>
+                )}
               </button>
 
               {/* Links */}
@@ -196,7 +267,7 @@ export default function Login({ onSuccess }) {
               </div>
             </form>
           ) : (
-            // OTP choice step
+            // OTP choice step (dummy)
             <div className="mt-8 space-y-6">
               <div className="text-center text-white">
                 <h2 className="text-2xl font-bold">{t.otpTitle}</h2>
