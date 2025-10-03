@@ -1,5 +1,5 @@
 // src/helpers/Dashboard.jsx
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Menu,
   ArrowLeftRight,
@@ -10,6 +10,8 @@ import {
   Coins,
   Shield,
   Check,
+  Mail,
+  Bell,
 } from "lucide-react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
@@ -88,6 +90,13 @@ export default function Dashboard({ onLogout }) {
       viewer: "bg-slate-500/15 text-slate-800",
     }[role] || "bg-slate-500/15 text-slate-800";
 
+  // live date and time
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const copyEmail = async () => {
     if (!email) return;
     try {
@@ -144,53 +153,45 @@ export default function Dashboard({ onLogout }) {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Modern user chip — ONE ROW, left of flags, no borders */}
+            {/* User chip without email, with date/time, email & notification icons */}
             <div
-              className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100/70 backdrop-blur px-3 py-1.5 max-w-[420px] shadow-sm hover:shadow transition"
-              title={email || undefined}
+              className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100/70 backdrop-blur px-3 py-1.5 max-w-[520px] shadow-sm hover:shadow transition"
             >
               {/* avatar */}
               <div className="grid place-items-center h-7 w-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700 text-[11px] font-bold shrink-0">
                 {initials}
               </div>
 
-              {/* email (mono) */}
-              <button
-                type="button"
-                onClick={copyEmail}
-                className="group min-w-0"
-                title={email ? "Copy email" : undefined}
-              >
-                  <span className="font-mono text-xs text-slate-800/90 truncate max-w-[180px] md:max-w-[240px] group-hover:opacity-90 transition">
-                    {email || "—"}
-                  </span>
-              </button>
-
-       
-
-              {/* role chip */}
+              {/* role + date/time */}
               <span
-                className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${roleChipClasses} whitespace-nowrap`}
+                className={`inline-flex items-center gap-2 text-[11px] px-2 py-0.5 rounded-full ${roleChipClasses} whitespace-nowrap`}
               >
                 <Shield size={12} />
                 {role}
+                <span className="font-mono font-bold text-slate-700 ml-1">
+                  {now.toLocaleDateString()} {now.toLocaleTimeString()}
+                </span>
               </span>
 
-              {/* tiny “copied” tick that fades in/out */}
-              <span
-                className={`inline-flex items-center gap-1 text-[11px] text-emerald-700 transition-opacity ${
-                  copied ? "opacity-100" : "opacity-0"
-                }`}
-              >
-                <Check size={12} />
-                Copied
-              </span>
 
-              {/* (optional) online dot for presence vibe */}
+
+              {/* email icon */}
+              <Mail
+                size={16}
+                className="text-slate-600 cursor-pointer hover:text-slate-800 transition"
+              />
+
+              {/* notification icon */}
+              <Bell
+                size={16}
+                className="text-slate-600 cursor-pointer hover:text-slate-800 transition"
+              />
+
+              {/* presence dot */}
               <span className="ml-1 h-2 w-2 rounded-full bg-emerald-500/80 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" />
             </div>
 
-            {/* Language flags on the RIGHT of the user chip */}
+            {/* Language flags */}
             <LanguageSwitcher />
           </div>
         </header>

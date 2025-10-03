@@ -1048,6 +1048,32 @@ function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels 
 
     onSubmit(payload);
   };
+// Bill-to combobox state
+const [billToInput, setBillToInput] = useState(
+  initial?.billToCustomerNo ? `${initial.billToCustomerNo}` : ""
+);
+const [billToOpts, setBillToOpts] = useState([]); // [{_id,no,name}]
+const [billToOpen, setBillToOpen] = useState(false);
+const [billToHover, setBillToHover] = useState(-1);
+
+// fetch options when typing
+useEffect(() => {
+  let stop = false;
+  const params = new URLSearchParams({ blocked: "none", limit: "50" });
+  if (billToInput) params.set("q", billToInput);
+
+  fetch(`${API}/api/mcustomers?${params.toString()}`)
+    .then(r => r.json())
+    .then(json => {
+      if (stop) return;
+      const rows = Array.isArray(json?.data) ? json.data : [];
+      const filtered = rows.filter(r => r._id !== (initial?._id || ""));
+      setBillToOpts(filtered.map(r => ({ _id: r._id, no: r.no, name: r.name })));
+    })
+    .catch(() => setBillToOpts([]));
+
+  return () => { stop = true; };
+}, [billToInput, initial?._id]);
 
   
   return (
@@ -1288,16 +1314,109 @@ function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels 
               onChange={(e) => setHomePage(e.target.value)}
             />
           </Field>
-          <Field
-            label={C?.modal?.fields?.billToCustomerNo || "Bill-to Customer No."}
-            icon={IdCard}
-          >
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={billToCustomerNo}
-              onChange={(e) => setBillToCustomerNo(e.target.value)}
-            />
-          </Field>
+<Field
+  label={C?.modal?.fields?.billToCustomerNo || "Bill-to Customer No."}
+  icon={IdCard}
+>
+  <div className="relative">
+    <input
+      className="w-full rounded-lg border border-slate-300 px-3 py-2"
+      value={billToInput}
+      onChange={(e) => {
+        setBillToInput(e.target.value);
+        setBillToOpen(true);
+      }}
+      onFocus={() => setBillToOpen(true)}
+      onKeyDown={(e) => {
+        if (!billToOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
+          setBillToOpen(true);
+          return;
+        }
+        if (e.key === "Escape") {
+          setBillToOpen(false);
+          return;
+        }
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          setBillToHover((i) => Math.min(i + 1, billToOpts.length - 1));
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          setBillToHover((i) => Math.max(i - 1, 0));
+        }
+        if (e.key === "Enter" && billToOpen) {
+          e.preventDefault();
+          const pick =
+            billToHover >= 0 ? billToOpts[billToHover] : billToOpts[0];
+          if (pick) {
+            setBillToCustomerNo(pick.no);
+            setBillToInput(`${pick.no} — ${pick.name}`);
+            setBillToOpen(false);
+          }
+        }
+      }}
+      placeholder="Type to search no./name…"
+      aria-autocomplete="list"
+      aria-expanded={billToOpen}
+      aria-controls="billto-listbox"
+      role="combobox"
+    />
+
+    {/* Clear current selection */}
+    {billToCustomerNo && (
+      <button
+        type="button"
+        onClick={() => {
+          setBillToCustomerNo("");
+          setBillToInput("");
+          setBillToHover(-1);
+          setBillToOpen(false);
+        }}
+        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-700"
+      >
+        Clear
+      </button>
+    )}
+
+    {billToOpen && billToOpts.length > 0 && (
+      <ul
+        id="billto-listbox"
+        role="listbox"
+        className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+      >
+        {billToOpts.map((o, idx) => {
+          const active = idx === billToHover;
+          return (
+            <li
+              key={o._id}
+              role="option"
+              aria-selected={active}
+              className={
+                "cursor-pointer px-3 py-2 text-sm " +
+                (active ? "bg-slate-100" : "hover:bg-slate-50")
+              }
+              onMouseEnter={() => setBillToHover(idx)}
+              onMouseDown={(e) => {
+                // prevent input blur before click handler
+                e.preventDefault();
+              }}
+              onClick={() => {
+                setBillToCustomerNo(o.no);
+                setBillToInput(`${o.no} — ${o.name}`);
+                setBillToOpen(false);
+              }}
+              title={`${o.no} — ${o.name}`}
+            >
+              <div className="font-medium">{o.no}</div>
+              <div className="text-slate-500 text-xs">{o.name}</div>
+            </li>
+          );
+        })}
+      </ul>
+    )}
+  </div>
+</Field>
+
           <Field label={C?.modal?.fields?.nip || "NIP"} icon={Hash}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
