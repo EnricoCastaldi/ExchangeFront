@@ -17,9 +17,10 @@ import logo from "../assets/logo.png";
 import background from "../assets/sfondo.jpeg";
 
 const API_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) ||
-  (typeof window !== "undefined" ? window.__API_URL__ : "") ||
-  "http://localhost:5000";
+  process.env.REACT_APP_API_URL ||
+  (window.location.hostname === "localhost"
+    ? "http://localhost:5000"
+    : "https://api.217.154.88.40.sslip.io");
 
 const T = {
   pl: {
