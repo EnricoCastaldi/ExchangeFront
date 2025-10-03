@@ -642,30 +642,36 @@ statusMap: {
       </div>
 
       {/* CREATE/EDIT MODAL */}
-      {openForm && (
-        <Modal
-          title={editing ? "Edit Document" : "New Document"}
-          onClose={() => {
-            setOpenForm(false);
-            setEditing(null);
-          }}
-        >
-          <DocForm
-            initial={editing}
-            onCancel={() => {
-              setOpenForm(false);
-              setEditing(null);
-            }}
-            onSaved={() => {
-              setOpenForm(false);
-              setEditing(null);
-              setPage(1);
-              fetchData();
-            }}
-            showNotice={showNotice}
-          />
-        </Modal>
-      )}
+{/* CREATE/EDIT MODAL */}
+{openForm && (
+  <Modal
+    title={
+      editing
+        ? (T.modal?.titleEdit || "Edit Document")
+        : (T.modal?.titleNew  || "New Document")
+    }
+    onClose={() => {
+      setOpenForm(false);
+      setEditing(null);
+    }}
+  >
+    <DocForm
+      initial={editing}
+      onCancel={() => {
+        setOpenForm(false);
+        setEditing(null);
+      }}
+      onSaved={() => {
+        setOpenForm(false);
+        setEditing(null);
+        setPage(1);
+        fetchData();
+      }}
+      showNotice={showNotice}
+    />
+  </Modal>
+)}
+
     </div>
   );
 }
@@ -815,6 +821,19 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
   const [tab, setTab] = useState("header");
   const [errors, setErrors] = useState({});
 
+    const { t } = useI18n();
+  const S = t.sells || {};
+
+  // maps used in the form
+  const TABS_L = S.form?.tabs || {};
+  const F = S.form?.fields || {};
+  const M = S.modal || {};
+  const ALERTS = S.alerts || {};
+  const STATUS_MAP = {           // for the status <select> labels
+    ...STATUS_LABELS,
+    ...(S.statusMap || {}),
+  };
+
   // header
   const [documentNo, setDocumentNo] = useState(initial?.documentNo || "");
 const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
@@ -910,9 +929,10 @@ const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
   const save = async (e) => {
     e.preventDefault();
     const errs = {};
-    if (!documentNo.trim()) errs.documentNo = "Required";
-    if (!sell.no) errs.sellNo = "Sell-to customer required";
-    if (!bill.no) errs.billNo = "Bill-to customer required";
+if (!documentNo.trim()) errs.documentNo = F.documentNo || "Document No. *";
+if (!sell.no)          errs.sellNo     = F.pickSell     || "Pick Sell-to Customer *";
+if (!bill.no)          errs.billNo     = F.pickBill     || "Pick Bill-to Customer *";
+
 
     if (Object.keys(errs).length) {
       setErrors(errs);
@@ -1030,14 +1050,15 @@ if (!isEdit) {
 
   // tabs
   const TABS = [
-    { id: "header", label: "Header", Icon: FileText },
-    { id: "sell", label: "Sell-to", Icon: UserIcon },
-    { id: "bill", label: "Bill-to", Icon: UserIcon },
-    { id: "location", label: "Location", Icon: Building },
-    { id: "shipment", label: "Shipment", Icon: Truck },
-    { id: "transport", label: "Transport", Icon: Ship },
-    { id: "broker", label: "Broker", Icon: UserIcon },
+    { id: "header",   label: TABS_L.header   || "Header",   Icon: FileText },
+    { id: "sell",     label: TABS_L.sell     || "Sell-to",  Icon: UserIcon },
+    { id: "bill",     label: TABS_L.bill     || "Bill-to",  Icon: UserIcon },
+    { id: "location", label: TABS_L.location || "Location", Icon: Building },
+    { id: "shipment", label: TABS_L.shipment || "Shipment", Icon: Truck },
+    { id: "transport",label: TABS_L.transport|| "Transport",Icon: Ship },
+    { id: "broker",   label: TABS_L.broker   || "Broker",   Icon: UserIcon },
   ];
+
 
   // quick helper to copy customer to state
   const applyCustomer = (c, setter) => {
@@ -1088,221 +1109,229 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
       </div>
 
       {/* error banner */}
-      {Object.keys(errors).length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          Please correct the highlighted fields.
-        </div>
-      )}
+   {Object.keys(errors).length > 0 && (
+  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+    {ALERTS.fixErrors || "Please correct the highlighted fields."}
+  </div>
+)}
 
-      {/* HEADER */}
-      {tab === "header" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label="Document No. *" icon={Hash} error={errors.documentNo}>
-            <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={documentNo}
-              onChange={(e) => setDocumentNo(e.target.value)}
-              required
-            />
-          </Field>
-<Field label="Status" icon={FileText}>
-  <select
-    className="w-full rounded-lg border border-slate-300 px-3 py-2"
-    value={status}
-    onChange={(e) => setStatus(e.target.value)}
-  >
-    {STATUS_OPTIONS.map((s) => (
-      <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-    ))}
-  </select>
-</Field>
+{/* HEADER */}
+{tab === "header" && (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <Field label={(F.documentNo || "Document No.") } icon={Hash} error={errors.documentNo}>
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={documentNo}
+        onChange={(e) => setDocumentNo(e.target.value)}
+        required
+      />
+    </Field>
 
-          <Field label="External Doc. No." icon={Hash}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={externalDocumentNo} onChange={(e) => setExternalDocumentNo(e.target.value)} />
-          </Field>
+    <Field label={F.status || "Status"} icon={FileText}>
+      <select
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={status}
+        onChange={(e) => setStatus(e.target.value)}
+      >
+        {STATUS_OPTIONS.map((s) => (
+          <option key={s} value={s}>{STATUS_MAP[s] || s}</option>
+        ))}
+      </select>
+    </Field>
 
-          <Field label="Document Info" icon={FileText}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={documentInfo} onChange={(e) => setDocumentInfo(e.target.value)} />
-          </Field>
-          <Field label="Currency Code" icon={DollarSign}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={currencyCode} onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())} />
-          </Field>
-          <Field label="Currency Factor" icon={DollarSign}>
-            <input type="number" step="0.0001" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={currencyFactor} onChange={(e) => setCurrencyFactor(e.target.value)} />
-          </Field>
+    <Field label={F.externalDocumentNo || "External Doc. No."} icon={Hash}>
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={externalDocumentNo}
+        onChange={(e) => setExternalDocumentNo(e.target.value)}
+      />
+    </Field>
 
-          <Field label="Document Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={documentDate} onChange={(e) => setDocumentDate(e.target.value)} />
-          </Field>
-          <Field label="Service/Delivery Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
-          </Field>
-          <Field label="Requested Delivery Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={requestedDeliveryDate} onChange={(e) => setRequestedDeliveryDate(e.target.value)} />
-          </Field>
-          <Field label="Promised Delivery Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={promisedDeliveryDate} onChange={(e) => setPromisedDeliveryDate(e.target.value)} />
-          </Field>
-          <Field label="Shipment Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={shipmentDate} onChange={(e) => setShipmentDate(e.target.value)} />
-          </Field>
-          <Field label="Document Validity Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={validityDate} onChange={(e) => setValidityDate(e.target.value)} />
-          </Field>
-          <Field label="Due Date" icon={CalendarIcon}>
-            <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-          </Field>
-        </div>
-      )}
+    <Field label={F.documentInfo || "Document Info"} icon={FileText}>
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={documentInfo}
+        onChange={(e) => setDocumentInfo(e.target.value)}
+      />
+    </Field>
+
+    <Field label={F.currencyCode || "Currency Code"} icon={DollarSign}>
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={currencyCode}
+        onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
+      />
+    </Field>
+
+    <Field label={F.currencyFactor || "Currency Factor"} icon={DollarSign}>
+      <input
+        type="number" step="0.0001"
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={currencyFactor}
+        onChange={(e) => setCurrencyFactor(e.target.value)}
+      />
+    </Field>
+
+    <Field label={F.documentDate || "Document Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={documentDate} onChange={(e) => setDocumentDate(e.target.value)} />
+    </Field>
+    <Field label={F.serviceDate || "Service/Delivery Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
+    </Field>
+    <Field label={F.requestedDeliveryDate || "Requested Delivery Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={requestedDeliveryDate} onChange={(e) => setRequestedDeliveryDate(e.target.value)} />
+    </Field>
+    <Field label={F.promisedDeliveryDate || "Promised Delivery Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={promisedDeliveryDate} onChange={(e) => setPromisedDeliveryDate(e.target.value)} />
+    </Field>
+    <Field label={F.shipmentDate || "Shipment Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={shipmentDate} onChange={(e) => setShipmentDate(e.target.value)} />
+    </Field>
+    <Field label={F.validityDate || "Document Validity Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={validityDate} onChange={(e) => setValidityDate(e.target.value)} />
+    </Field>
+    <Field label={F.dueDate || "Due Date"} icon={CalendarIcon}>
+      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+    </Field>
+  </div>
+)}
 
 {/* SELL-TO */}
 {tab === "sell" && (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label="Pick Sell-to Customer *" icon={IdCard} error={errors.sellNo}>
+    <Field label={(F.pickSell || "Pick Sell-to Customer")} icon={IdCard} error={errors.sellNo}>
       <CustomerCombobox
         valueNo={sell.no}
         onPick={(c) => applyCustomer(c, setSell)}
         excludeId={null}
-        placeholder="Search customer no./name…"
+        placeholder={F.pickSell || "Search customer no./name…"}
       />
     </Field>
-    <Field label="No." icon={IdCard}>
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={sell.no}
-        onChange={(e) => setSell({ ...sell, no: e.target.value })}
-      />
+    <Field label={F.no || "No."} icon={IdCard}>
+      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
+             value={sell.no} onChange={(e) => setSell({ ...sell, no: e.target.value })}/>
     </Field>
 
-    <Field label="Name" icon={UserIcon}>
+    <Field label={F.name || "Name"} icon={UserIcon}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.name}
-             onChange={(e) => setSell({ ...sell, name: e.target.value })}/>
+             value={sell.name} onChange={(e) => setSell({ ...sell, name: e.target.value })}/>
     </Field>
-    <Field label="Name 2" icon={UserIcon}>
+    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.name2}
-             onChange={(e) => setSell({ ...sell, name2: e.target.value })}/>
+             value={sell.name2} onChange={(e) => setSell({ ...sell, name2: e.target.value })}/>
     </Field>
 
-    <Field label="Email" icon={Mail}>
+    <Field label={F.email || "Email"} icon={Mail}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.email}
-             onChange={(e) => setSell({ ...sell, email: e.target.value })}/>
+             value={sell.email} onChange={(e) => setSell({ ...sell, email: e.target.value })}/>
     </Field>
-    <Field label="Phone" icon={PhoneCall}>
+    <Field label={F.phone || "Phone"} icon={PhoneCall}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.phoneNo}
-             onChange={(e) => setSell({ ...sell, phoneNo: e.target.value })}/>
+             value={sell.phoneNo} onChange={(e) => setSell({ ...sell, phoneNo: e.target.value })}/>
     </Field>
 
-    <Field label="Address" icon={Building}>
+    <Field label={F.address || "Address"} icon={Building}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.address}
-             onChange={(e) => setSell({ ...sell, address: e.target.value })}/>
+             value={sell.address} onChange={(e) => setSell({ ...sell, address: e.target.value })}/>
     </Field>
-    <Field label="Address 2" icon={Building}>
+    <Field label={F.address2 || "Address 2"} icon={Building}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.address2}
-             onChange={(e) => setSell({ ...sell, address2: e.target.value })}/>
+             value={sell.address2} onChange={(e) => setSell({ ...sell, address2: e.target.value })}/>
     </Field>
 
-    <Field label="City" icon={MapPin}>
+    <Field label={F.city || "City"} icon={MapPin}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.city}
-             onChange={(e) => setSell({ ...sell, city: e.target.value })}/>
+             value={sell.city} onChange={(e) => setSell({ ...sell, city: e.target.value })}/>
     </Field>
-    <Field label="Region" icon={MapPin}>
+    <Field label={F.region || "Region"} icon={MapPin}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.region}
-             onChange={(e) => setSell({ ...sell, region: e.target.value })}/>
+             value={sell.region} onChange={(e) => setSell({ ...sell, region: e.target.value })}/>
     </Field>
 
-    <Field label="Post Code" icon={Hash}>
+    <Field label={F.postCode || "Post Code"} icon={Hash}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.postCode}
-             onChange={(e) => setSell({ ...sell, postCode: e.target.value })}/>
+             value={sell.postCode} onChange={(e) => setSell({ ...sell, postCode: e.target.value })}/>
     </Field>
-    <Field label="Country" icon={Globe} >
+    <Field label={F.country || "Country"} icon={Globe}>
       <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.country}
-             onChange={(e) => setSell({ ...sell, country: e.target.value.toUpperCase() })}/>
+             value={sell.country} onChange={(e) => setSell({ ...sell, country: e.target.value.toUpperCase() })}/>
     </Field>
-
-    {/* Example of a full-width field (spans both columns): */}
-    {/* <div className="md:col-span-2">
-      <Field label="Notes" icon={FileText}>...</Field>
-    </div> */}
   </div>
 )}
+
 
 
 {/* BILL-TO */}
 {tab === "bill" && (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label="Pick Bill-to Customer *" icon={IdCard} error={errors.billNo}>
+    <Field label={(F.pickBill || "Pick Bill-to Customer")} icon={IdCard} error={errors.billNo}>
       <CustomerCombobox
         valueNo={bill.no}
         onPick={(c) => applyCustomer(c, setBill)}
         excludeId={null}
-        placeholder="Search customer no./name…"
+        placeholder={F.pickBill || "Search customer no./name…"}
       />
     </Field>
-    <Field label="No." icon={IdCard}>
+    <Field label={F.no || "No."} icon={IdCard}>
       <input className={INPUT_CLS} value={bill.no}
              onChange={(e) => setBill({ ...bill, no: e.target.value })}/>
     </Field>
 
-    <Field label="NIP" icon={Hash}>
+    <Field label={F.nip || "Tax ID"} icon={Hash}>
       <input className={INPUT_CLS} value={bill.nip}
              onChange={(e) => setBill({ ...bill, nip: e.target.value })}/>
     </Field>
-    <Field label="Name" icon={UserIcon}>
+    <Field label={F.name || "Name"} icon={UserIcon}>
       <input className={INPUT_CLS} value={bill.name}
              onChange={(e) => setBill({ ...bill, name: e.target.value })}/>
     </Field>
 
-    <Field label="Name 2" icon={UserIcon}>
+    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
       <input className={INPUT_CLS} value={bill.name2}
              onChange={(e) => setBill({ ...bill, name2: e.target.value })}/>
     </Field>
-    <Field label="Email" icon={Mail}>
+    <Field label={F.email || "Email"} icon={Mail}>
       <input className={INPUT_CLS} value={bill.email}
              onChange={(e) => setBill({ ...bill, email: e.target.value })}/>
     </Field>
 
-    <Field label="Phone" icon={PhoneCall}>
+    <Field label={F.phone || "Phone"} icon={PhoneCall}>
       <input className={INPUT_CLS} value={bill.phoneNo}
              onChange={(e) => setBill({ ...bill, phoneNo: e.target.value })}/>
     </Field>
-    <Field label="Address" icon={Building}>
+    <Field label={F.address || "Address"} icon={Building}>
       <input className={INPUT_CLS} value={bill.address}
              onChange={(e) => setBill({ ...bill, address: e.target.value })}/>
     </Field>
 
-    <Field label="Address 2" icon={Building}>
+    <Field label={F.address2 || "Address 2"} icon={Building}>
       <input className={INPUT_CLS} value={bill.address2}
              onChange={(e) => setBill({ ...bill, address2: e.target.value })}/>
     </Field>
-    <Field label="City" icon={MapPin}>
+    <Field label={F.city || "City"} icon={MapPin}>
       <input className={INPUT_CLS} value={bill.city}
              onChange={(e) => setBill({ ...bill, city: e.target.value })}/>
     </Field>
 
-    <Field label="Region" icon={MapPin}>
+    <Field label={F.region || "Region"} icon={MapPin}>
       <input className={INPUT_CLS} value={bill.region}
              onChange={(e) => setBill({ ...bill, region: e.target.value })}/>
     </Field>
-    <Field label="Post Code" icon={Hash}>
+    <Field label={F.postCode || "Post Code"} icon={Hash}>
       <input className={INPUT_CLS} value={bill.postCode}
              onChange={(e) => setBill({ ...bill, postCode: e.target.value })}/>
     </Field>
 
-    <Field label="Country" icon={Globe}>
+    <Field label={F.country || "Country"} icon={Globe}>
       <input className={INPUT_CLS} value={bill.country}
-             onChange={(e) =>
-               setBill({ ...bill, country: e.target.value.toUpperCase() })
-             }/>
+             onChange={(e) => setBill({ ...bill, country: e.target.value.toUpperCase() })}/>
     </Field>
   </div>
 )}
@@ -1311,54 +1340,52 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 {/* LOCATION */}
 {tab === "location" && (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label="Location No." icon={IdCard}>
+    <Field label={F.locationNo || "Location No."} icon={IdCard}>
       <input className={INPUT_CLS} value={loc.no}
              onChange={(e) => setLoc({ ...loc, no: e.target.value })}/>
     </Field>
-    <Field label="Name" icon={Building}>
+    <Field label={F.name || "Name"} icon={Building}>
       <input className={INPUT_CLS} value={loc.name}
              onChange={(e) => setLoc({ ...loc, name: e.target.value })}/>
     </Field>
 
-    <Field label="Name 2" icon={Building}>
+    <Field label={F.name2 || "Name 2"} icon={Building}>
       <input className={INPUT_CLS} value={loc.name2}
              onChange={(e) => setLoc({ ...loc, name2: e.target.value })}/>
     </Field>
-    <Field label="Address" icon={Building}>
+    <Field label={F.address || "Address"} icon={Building}>
       <input className={INPUT_CLS} value={loc.address}
              onChange={(e) => setLoc({ ...loc, address: e.target.value })}/>
     </Field>
 
-    <Field label="Address 2" icon={Building}>
+    <Field label={F.address2 || "Address 2"} icon={Building}>
       <input className={INPUT_CLS} value={loc.address2}
              onChange={(e) => setLoc({ ...loc, address2: e.target.value })}/>
     </Field>
-    <Field label="City" icon={MapPin}>
+    <Field label={F.city || "City"} icon={MapPin}>
       <input className={INPUT_CLS} value={loc.city}
              onChange={(e) => setLoc({ ...loc, city: e.target.value })}/>
     </Field>
 
-    <Field label="Region" icon={MapPin}>
+    <Field label={F.region || "Region"} icon={MapPin}>
       <input className={INPUT_CLS} value={loc.region}
              onChange={(e) => setLoc({ ...loc, region: e.target.value })}/>
     </Field>
-    <Field label="Post Code" icon={Hash}>
+    <Field label={F.postCode || "Post Code"} icon={Hash}>
       <input className={INPUT_CLS} value={loc.postCode}
              onChange={(e) => setLoc({ ...loc, postCode: e.target.value })}/>
     </Field>
 
-    <Field label="Country" icon={Globe}>
+    <Field label={F.country || "Country"} icon={Globe}>
       <input className={INPUT_CLS} value={loc.country}
-             onChange={(e) =>
-               setLoc({ ...loc, country: e.target.value.toUpperCase() })
-             }/>
+             onChange={(e) => setLoc({ ...loc, country: e.target.value.toUpperCase() })}/>
     </Field>
-    <Field label="Email" icon={Mail}>
+    <Field label={F.email || "Email"} icon={Mail}>
       <input className={INPUT_CLS} value={loc.email}
              onChange={(e) => setLoc({ ...loc, email: e.target.value })}/>
     </Field>
 
-    <Field label="Phone" icon={PhoneCall}>
+    <Field label={F.phone || "Phone"} icon={PhoneCall}>
       <input className={INPUT_CLS} value={loc.phoneNo}
              onChange={(e) => setLoc({ ...loc, phoneNo: e.target.value })}/>
     </Field>
@@ -1366,14 +1393,15 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 )}
 
 
+
 {/* SHIPMENT */}
 {tab === "shipment" && (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label="Shipment Method" icon={Truck}>
+    <Field label={F.shipmentMethod || "Shipment Method"} icon={Truck}>
       <input className={INPUT_CLS} value={shipmentMethod}
              onChange={(e) => setShipmentMethod(e.target.value)}/>
     </Field>
-    <Field label="Shipment Agent" icon={Ship}>
+    <Field label={F.shipmentAgent || "Shipment Agent"} icon={Ship}>
       <input className={INPUT_CLS} value={shipmentAgent}
              onChange={(e) => setShipmentAgent(e.target.value)}/>
     </Field>
@@ -1381,37 +1409,38 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 )}
 
 
+
 {/* TRANSPORT */}
 {tab === "transport" && (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label="Transport No." icon={IdCard}>
+    <Field label={F.transportNo || "Transport No."} icon={IdCard}>
       <input className={INPUT_CLS} value={tr.no}
              onChange={(e) => setTr({ ...tr, no: e.target.value })}/>
     </Field>
-    <Field label="Transport Name" icon={UserIcon}>
+    <Field label={F.transportName || "Transport Name"} icon={UserIcon}>
       <input className={INPUT_CLS} value={tr.name}
              onChange={(e) => setTr({ ...tr, name: e.target.value })}/>
     </Field>
 
-    <Field label="Transport ID" icon={IdCard}>
+    <Field label={F.transportId || "Transport ID"} icon={IdCard}>
       <input className={INPUT_CLS} value={tr.id}
              onChange={(e) => setTr({ ...tr, id: e.target.value })}/>
     </Field>
-    <Field label="Driver Name" icon={UserIcon}>
+    <Field label={F.driverName || "Driver Name"} icon={UserIcon}>
       <input className={INPUT_CLS} value={tr.dName}
              onChange={(e) => setTr({ ...tr, dName: e.target.value })}/>
     </Field>
 
-    <Field label="Driver ID" icon={IdCard}>
+    <Field label={F.driverId || "Driver ID"} icon={IdCard}>
       <input className={INPUT_CLS} value={tr.dId}
              onChange={(e) => setTr({ ...tr, dId: e.target.value })}/>
     </Field>
-    <Field label="Driver Email" icon={Mail}>
+    <Field label={F.driverEmail || "Driver Email"} icon={Mail}>
       <input className={INPUT_CLS} value={tr.dEmail}
              onChange={(e) => setTr({ ...tr, dEmail: e.target.value })}/>
     </Field>
 
-    <Field label="Driver Phone" icon={PhoneCall}>
+    <Field label={F.driverPhone || "Driver Phone"} icon={PhoneCall}>
       <input className={INPUT_CLS} value={tr.dPhone}
              onChange={(e) => setTr({ ...tr, dPhone: e.target.value })}/>
     </Field>
@@ -1422,64 +1451,62 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 {/* BROKER */}
 {tab === "broker" && (
   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label="Pick Broker" icon={IdCard}>
+    <Field label={TABS_L.broker || "Broker"} icon={IdCard}>
       <CustomerCombobox
         valueNo={br.no}
         onPick={(c) => applyCustomer(c, setBr)}
         excludeId={null}
-        placeholder="Search broker no./name…"
+        placeholder={F.brokerNo || "Search broker no./name…"}
       />
     </Field>
-    <div />{/* spacer to keep grid even */ }
+    <div />
 
-    <Field label="Broker No." icon={IdCard}>
+    <Field label={F.brokerNo || "Broker No."} icon={IdCard}>
       <input className={INPUT_CLS} value={br.no}
              onChange={(e) => setBr({ ...br, no: e.target.value })}/>
     </Field>
-    <Field label="Name" icon={UserIcon}>
+    <Field label={F.name || "Name"} icon={UserIcon}>
       <input className={INPUT_CLS} value={br.name}
              onChange={(e) => setBr({ ...br, name: e.target.value })}/>
     </Field>
 
-    <Field label="Name 2" icon={UserIcon}>
+    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
       <input className={INPUT_CLS} value={br.name2}
              onChange={(e) => setBr({ ...br, name2: e.target.value })}/>
     </Field>
-    <Field label="Address" icon={Building}>
+    <Field label={F.address || "Address"} icon={Building}>
       <input className={INPUT_CLS} value={br.address}
              onChange={(e) => setBr({ ...br, address: e.target.value })}/>
     </Field>
 
-    <Field label="Address 2" icon={Building}>
+    <Field label={F.address2 || "Address 2"} icon={Building}>
       <input className={INPUT_CLS} value={br.address2}
              onChange={(e) => setBr({ ...br, address2: e.target.value })}/>
     </Field>
-    <Field label="City" icon={MapPin}>
+    <Field label={F.city || "City"} icon={MapPin}>
       <input className={INPUT_CLS} value={br.city}
              onChange={(e) => setBr({ ...br, city: e.target.value })}/>
     </Field>
 
-    <Field label="Region" icon={MapPin}>
+    <Field label={F.region || "Region"} icon={MapPin}>
       <input className={INPUT_CLS} value={br.region}
              onChange={(e) => setBr({ ...br, region: e.target.value })}/>
     </Field>
-    <Field label="Post Code" icon={Hash}>
+    <Field label={F.postCode || "Post Code"} icon={Hash}>
       <input className={INPUT_CLS} value={br.postCode}
              onChange={(e) => setBr({ ...br, postCode: e.target.value })}/>
     </Field>
 
-    <Field label="Country" icon={Globe}>
+    <Field label={F.country || "Country"} icon={Globe}>
       <input className={INPUT_CLS} value={br.country}
-             onChange={(e) =>
-               setBr({ ...br, country: e.target.value.toUpperCase() })
-             }/>
+             onChange={(e) => setBr({ ...br, country: e.target.value.toUpperCase() })}/>
     </Field>
-    <Field label="Email" icon={Mail}>
+    <Field label={F.email || "Email"} icon={Mail}>
       <input className={INPUT_CLS} value={br.email}
              onChange={(e) => setBr({ ...br, email: e.target.value })}/>
     </Field>
 
-    <Field label="Phone" icon={PhoneCall}>
+    <Field label={F.phone || "Phone"} icon={PhoneCall}>
       <input className={INPUT_CLS} value={br.phoneNo}
              onChange={(e) => setBr({ ...br, phoneNo: e.target.value })}/>
     </Field>
@@ -1488,15 +1515,23 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 
 
 
-      {/* actions */}
-      <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-          Cancel
-        </button>
-        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-          {isEdit ? "Save changes" : "Create document"}
-        </button>
-      </div>
+
+{Object.keys(errors).length > 0 && (
+  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+    {ALERTS.fixErrors || "Please correct the highlighted fields."}
+  </div>
+)}
+
+<div className="flex justify-end gap-2 pt-2">
+  <button type="button" onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+    {M.cancel || "Cancel"}
+  </button>
+  <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+    {isEdit ? (M.save || "Save changes") : (M.add || "Create document")}
+  </button>
+</div>
+
     </form>
   );
 }

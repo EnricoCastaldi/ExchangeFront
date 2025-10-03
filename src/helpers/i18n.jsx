@@ -222,6 +222,7 @@ const T = {
         trader: "Trader",
         wytwornia_pasz: "Wytwórnia Pasz",
       },
+      
     },
 
     exchange: {
@@ -543,7 +544,7 @@ const T = {
       labels: { yes: "Tak", no: "Nie" },
     },
 
-    sells: {
+sells: {
   locale: "pl-PL",
   title: "Dokumenty sprzedaży",
   searchPh: "Szukaj: nr, klient, lokalizacja, broker…",
@@ -571,7 +572,6 @@ const T = {
   requestFail: "Żądanie nie powiodło się",
   deleted: "Dokument usunięty.",
   deleteConfirm: "Usunąć ten dokument?",
-  header: "Nagłówek",   // <— NEW
 
   footer: {
     meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
@@ -592,9 +592,9 @@ const T = {
     canceled: "Anulowany",
   },
 
-  // <— NEW: the KV labels used in the details grid
+  // Szczegóły w wierszu (panel rozkładany)
   kv: {
-    // header card
+    // nagłówek
     externalDocumentNo: "Nr dokumentu zewn.",
     documentInfo: "Informacje o dokumencie",
     createdBy: "Utworzył",
@@ -609,7 +609,7 @@ const T = {
     shipmentDate: "Data wysyłki",
     dueDate: "Termin płatności",
 
-    // common fields
+    // pola wspólne
     no: "Nr",
     name: "Nazwa",
     name2: "Nazwa 2",
@@ -623,7 +623,7 @@ const T = {
     phone: "Telefon",
     nip: "NIP",
 
-    // shipment
+    // wysyłka
     method: "Metoda",
     agent: "Agent",
 
@@ -638,6 +638,73 @@ const T = {
 
     // broker
     brokerNo: "Nr brokera",
+  },
+
+  modal: {
+    titleNew: "Nowy dokument",
+    titleEdit: "Edytuj dokument",
+    cancel: "Anuluj",
+    save: "Zapisz zmiany",
+    add: "Utwórz dokument",
+  },
+
+  alerts: {
+    fixErrors: "Popraw zaznaczone pola.",
+  },
+
+  form: {
+    tabs: {
+      header: "Nagłówek",
+      sell: "Sprzedaj-do",
+      bill: "Płatnik (Bill-to)",
+      location: "Lokalizacja",
+      shipment: "Wysyłka",
+      transport: "Transport",
+      broker: "Broker",
+    },
+    fields: {
+      documentNo: "Nr dokumentu *",
+      status: "Status",
+      externalDocumentNo: "Nr dokumentu zewn.",
+      documentInfo: "Informacje o dokumencie",
+      currencyCode: "Waluta",
+      currencyFactor: "Współczynnik waluty",
+      documentDate: "Data dokumentu",
+      serviceDate: "Data usługi/dostawy",
+      requestedDeliveryDate: "Żądana dostawa",
+      promisedDeliveryDate: "Obiecana dostawa",
+      shipmentDate: "Data wysyłki",
+      validityDate: "Ważny do",
+      dueDate: "Termin płatności",
+
+      pickSell: "Wybierz Sprzedaj-do *",
+      pickBill: "Wybierz Płatnika *",
+      no: "Nr",
+      name: "Nazwa",
+      name2: "Nazwa 2",
+      email: "E-mail",
+      phone: "Telefon",
+      address: "Adres",
+      address2: "Adres 2",
+      city: "Miasto",
+      region: "Region",
+      postCode: "Kod pocztowy",
+      country: "Kraj",
+      nip: "NIP",
+
+      shipmentMethod: "Metoda wysyłki",
+      shipmentAgent: "Agent wysyłki",
+
+      transportNo: "Nr transportu",
+      transportName: "Nazwa transportu",
+      transportId: "ID transportu",
+      driverName: "Kierowca",
+      driverId: "ID kierowcy",
+      driverEmail: "E-mail kierowcy",
+      driverPhone: "Telefon kierowcy",
+
+      brokerNo: "Nr brokera",
+    },
   },
 },
 
@@ -1242,7 +1309,8 @@ const T = {
       labels: { yes: "Yes", no: "No" },
     },
 
-  sells: {
+// =================== ENGLISH ===================
+sells: {
   locale: "en-US",
   title: "Sales Documents",
   searchPh: "Search: no., customer, location, broker…",
@@ -1270,7 +1338,6 @@ const T = {
   requestFail: "Request failed",
   deleted: "Document deleted.",
   deleteConfirm: "Delete this document?",
-  header: "Header",   // <— NEW
 
   footer: {
     meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
@@ -1291,6 +1358,7 @@ const T = {
     canceled: "Canceled",
   },
 
+  // Row details (expand panel)
   kv: {
     externalDocumentNo: "External Doc. No.",
     documentInfo: "Document Info",
@@ -1332,7 +1400,75 @@ const T = {
 
     brokerNo: "Broker No.",
   },
+
+  modal: {
+    titleNew: "New Document",
+    titleEdit: "Edit Document",
+    cancel: "Cancel",
+    save: "Save changes",
+    add: "Create document",
+  },
+
+  alerts: {
+    fixErrors: "Please correct the highlighted fields.",
+  },
+
+  form: {
+    tabs: {
+      header: "Header",
+      sell: "Sell-to",
+      bill: "Bill-to",
+      location: "Location",
+      shipment: "Shipment",
+      transport: "Transport",
+      broker: "Broker",
+    },
+    fields: {
+      documentNo: "Document No. *",
+      status: "Status",
+      externalDocumentNo: "External Doc. No.",
+      documentInfo: "Document Info",
+      currencyCode: "Currency Code",
+      currencyFactor: "Currency Factor",
+      documentDate: "Document Date",
+      serviceDate: "Service/Delivery Date",
+      requestedDeliveryDate: "Requested Delivery Date",
+      promisedDeliveryDate: "Promised Delivery Date",
+      shipmentDate: "Shipment Date",
+      validityDate: "Document Validity Date",
+      dueDate: "Due Date",
+
+      pickSell: "Pick Sell-to Customer *",
+      pickBill: "Pick Bill-to Customer *",
+      no: "No.",
+      name: "Name",
+      name2: "Name 2",
+      email: "Email",
+      phone: "Phone",
+      address: "Address",
+      address2: "Address 2",
+      city: "City",
+      region: "Region",
+      postCode: "Post Code",
+      country: "Country",
+      nip: "Tax ID",
+
+      shipmentMethod: "Shipment Method",
+      shipmentAgent: "Shipment Agent",
+
+      transportNo: "Transport No.",
+      transportName: "Transport Name",
+      transportId: "Transport ID",
+      driverName: "Driver Name",
+      driverId: "Driver ID",
+      driverEmail: "Driver Email",
+      driverPhone: "Driver Phone",
+
+      brokerNo: "Broker No.",
+    },
+  },
 },
+
 
 
     // i18n.jsx — REPLACE the whole T.en.users block with this
