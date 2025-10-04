@@ -89,7 +89,7 @@ export default function Items() {
       unitPrice: I?.table?.unitPrice || "Unit Price",
       status: I?.table?.status || "Status",
       created: I?.table?.created || "Created",
-      actions: I?.table?.actions || "Actions",
+      actions: I?.table?.actions || "",
       loading: I?.table?.loading || "Loading…",
       empty: I?.table?.empty || "No results",
       dash: "—",

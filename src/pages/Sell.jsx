@@ -26,15 +26,14 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-
 // ---- Status helpers (canonicalize + labels) ----
 const STATUS_CANON_MAP = {
   new: "new",
-  on_hold: "on-hold",   // accept underscore -> send hyphen
+  on_hold: "on-hold", // accept underscore -> send hyphen
   "on-hold": "on-hold",
   accepted: "accepted",
   approved: "approved",
-  mached: "matched",    // typo -> fixed
+  mached: "matched", // typo -> fixed
   matched: "matched",
   shipped: "shipped",
   invoiced: "invoiced",
@@ -43,15 +42,15 @@ const STATUS_CANON_MAP = {
 };
 
 const STATUS_LABELS = {
-  "new": "New",
+  new: "New",
   "on-hold": "On Hold",
-  "accepted": "Accepted",
-  "approved": "Approved",
-  "matched": "Matched",
-  "shipped": "Shipped",
-  "invoiced": "Invoiced",
-  "paid": "Paid (Closed)",
-  "canceled": "Canceled",
+  accepted: "Accepted",
+  approved: "Approved",
+  matched: "Matched",
+  shipped: "Shipped",
+  invoiced: "Invoiced",
+  paid: "Paid (Closed)",
+  canceled: "Canceled",
 };
 
 function canonStatus(s) {
@@ -60,7 +59,6 @@ function canonStatus(s) {
 }
 
 const STATUS_OPTIONS = Object.keys(STATUS_LABELS); // -> use for selects/filters
-
 
 const API =
   process.env.REACT_APP_API_URL ||
@@ -87,7 +85,8 @@ function getUserCode(fallback = "web") {
   const sess = getSession();
   // prefer business code (e.g. "ADM-001"), then username/email
   return (
-    (window.__APP_USER__ && (window.__APP_USER__.code || window.__APP_USER__.username)) ||
+    (window.__APP_USER__ &&
+      (window.__APP_USER__.code || window.__APP_USER__.username)) ||
     (sess && (sess.code || sess.username || sess.email)) ||
     localStorage.getItem("userCode") ||
     fallback
@@ -120,20 +119,17 @@ export default function Sell() {
     transport: T.transport || "Transport",
     broker: T.broker || "Broker",
     created: T.created || "Created",
-    actions: T.actions || "Actions",
+    actions: T.actions || "",
     loading: T.loading || "Loading…",
     empty: T.empty || "No documents",
     requestFail: T.requestFail || "Request failed",
     deleted: T.deleted || "Document deleted.",
     deleteConfirm: T.deleteConfirm || "Delete this document?",
-    kv: T.kv || {},  
-statusMap: {
-  ...STATUS_LABELS,
-  ...(T.statusMap || {}),
-},
-
-
-
+    kv: T.kv || {},
+    statusMap: {
+      ...STATUS_LABELS,
+      ...(T.statusMap || {}),
+    },
   };
 
   // filters / paging
@@ -206,7 +202,9 @@ statusMap: {
   const onDelete = async (_id) => {
     if (!window.confirm(L.deleteConfirm)) return;
     try {
-      const res = await fetch(`${API}/api/documents/${_id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/documents/${_id}`, {
+        method: "DELETE",
+      });
       if (res.status === 204) {
         if (expandedId === _id) setExpandedId(null);
         showNotice("success", L.deleted);
@@ -251,11 +249,25 @@ statusMap: {
     return arr;
   }, [data.data, sortBy, sortDir]);
 
-  function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
+  function SortableTh({
+    id,
+    sortBy,
+    sortDir,
+    onSort,
+    children,
+    className = "",
+  }) {
     const active = sortBy === id;
-    const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+    const ariaSort = active
+      ? sortDir === "asc"
+        ? "ascending"
+        : "descending"
+      : "none";
     return (
-      <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
+      <th
+        aria-sort={ariaSort}
+        className={`text-left px-4 py-3 font-medium ${className}`}
+      >
         <button
           type="button"
           onClick={() => onSort(id)}
@@ -280,7 +292,10 @@ statusMap: {
       )}
 
       {/* Controls */}
-      <form onSubmit={onSearch} className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm">
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -336,17 +351,21 @@ statusMap: {
             showFilters ? "grid" : "hidden md:grid"
           }`}
         >
-<select
-  value={status}
-  onChange={(e) => { setStatus(e.target.value); setPage(1); }}
-  className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
->
-  <option value="">{L.all}</option>
-  {STATUS_OPTIONS.map((s) => (
-    <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-  ))}
-</select>
-
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+          >
+            <option value="">{L.all}</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
 
           <div className="relative">
             <CalendarIcon className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -397,9 +416,14 @@ statusMap: {
                 <SortableTh id="dueDate" {...{ sortBy, sortDir, onSort }}>
                   {L.dueDate}
                 </SortableTh>
-                <SortableTh id="currencyCode" {...{ sortBy, sortDir, onSort }}>
+                <SortableTh
+                  id="currencyCode"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-center"
+                >
                   {L.currency}
                 </SortableTh>
+
                 <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
                   {L.created}
                 </SortableTh>
@@ -410,13 +434,19 @@ statusMap: {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {L.loading}
                   </td>
                 </tr>
               ) : (data.data?.length || 0) === 0 ? (
                 <tr>
-                  <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {L.empty}
                   </td>
                 </tr>
@@ -427,25 +457,40 @@ statusMap: {
                       <Td className="w-8">
                         <button
                           className="p-1 rounded hover:bg-slate-100"
-                          onClick={() => setExpandedId((id) => (id === d._id ? null : d._id))}
+                          onClick={() =>
+                            setExpandedId((id) => (id === d._id ? null : d._id))
+                          }
                           aria-label="Toggle details"
                           title="Toggle details"
                         >
-                          {expandedId === d._id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          {expandedId === d._id ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
                         </button>
                       </Td>
                       <Td className="font-mono">{d.documentNo}</Td>
-                      <Td><StatusBadge value={d.status} map={L.statusMap} /></Td>
-                      <Td className="truncate max-w-[220px]">{d.sellCustomerName || d.sellCustomerNo || "—"}</Td>
-                      <Td className="truncate max-w-[220px]">{d.billCustomerName || d.billCustomerNo || "—"}</Td>
+                      <Td>
+                        <StatusBadge value={d.status} map={L.statusMap} />
+                      </Td>
+                      <Td className="truncate max-w-[220px]">
+                        {d.sellCustomerName || d.sellCustomerNo || "—"}
+                      </Td>
+                      <Td className="truncate max-w-[220px]">
+                        {d.billCustomerName || d.billCustomerNo || "—"}
+                      </Td>
                       <Td>{formatDate(d.documentDate, locale, "—")}</Td>
                       <Td>{formatDate(d.dueDate, locale, "—")}</Td>
-                      <Td className="text-right pr-4 font-medium">
+                      <Td className="text-center font-medium">
                         {d.currencyCode || "—"}{" "}
                         <span className="text-slate-500">
-                          {d.currencyFactor ? `• ${Number(d.currencyFactor).toFixed(4)}` : ""}
+                          {d.currencyFactor
+                            ? `• ${fmtDOT(d.currencyFactor, 4)}`
+                            : ""}
                         </span>
                       </Td>
+
                       <Td>{formatDate(d.createdAt, locale, "—")}</Td>
                       <Td>
                         <div className="flex justify-end gap-2 pr-3">
@@ -472,126 +517,253 @@ statusMap: {
 
                     {expandedId === d._id && (
                       <tr>
-<td colSpan={COL_COUNT} className="bg-slate-50 border-t">
-  <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-    <Section title="Header">
-      <KV label={L.kv.externalDocumentNo} icon={Hash}>
-        {d.externalDocumentNo || "—"}
-      </KV>
-      <KV label={L.kv.documentInfo} icon={FileText}>
-        {d.documentInfo || "—"}
-      </KV>
-      <KV label={L.kv.createdBy} icon={UserIcon}>
-        {d.userCreated || "—"}
-      </KV>
-      <KV label={L.kv.createdAt} icon={CalendarIcon}>
-        {formatDate(d.dateCreated, locale, "—")}
-      </KV>
-      <KV label={L.kv.modifiedBy} icon={UserIcon}>
-        {d.userModified || "—"}
-      </KV>
-      <KV label={L.kv.modifiedAt} icon={CalendarIcon}>
-        {formatDate(d.dateModified, locale, "—")}
-      </KV>
+                        <td
+                          colSpan={COL_COUNT}
+                          className="bg-slate-50 border-t"
+                        >
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                            <Section title="Header">
+                              <KV label={L.kv.externalDocumentNo} icon={Hash}>
+                                {d.externalDocumentNo || "—"}
+                              </KV>
+                              <KV label={L.kv.documentInfo} icon={FileText}>
+                                {d.documentInfo || "—"}
+                              </KV>
+                              <KV label={L.kv.createdBy} icon={UserIcon}>
+                                {d.userCreated || "—"}
+                              </KV>
+                              <KV label={L.kv.createdAt} icon={CalendarIcon}>
+                                {formatDate(d.dateCreated, locale, "—")}
+                              </KV>
+                              <KV label={L.kv.modifiedBy} icon={UserIcon}>
+                                {d.userModified || "—"}
+                              </KV>
+                              <KV label={L.kv.modifiedAt} icon={CalendarIcon}>
+                                {formatDate(d.dateModified, locale, "—")}
+                              </KV>
 
-      <KV label={L.kv.currency} icon={DollarSign}>
-        {d.currencyCode || "—"}{" "}
-        {d.currencyFactor ? `(${Number(d.currencyFactor).toFixed(6)})` : ""}
-      </KV>
-      <KV label={L.kv.documentDate} icon={CalendarIcon}>
-        {formatDate(d.documentDate, locale, "—")}
-      </KV>
-      <KV label={L.kv.serviceDate} icon={CalendarIcon}>
-        {formatDate(d.serviceDate, locale, "—")}
-      </KV>
-      <KV label={L.kv.requestedDeliveryDate} icon={CalendarIcon}>
-        {formatDate(d.requestedDeliveryDate, locale, "—")}
-      </KV>
-      <KV label={L.kv.promisedDeliveryDate} icon={CalendarIcon}>
-        {formatDate(d.promisedDeliveryDate, locale, "—")}
-      </KV>
-      <KV label={L.kv.shipmentDate} icon={CalendarIcon}>
-        {formatDate(d.shipmentDate, locale, "—")}
-      </KV>
-      <KV label={L.kv.dueDate} icon={CalendarIcon}>
-        {formatDate(d.dueDate, locale, "—")}
-      </KV>
-    </Section>
+                              <KV label={L.kv.currency} icon={DollarSign}>
+                                {d.currencyCode || "—"}{" "}
+                                {d.currencyFactor
+                                  ? `(${fmtDOT(d.currencyFactor, 6)})`
+                                  : ""}
+                              </KV>
 
-    <Section title={L.sellTo}>
-      <KV label={L.kv.no} icon={IdCard}>{d.sellCustomerNo || "—"}</KV>
-      <KV label={L.kv.name} icon={UserIcon}>{d.sellCustomerName || "—"}</KV>
-      <KV label={L.kv.name2} icon={UserIcon}>{d.sellCustomerName2 || "—"}</KV>
-      <KV label={L.kv.address} icon={Building}>{d.sellCustomerAddress || "—"}</KV>
-      <KV label={L.kv.address2} icon={Building}>{d.sellCustomerAddress2 || "—"}</KV>
-      <KV label={L.kv.city} icon={MapPin}>{d.sellCustomerCity || "—"}</KV>
-      <KV label={L.kv.region} icon={MapPin}>{d.sellCustomerRegion || "—"}</KV>
-      <KV label={L.kv.postCode} icon={Hash}>{d.sellCustomerPostCode || "—"}</KV>
-      <KV label={L.kv.country} icon={Globe}>{d.sellCustomerCountry || "—"}</KV>
-      <KV label={L.kv.email} icon={Mail}>{d.sellCustomerEmail || "—"}</KV>
-      <KV label={L.kv.phone} icon={PhoneCall}>{d.sellCustomerPhoneNo || "—"}</KV>
-    </Section>
+                              <KV label={L.kv.documentDate} icon={CalendarIcon}>
+                                {formatDate(d.documentDate, locale, "—")}
+                              </KV>
+                              <KV label={L.kv.serviceDate} icon={CalendarIcon}>
+                                {formatDate(d.serviceDate, locale, "—")}
+                              </KV>
+                              <KV
+                                label={L.kv.requestedDeliveryDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(
+                                  d.requestedDeliveryDate,
+                                  locale,
+                                  "—"
+                                )}
+                              </KV>
+                              <KV
+                                label={L.kv.promisedDeliveryDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(
+                                  d.promisedDeliveryDate,
+                                  locale,
+                                  "—"
+                                )}
+                              </KV>
+                              <KV label={L.kv.shipmentDate} icon={CalendarIcon}>
+                                {formatDate(d.shipmentDate, locale, "—")}
+                              </KV>
+                              <KV label={L.kv.dueDate} icon={CalendarIcon}>
+                                {formatDate(d.dueDate, locale, "—")}
+                              </KV>
+                            </Section>
 
-    <Section title={L.billTo}>
-      <KV label={L.kv.no} icon={IdCard}>{d.billCustomerNo || "—"}</KV>
-      <KV label={L.kv.name} icon={UserIcon}>{d.billCustomerName || "—"}</KV>
-      <KV label={L.kv.name2} icon={UserIcon}>{d.billCustomerName2 || "—"}</KV>
-      <KV label={L.kv.address} icon={Building}>{d.billCustomerAddress || "—"}</KV>
-      <KV label={L.kv.address2} icon={Building}>{d.billCustomerAddress2 || "—"}</KV>
-      <KV label={L.kv.city} icon={MapPin}>{d.billCustomerCity || "—"}</KV>
-      <KV label={L.kv.region} icon={MapPin}>{d.billCustomerRegion || "—"}</KV>
-      <KV label={L.kv.postCode} icon={Hash}>{d.billCustomerPostCode || "—"}</KV>
-      <KV label={L.kv.country} icon={Globe}>{d.billCustomerCountry || "—"}</KV>
-      <KV label={L.kv.email} icon={Mail}>{d.billCustomerEmail || "—"}</KV>
-      <KV label={L.kv.phone} icon={PhoneCall}>{d.billCustomerPhoneNo || "—"}</KV>
-      <KV label={L.kv.nip} icon={Hash}>{d.billCustomerNip || "—"}</KV>
-    </Section>
+                            <Section title={L.sellTo}>
+                              <KV label={L.kv.no} icon={IdCard}>
+                                {d.sellCustomerNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={UserIcon}>
+                                {d.sellCustomerName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={UserIcon}>
+                                {d.sellCustomerName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.sellCustomerAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.sellCustomerAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.sellCustomerCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.sellCustomerRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.sellCustomerPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.sellCustomerCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.sellCustomerEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.sellCustomerPhoneNo || "—"}
+                              </KV>
+                            </Section>
 
-    <Section title={L.location}>
-      <KV label={L.kv.no} icon={IdCard}>{d.locationNo || "—"}</KV>
-      <KV label={L.kv.name} icon={Building}>{d.locationName || "—"}</KV>
-      <KV label={L.kv.name2} icon={Building}>{d.locationName2 || "—"}</KV>
-      <KV label={L.kv.address} icon={Building}>{d.locationAddress || "—"}</KV>
-      <KV label={L.kv.address2} icon={Building}>{d.locationAddress2 || "—"}</KV>
-      <KV label={L.kv.city} icon={MapPin}>{d.locationCity || "—"}</KV>
-      <KV label={L.kv.region} icon={MapPin}>{d.locationRegion || "—"}</KV>
-      <KV label={L.kv.postCode} icon={Hash}>{d.locationPostCode || "—"}</KV>
-      <KV label={L.kv.country} icon={Globe}>{d.locationCountry || "—"}</KV>
-      <KV label={L.kv.email} icon={Mail}>{d.locationEmail || "—"}</KV>
-      <KV label={L.kv.phone} icon={PhoneCall}>{d.locationPhoneNo || "—"}</KV>
-    </Section>
+                            <Section title={L.billTo}>
+                              <KV label={L.kv.no} icon={IdCard}>
+                                {d.billCustomerNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={UserIcon}>
+                                {d.billCustomerName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={UserIcon}>
+                                {d.billCustomerName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.billCustomerAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.billCustomerAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.billCustomerCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.billCustomerRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.billCustomerPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.billCustomerCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.billCustomerEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.billCustomerPhoneNo || "—"}
+                              </KV>
+                              <KV label={L.kv.nip} icon={Hash}>
+                                {d.billCustomerNip || "—"}
+                              </KV>
+                            </Section>
 
-    <Section title={L.shipment}>
-      <KV label={L.kv.method} icon={Truck}>{d.shipmentMethod || "—"}</KV>
-      <KV label={L.kv.agent} icon={Ship}>{d.shipmentAgent || "—"}</KV>
-    </Section>
+                            <Section title={L.location}>
+                              <KV label={L.kv.no} icon={IdCard}>
+                                {d.locationNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={Building}>
+                                {d.locationName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={Building}>
+                                {d.locationName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.locationAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.locationAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.locationCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.locationRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.locationPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.locationCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.locationEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.locationPhoneNo || "—"}
+                              </KV>
+                            </Section>
 
-    <Section title={L.transport}>
-      <KV label={L.kv.transportNo} icon={IdCard}>{d.transportNo || "—"}</KV>
-      <KV label={L.kv.transportName} icon={UserIcon}>{d.transportName || "—"}</KV>
-      <KV label={L.kv.transportId} icon={IdCard}>{d.transportId || "—"}</KV>
-      <KV label={L.kv.driverName} icon={UserIcon}>{d.transportDriverName || "—"}</KV>
-      <KV label={L.kv.driverId} icon={IdCard}>{d.transportDriverId || "—"}</KV>
-      <KV label={L.kv.driverEmail} icon={Mail}>{d.transportDriverEmail || "—"}</KV>
-      <KV label={L.kv.driverPhone} icon={PhoneCall}>{d.transportDriverPhoneNo || "—"}</KV>
-    </Section>
+                            <Section title={L.shipment}>
+                              <KV label={L.kv.method} icon={Truck}>
+                                {d.shipmentMethod || "—"}
+                              </KV>
+                              <KV label={L.kv.agent} icon={Ship}>
+                                {d.shipmentAgent || "—"}
+                              </KV>
+                            </Section>
 
-    <Section title={L.broker}>
-      <KV label={L.kv.brokerNo} icon={IdCard}>{d.brokerNo || "—"}</KV>
-      <KV label={L.kv.name} icon={UserIcon}>{d.brokerName || "—"}</KV>
-      <KV label={L.kv.name2} icon={UserIcon}>{d.brokerName2 || "—"}</KV>
-      <KV label={L.kv.address} icon={Building}>{d.brokerAddress || "—"}</KV>
-      <KV label={L.kv.address2} icon={Building}>{d.brokerAddress2 || "—"}</KV>
-      <KV label={L.kv.city} icon={MapPin}>{d.brokerCity || "—"}</KV>
-      <KV label={L.kv.region} icon={MapPin}>{d.brokerRegion || "—"}</KV>
-      <KV label={L.kv.postCode} icon={Hash}>{d.brokerPostCode || "—"}</KV>
-      <KV label={L.kv.country} icon={Globe}>{d.brokerCountry || "—"}</KV>
-      <KV label={L.kv.email} icon={Mail}>{d.brokerEmail || "—"}</KV>
-      <KV label={L.kv.phone} icon={PhoneCall}>{d.brokerPhoneNo || "—"}</KV>
-    </Section>
-  </div>
-</td>
+                            <Section title={L.transport}>
+                              <KV label={L.kv.transportNo} icon={IdCard}>
+                                {d.transportNo || "—"}
+                              </KV>
+                              <KV label={L.kv.transportName} icon={UserIcon}>
+                                {d.transportName || "—"}
+                              </KV>
+                              <KV label={L.kv.transportId} icon={IdCard}>
+                                {d.transportId || "—"}
+                              </KV>
+                              <KV label={L.kv.driverName} icon={UserIcon}>
+                                {d.transportDriverName || "—"}
+                              </KV>
+                              <KV label={L.kv.driverId} icon={IdCard}>
+                                {d.transportDriverId || "—"}
+                              </KV>
+                              <KV label={L.kv.driverEmail} icon={Mail}>
+                                {d.transportDriverEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.driverPhone} icon={PhoneCall}>
+                                {d.transportDriverPhoneNo || "—"}
+                              </KV>
+                            </Section>
 
+                            <Section title={L.broker}>
+                              <KV label={L.kv.brokerNo} icon={IdCard}>
+                                {d.brokerNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={UserIcon}>
+                                {d.brokerName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={UserIcon}>
+                                {d.brokerName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.brokerAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.brokerAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.brokerCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.brokerRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.brokerPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.brokerCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.brokerEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.brokerPhoneNo || "—"}
+                              </KV>
+                            </Section>
+                          </div>
+                        </td>
                       </tr>
                     )}
                   </React.Fragment>
@@ -605,7 +777,9 @@ statusMap: {
           <div className="text-xs text-slate-500">
             {T.footer?.meta
               ? T.footer.meta(data.total, data.page, data.pages)
-              : `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
+              : `Total: ${data.total} • Page ${data.page} of ${
+                  data.pages || 1
+                }`}
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -642,36 +816,35 @@ statusMap: {
       </div>
 
       {/* CREATE/EDIT MODAL */}
-{/* CREATE/EDIT MODAL */}
-{openForm && (
-  <Modal
-    title={
-      editing
-        ? (T.modal?.titleEdit || "Edit Document")
-        : (T.modal?.titleNew  || "New Document")
-    }
-    onClose={() => {
-      setOpenForm(false);
-      setEditing(null);
-    }}
-  >
-    <DocForm
-      initial={editing}
-      onCancel={() => {
-        setOpenForm(false);
-        setEditing(null);
-      }}
-      onSaved={() => {
-        setOpenForm(false);
-        setEditing(null);
-        setPage(1);
-        fetchData();
-      }}
-      showNotice={showNotice}
-    />
-  </Modal>
-)}
-
+      {/* CREATE/EDIT MODAL */}
+      {openForm && (
+        <Modal
+          title={
+            editing
+              ? T.modal?.titleEdit || "Edit Document"
+              : T.modal?.titleNew || "New Document"
+          }
+          onClose={() => {
+            setOpenForm(false);
+            setEditing(null);
+          }}
+        >
+          <DocForm
+            initial={editing}
+            onCancel={() => {
+              setOpenForm(false);
+              setEditing(null);
+            }}
+            onSaved={() => {
+              setOpenForm(false);
+              setEditing(null);
+              setPage(1);
+              fetchData();
+            }}
+            showNotice={showNotice}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
@@ -696,7 +869,12 @@ function Modal({ children, onClose, title }) {
 }
 
 /** Typeahead combobox for /api/mcustomers (blocked=none) */
-function CustomerCombobox({ valueNo, onPick, placeholder = "Type no./name…", excludeId }) {
+function CustomerCombobox({
+  valueNo,
+  onPick,
+  placeholder = "Type no./name…",
+  excludeId,
+}) {
   const [input, setInput] = useState(valueNo ? valueNo : "");
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(-1);
@@ -711,7 +889,9 @@ function CustomerCombobox({ valueNo, onPick, placeholder = "Type no./name…", e
       .then((json) => {
         if (stop) return;
         const rows = Array.isArray(json?.data) ? json.data : [];
-        const filtered = excludeId ? rows.filter((r) => r._id !== excludeId) : rows;
+        const filtered = excludeId
+          ? rows.filter((r) => r._id !== excludeId)
+          : rows;
         setOpts(
           filtered.map((r) => ({
             _id: r._id,
@@ -821,7 +1001,7 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
   const [tab, setTab] = useState("header");
   const [errors, setErrors] = useState({});
 
-    const { t } = useI18n();
+  const { t } = useI18n();
   const S = t.sells || {};
 
   // maps used in the form
@@ -829,26 +1009,51 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
   const F = S.form?.fields || {};
   const M = S.modal || {};
   const ALERTS = S.alerts || {};
-  const STATUS_MAP = {           // for the status <select> labels
+  const STATUS_MAP = {
+    // for the status <select> labels
     ...STATUS_LABELS,
     ...(S.statusMap || {}),
   };
 
   // header
   const [documentNo, setDocumentNo] = useState(initial?.documentNo || "");
-const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
+  const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
 
-  const [externalDocumentNo, setExternalDocumentNo] = useState(initial?.externalDocumentNo || "");
+  const [externalDocumentNo, setExternalDocumentNo] = useState(
+    initial?.externalDocumentNo || ""
+  );
   const [documentInfo, setDocumentInfo] = useState(initial?.documentInfo || "");
-  const [currencyCode, setCurrencyCode] = useState(initial?.currencyCode || "USD");
-  const [currencyFactor, setCurrencyFactor] = useState(initial?.currencyFactor ?? 1);
-  const [documentDate, setDocumentDate] = useState(initial?.documentDate ? initial.documentDate.slice(0,10) : "");
-  const [serviceDate, setServiceDate] = useState(initial?.serviceDate ? initial.serviceDate.slice(0,10) : "");
-  const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(initial?.requestedDeliveryDate ? initial.requestedDeliveryDate.slice(0,10) : "");
-  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState(initial?.promisedDeliveryDate ? initial.promisedDeliveryDate.slice(0,10) : "");
-  const [shipmentDate, setShipmentDate] = useState(initial?.shipmentDate ? initial.shipmentDate.slice(0,10) : "");
-  const [validityDate, setValidityDate] = useState(initial?.validityDate ? initial.validityDate.slice(0,10) : "");
-  const [dueDate, setDueDate] = useState(initial?.dueDate ? initial.dueDate.slice(0,10) : "");
+  const [currencyCode, setCurrencyCode] = useState(
+    initial?.currencyCode || "USD"
+  );
+  const [currencyFactor, setCurrencyFactor] = useState(
+    initial?.currencyFactor ?? 1
+  );
+  const [documentDate, setDocumentDate] = useState(
+    initial?.documentDate ? initial.documentDate.slice(0, 10) : ""
+  );
+  const [serviceDate, setServiceDate] = useState(
+    initial?.serviceDate ? initial.serviceDate.slice(0, 10) : ""
+  );
+  const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(
+    initial?.requestedDeliveryDate
+      ? initial.requestedDeliveryDate.slice(0, 10)
+      : ""
+  );
+  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState(
+    initial?.promisedDeliveryDate
+      ? initial.promisedDeliveryDate.slice(0, 10)
+      : ""
+  );
+  const [shipmentDate, setShipmentDate] = useState(
+    initial?.shipmentDate ? initial.shipmentDate.slice(0, 10) : ""
+  );
+  const [validityDate, setValidityDate] = useState(
+    initial?.validityDate ? initial.validityDate.slice(0, 10) : ""
+  );
+  const [dueDate, setDueDate] = useState(
+    initial?.dueDate ? initial.dueDate.slice(0, 10) : ""
+  );
 
   // sell-to
   const [sell, setSell] = useState({
@@ -897,8 +1102,12 @@ const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
   });
 
   // shipment
-  const [shipmentMethod, setShipmentMethod] = useState(initial?.shipmentMethod || "");
-  const [shipmentAgent, setShipmentAgent] = useState(initial?.shipmentAgent || "");
+  const [shipmentMethod, setShipmentMethod] = useState(
+    initial?.shipmentMethod || ""
+  );
+  const [shipmentAgent, setShipmentAgent] = useState(
+    initial?.shipmentAgent || ""
+  );
 
   // transport
   const [tr, setTr] = useState({
@@ -929,15 +1138,20 @@ const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
   const save = async (e) => {
     e.preventDefault();
     const errs = {};
-if (!documentNo.trim()) errs.documentNo = F.documentNo || "Document No. *";
-if (!sell.no)          errs.sellNo     = F.pickSell     || "Pick Sell-to Customer *";
-if (!bill.no)          errs.billNo     = F.pickBill     || "Pick Bill-to Customer *";
-
+    if (!documentNo.trim()) errs.documentNo = F.documentNo || "Document No. *";
+    if (!sell.no) errs.sellNo = F.pickSell || "Pick Sell-to Customer *";
+    if (!bill.no) errs.billNo = F.pickBill || "Pick Bill-to Customer *";
 
     if (Object.keys(errs).length) {
       setErrors(errs);
       setTab(
-        errs.documentNo ? "header" : errs.sellNo ? "sell" : errs.billNo ? "bill" : "header"
+        errs.documentNo
+          ? "header"
+          : errs.sellNo
+          ? "sell"
+          : errs.billNo
+          ? "bill"
+          : "header"
       );
       return;
     }
@@ -1018,18 +1232,20 @@ if (!bill.no)          errs.billNo     = F.pickBill     || "Pick Bill-to Custome
       brokerPhoneNo: br.phoneNo || null,
     };
     const nowIso = new Date().toISOString();
-const userCode = getUserCode();
+    const userCode = getUserCode();
 
-if (!isEdit) {
-  payload.userCreated = userCode;      // <— REQUIRED
-  payload.dateCreated = nowIso;        // <— optional if backend sets it
-} else {
-  payload.userModified = userCode;     // <— good practice
-  payload.dateModified = nowIso;       // <— optional if backend sets it
-}
+    if (!isEdit) {
+      payload.userCreated = userCode; // <— REQUIRED
+      payload.dateCreated = nowIso; // <— optional if backend sets it
+    } else {
+      payload.userModified = userCode; // <— good practice
+      payload.dateModified = nowIso; // <— optional if backend sets it
+    }
 
     try {
-      const url = isEdit ? `${API}/api/documents/${initial._id}` : `${API}/api/documents`;
+      const url = isEdit
+        ? `${API}/api/documents/${initial._id}`
+        : `${API}/api/documents`;
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, {
         method,
@@ -1050,15 +1266,14 @@ if (!isEdit) {
 
   // tabs
   const TABS = [
-    { id: "header",   label: TABS_L.header   || "Header",   Icon: FileText },
-    { id: "sell",     label: TABS_L.sell     || "Sell-to",  Icon: UserIcon },
-    { id: "bill",     label: TABS_L.bill     || "Bill-to",  Icon: UserIcon },
+    { id: "header", label: TABS_L.header || "Header", Icon: FileText },
+    { id: "sell", label: TABS_L.sell || "Sell-to", Icon: UserIcon },
+    { id: "bill", label: TABS_L.bill || "Bill-to", Icon: UserIcon },
     { id: "location", label: TABS_L.location || "Location", Icon: Building },
     { id: "shipment", label: TABS_L.shipment || "Shipment", Icon: Truck },
-    { id: "transport",label: TABS_L.transport|| "Transport",Icon: Ship },
-    { id: "broker",   label: TABS_L.broker   || "Broker",   Icon: UserIcon },
+    { id: "transport", label: TABS_L.transport || "Transport", Icon: Ship },
+    { id: "broker", label: TABS_L.broker || "Broker", Icon: UserIcon },
   ];
-
 
   // quick helper to copy customer to state
   const applyCustomer = (c, setter) => {
@@ -1079,9 +1294,7 @@ if (!isEdit) {
     }));
   };
 
-
-
-const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
+  const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 
   return (
     <form onSubmit={save} className="space-y-4">
@@ -1097,10 +1310,15 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
                 onClick={() => setTab(t.id)}
                 className={[
                   "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium",
-                  active ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200" : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
+                  active
+                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                 ].join(" ")}
               >
-                <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
+                <t.Icon
+                  size={16}
+                  className={active ? "opacity-80" : "opacity-60"}
+                />
                 {t.label}
               </button>
             );
@@ -1109,429 +1327,654 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
       </div>
 
       {/* error banner */}
-   {Object.keys(errors).length > 0 && (
-  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-    {ALERTS.fixErrors || "Please correct the highlighted fields."}
-  </div>
-)}
+      {Object.keys(errors).length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {ALERTS.fixErrors || "Please correct the highlighted fields."}
+        </div>
+      )}
 
-{/* HEADER */}
-{tab === "header" && (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-    <Field label={(F.documentNo || "Document No.") } icon={Hash} error={errors.documentNo}>
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={documentNo}
-        onChange={(e) => setDocumentNo(e.target.value)}
-        required
-      />
-    </Field>
+      {/* HEADER */}
+      {tab === "header" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field
+            label={F.documentNo || "Document No."}
+            icon={Hash}
+            error={errors.documentNo}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={documentNo}
+              onChange={(e) => setDocumentNo(e.target.value)}
+              required
+            />
+          </Field>
 
-    <Field label={F.status || "Status"} icon={FileText}>
-      <select
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={status}
-        onChange={(e) => setStatus(e.target.value)}
-      >
-        {STATUS_OPTIONS.map((s) => (
-          <option key={s} value={s}>{STATUS_MAP[s] || s}</option>
-        ))}
-      </select>
-    </Field>
+          <Field label={F.status || "Status"} icon={FileText}>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_MAP[s] || s}
+                </option>
+              ))}
+            </select>
+          </Field>
 
-    <Field label={F.externalDocumentNo || "External Doc. No."} icon={Hash}>
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={externalDocumentNo}
-        onChange={(e) => setExternalDocumentNo(e.target.value)}
-      />
-    </Field>
+          <Field
+            label={F.externalDocumentNo || "External Doc. No."}
+            icon={Hash}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={externalDocumentNo}
+              onChange={(e) => setExternalDocumentNo(e.target.value)}
+            />
+          </Field>
 
-    <Field label={F.documentInfo || "Document Info"} icon={FileText}>
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={documentInfo}
-        onChange={(e) => setDocumentInfo(e.target.value)}
-      />
-    </Field>
+          <Field label={F.documentInfo || "Document Info"} icon={FileText}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={documentInfo}
+              onChange={(e) => setDocumentInfo(e.target.value)}
+            />
+          </Field>
 
-    <Field label={F.currencyCode || "Currency Code"} icon={DollarSign}>
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={currencyCode}
-        onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
-      />
-    </Field>
+          <Field label={F.currencyCode || "Currency Code"} icon={DollarSign}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={currencyCode}
+              onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
+            />
+          </Field>
 
-    <Field label={F.currencyFactor || "Currency Factor"} icon={DollarSign}>
-      <input
-        type="number" step="0.0001"
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={currencyFactor}
-        onChange={(e) => setCurrencyFactor(e.target.value)}
-      />
-    </Field>
+          <Field
+            label={F.currencyFactor || "Currency Factor"}
+            icon={DollarSign}
+          >
+            <input
+              type="number"
+              step="0.0001"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={currencyFactor}
+              onChange={(e) => setCurrencyFactor(e.target.value)}
+            />
+          </Field>
 
-    <Field label={F.documentDate || "Document Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={documentDate} onChange={(e) => setDocumentDate(e.target.value)} />
-    </Field>
-    <Field label={F.serviceDate || "Service/Delivery Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
-    </Field>
-    <Field label={F.requestedDeliveryDate || "Requested Delivery Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={requestedDeliveryDate} onChange={(e) => setRequestedDeliveryDate(e.target.value)} />
-    </Field>
-    <Field label={F.promisedDeliveryDate || "Promised Delivery Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={promisedDeliveryDate} onChange={(e) => setPromisedDeliveryDate(e.target.value)} />
-    </Field>
-    <Field label={F.shipmentDate || "Shipment Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={shipmentDate} onChange={(e) => setShipmentDate(e.target.value)} />
-    </Field>
-    <Field label={F.validityDate || "Document Validity Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={validityDate} onChange={(e) => setValidityDate(e.target.value)} />
-    </Field>
-    <Field label={F.dueDate || "Due Date"} icon={CalendarIcon}>
-      <input type="date" className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-    </Field>
-  </div>
-)}
+          <Field label={F.documentDate || "Document Date"} icon={CalendarIcon}>
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={documentDate}
+              onChange={(e) => setDocumentDate(e.target.value)}
+            />
+          </Field>
+          <Field
+            label={F.serviceDate || "Service/Delivery Date"}
+            icon={CalendarIcon}
+          >
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+            />
+          </Field>
+          <Field
+            label={F.requestedDeliveryDate || "Requested Delivery Date"}
+            icon={CalendarIcon}
+          >
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={requestedDeliveryDate}
+              onChange={(e) => setRequestedDeliveryDate(e.target.value)}
+            />
+          </Field>
+          <Field
+            label={F.promisedDeliveryDate || "Promised Delivery Date"}
+            icon={CalendarIcon}
+          >
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={promisedDeliveryDate}
+              onChange={(e) => setPromisedDeliveryDate(e.target.value)}
+            />
+          </Field>
+          <Field label={F.shipmentDate || "Shipment Date"} icon={CalendarIcon}>
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={shipmentDate}
+              onChange={(e) => setShipmentDate(e.target.value)}
+            />
+          </Field>
+          <Field
+            label={F.validityDate || "Document Validity Date"}
+            icon={CalendarIcon}
+          >
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={validityDate}
+              onChange={(e) => setValidityDate(e.target.value)}
+            />
+          </Field>
+          <Field label={F.dueDate || "Due Date"} icon={CalendarIcon}>
+            <input
+              type="date"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
 
-{/* SELL-TO */}
-{tab === "sell" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label={(F.pickSell || "Pick Sell-to Customer")} icon={IdCard} error={errors.sellNo}>
-      <CustomerCombobox
-        valueNo={sell.no}
-        onPick={(c) => applyCustomer(c, setSell)}
-        excludeId={null}
-        placeholder={F.pickSell || "Search customer no./name…"}
-      />
-    </Field>
-    <Field label={F.no || "No."} icon={IdCard}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.no} onChange={(e) => setSell({ ...sell, no: e.target.value })}/>
-    </Field>
+      {/* SELL-TO */}
+      {tab === "sell" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field
+            label={F.pickSell || "Pick Sell-to Customer"}
+            icon={IdCard}
+            error={errors.sellNo}
+          >
+            <CustomerCombobox
+              valueNo={sell.no}
+              onPick={(c) => applyCustomer(c, setSell)}
+              excludeId={null}
+              placeholder={F.pickSell || "Search customer no./name…"}
+            />
+          </Field>
+          <Field label={F.no || "No."} icon={IdCard}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.no}
+              onChange={(e) => setSell({ ...sell, no: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.name || "Name"} icon={UserIcon}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.name} onChange={(e) => setSell({ ...sell, name: e.target.value })}/>
-    </Field>
-    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.name2} onChange={(e) => setSell({ ...sell, name2: e.target.value })}/>
-    </Field>
+          <Field label={F.name || "Name"} icon={UserIcon}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.name}
+              onChange={(e) => setSell({ ...sell, name: e.target.value })}
+            />
+          </Field>
+          <Field label={F.name2 || "Name 2"} icon={UserIcon}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.name2}
+              onChange={(e) => setSell({ ...sell, name2: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.email || "Email"} icon={Mail}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.email} onChange={(e) => setSell({ ...sell, email: e.target.value })}/>
-    </Field>
-    <Field label={F.phone || "Phone"} icon={PhoneCall}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.phoneNo} onChange={(e) => setSell({ ...sell, phoneNo: e.target.value })}/>
-    </Field>
+          <Field label={F.email || "Email"} icon={Mail}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.email}
+              onChange={(e) => setSell({ ...sell, email: e.target.value })}
+            />
+          </Field>
+          <Field label={F.phone || "Phone"} icon={PhoneCall}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.phoneNo}
+              onChange={(e) => setSell({ ...sell, phoneNo: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.address || "Address"} icon={Building}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.address} onChange={(e) => setSell({ ...sell, address: e.target.value })}/>
-    </Field>
-    <Field label={F.address2 || "Address 2"} icon={Building}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.address2} onChange={(e) => setSell({ ...sell, address2: e.target.value })}/>
-    </Field>
+          <Field label={F.address || "Address"} icon={Building}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.address}
+              onChange={(e) => setSell({ ...sell, address: e.target.value })}
+            />
+          </Field>
+          <Field label={F.address2 || "Address 2"} icon={Building}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.address2}
+              onChange={(e) => setSell({ ...sell, address2: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.city || "City"} icon={MapPin}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.city} onChange={(e) => setSell({ ...sell, city: e.target.value })}/>
-    </Field>
-    <Field label={F.region || "Region"} icon={MapPin}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.region} onChange={(e) => setSell({ ...sell, region: e.target.value })}/>
-    </Field>
+          <Field label={F.city || "City"} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.city}
+              onChange={(e) => setSell({ ...sell, city: e.target.value })}
+            />
+          </Field>
+          <Field label={F.region || "Region"} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.region}
+              onChange={(e) => setSell({ ...sell, region: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.postCode || "Post Code"} icon={Hash}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.postCode} onChange={(e) => setSell({ ...sell, postCode: e.target.value })}/>
-    </Field>
-    <Field label={F.country || "Country"} icon={Globe}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2"
-             value={sell.country} onChange={(e) => setSell({ ...sell, country: e.target.value.toUpperCase() })}/>
-    </Field>
-  </div>
-)}
+          <Field label={F.postCode || "Post Code"} icon={Hash}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.postCode}
+              onChange={(e) => setSell({ ...sell, postCode: e.target.value })}
+            />
+          </Field>
+          <Field label={F.country || "Country"} icon={Globe}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={sell.country}
+              onChange={(e) =>
+                setSell({ ...sell, country: e.target.value.toUpperCase() })
+              }
+            />
+          </Field>
+        </div>
+      )}
 
+      {/* BILL-TO */}
+      {tab === "bill" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field
+            label={F.pickBill || "Pick Bill-to Customer"}
+            icon={IdCard}
+            error={errors.billNo}
+          >
+            <CustomerCombobox
+              valueNo={bill.no}
+              onPick={(c) => applyCustomer(c, setBill)}
+              excludeId={null}
+              placeholder={F.pickBill || "Search customer no./name…"}
+            />
+          </Field>
+          <Field label={F.no || "No."} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={bill.no}
+              onChange={(e) => setBill({ ...bill, no: e.target.value })}
+            />
+          </Field>
 
+          <Field label={F.nip || "Tax ID"} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={bill.nip}
+              onChange={(e) => setBill({ ...bill, nip: e.target.value })}
+            />
+          </Field>
+          <Field label={F.name || "Name"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={bill.name}
+              onChange={(e) => setBill({ ...bill, name: e.target.value })}
+            />
+          </Field>
 
-{/* BILL-TO */}
-{tab === "bill" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label={(F.pickBill || "Pick Bill-to Customer")} icon={IdCard} error={errors.billNo}>
-      <CustomerCombobox
-        valueNo={bill.no}
-        onPick={(c) => applyCustomer(c, setBill)}
-        excludeId={null}
-        placeholder={F.pickBill || "Search customer no./name…"}
-      />
-    </Field>
-    <Field label={F.no || "No."} icon={IdCard}>
-      <input className={INPUT_CLS} value={bill.no}
-             onChange={(e) => setBill({ ...bill, no: e.target.value })}/>
-    </Field>
+          <Field label={F.name2 || "Name 2"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={bill.name2}
+              onChange={(e) => setBill({ ...bill, name2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.email || "Email"} icon={Mail}>
+            <input
+              className={INPUT_CLS}
+              value={bill.email}
+              onChange={(e) => setBill({ ...bill, email: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.nip || "Tax ID"} icon={Hash}>
-      <input className={INPUT_CLS} value={bill.nip}
-             onChange={(e) => setBill({ ...bill, nip: e.target.value })}/>
-    </Field>
-    <Field label={F.name || "Name"} icon={UserIcon}>
-      <input className={INPUT_CLS} value={bill.name}
-             onChange={(e) => setBill({ ...bill, name: e.target.value })}/>
-    </Field>
+          <Field label={F.phone || "Phone"} icon={PhoneCall}>
+            <input
+              className={INPUT_CLS}
+              value={bill.phoneNo}
+              onChange={(e) => setBill({ ...bill, phoneNo: e.target.value })}
+            />
+          </Field>
+          <Field label={F.address || "Address"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={bill.address}
+              onChange={(e) => setBill({ ...bill, address: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
-      <input className={INPUT_CLS} value={bill.name2}
-             onChange={(e) => setBill({ ...bill, name2: e.target.value })}/>
-    </Field>
-    <Field label={F.email || "Email"} icon={Mail}>
-      <input className={INPUT_CLS} value={bill.email}
-             onChange={(e) => setBill({ ...bill, email: e.target.value })}/>
-    </Field>
+          <Field label={F.address2 || "Address 2"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={bill.address2}
+              onChange={(e) => setBill({ ...bill, address2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.city || "City"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={bill.city}
+              onChange={(e) => setBill({ ...bill, city: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.phone || "Phone"} icon={PhoneCall}>
-      <input className={INPUT_CLS} value={bill.phoneNo}
-             onChange={(e) => setBill({ ...bill, phoneNo: e.target.value })}/>
-    </Field>
-    <Field label={F.address || "Address"} icon={Building}>
-      <input className={INPUT_CLS} value={bill.address}
-             onChange={(e) => setBill({ ...bill, address: e.target.value })}/>
-    </Field>
+          <Field label={F.region || "Region"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={bill.region}
+              onChange={(e) => setBill({ ...bill, region: e.target.value })}
+            />
+          </Field>
+          <Field label={F.postCode || "Post Code"} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={bill.postCode}
+              onChange={(e) => setBill({ ...bill, postCode: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.address2 || "Address 2"} icon={Building}>
-      <input className={INPUT_CLS} value={bill.address2}
-             onChange={(e) => setBill({ ...bill, address2: e.target.value })}/>
-    </Field>
-    <Field label={F.city || "City"} icon={MapPin}>
-      <input className={INPUT_CLS} value={bill.city}
-             onChange={(e) => setBill({ ...bill, city: e.target.value })}/>
-    </Field>
+          <Field label={F.country || "Country"} icon={Globe}>
+            <input
+              className={INPUT_CLS}
+              value={bill.country}
+              onChange={(e) =>
+                setBill({ ...bill, country: e.target.value.toUpperCase() })
+              }
+            />
+          </Field>
+        </div>
+      )}
 
-    <Field label={F.region || "Region"} icon={MapPin}>
-      <input className={INPUT_CLS} value={bill.region}
-             onChange={(e) => setBill({ ...bill, region: e.target.value })}/>
-    </Field>
-    <Field label={F.postCode || "Post Code"} icon={Hash}>
-      <input className={INPUT_CLS} value={bill.postCode}
-             onChange={(e) => setBill({ ...bill, postCode: e.target.value })}/>
-    </Field>
+      {/* LOCATION */}
+      {tab === "location" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={F.locationNo || "Location No."} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={loc.no}
+              onChange={(e) => setLoc({ ...loc, no: e.target.value })}
+            />
+          </Field>
+          <Field label={F.name || "Name"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={loc.name}
+              onChange={(e) => setLoc({ ...loc, name: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.country || "Country"} icon={Globe}>
-      <input className={INPUT_CLS} value={bill.country}
-             onChange={(e) => setBill({ ...bill, country: e.target.value.toUpperCase() })}/>
-    </Field>
-  </div>
-)}
+          <Field label={F.name2 || "Name 2"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={loc.name2}
+              onChange={(e) => setLoc({ ...loc, name2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.address || "Address"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={loc.address}
+              onChange={(e) => setLoc({ ...loc, address: e.target.value })}
+            />
+          </Field>
 
+          <Field label={F.address2 || "Address 2"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={loc.address2}
+              onChange={(e) => setLoc({ ...loc, address2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.city || "City"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={loc.city}
+              onChange={(e) => setLoc({ ...loc, city: e.target.value })}
+            />
+          </Field>
 
-{/* LOCATION */}
-{tab === "location" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label={F.locationNo || "Location No."} icon={IdCard}>
-      <input className={INPUT_CLS} value={loc.no}
-             onChange={(e) => setLoc({ ...loc, no: e.target.value })}/>
-    </Field>
-    <Field label={F.name || "Name"} icon={Building}>
-      <input className={INPUT_CLS} value={loc.name}
-             onChange={(e) => setLoc({ ...loc, name: e.target.value })}/>
-    </Field>
+          <Field label={F.region || "Region"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={loc.region}
+              onChange={(e) => setLoc({ ...loc, region: e.target.value })}
+            />
+          </Field>
+          <Field label={F.postCode || "Post Code"} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={loc.postCode}
+              onChange={(e) => setLoc({ ...loc, postCode: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.name2 || "Name 2"} icon={Building}>
-      <input className={INPUT_CLS} value={loc.name2}
-             onChange={(e) => setLoc({ ...loc, name2: e.target.value })}/>
-    </Field>
-    <Field label={F.address || "Address"} icon={Building}>
-      <input className={INPUT_CLS} value={loc.address}
-             onChange={(e) => setLoc({ ...loc, address: e.target.value })}/>
-    </Field>
+          <Field label={F.country || "Country"} icon={Globe}>
+            <input
+              className={INPUT_CLS}
+              value={loc.country}
+              onChange={(e) =>
+                setLoc({ ...loc, country: e.target.value.toUpperCase() })
+              }
+            />
+          </Field>
+          <Field label={F.email || "Email"} icon={Mail}>
+            <input
+              className={INPUT_CLS}
+              value={loc.email}
+              onChange={(e) => setLoc({ ...loc, email: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.address2 || "Address 2"} icon={Building}>
-      <input className={INPUT_CLS} value={loc.address2}
-             onChange={(e) => setLoc({ ...loc, address2: e.target.value })}/>
-    </Field>
-    <Field label={F.city || "City"} icon={MapPin}>
-      <input className={INPUT_CLS} value={loc.city}
-             onChange={(e) => setLoc({ ...loc, city: e.target.value })}/>
-    </Field>
+          <Field label={F.phone || "Phone"} icon={PhoneCall}>
+            <input
+              className={INPUT_CLS}
+              value={loc.phoneNo}
+              onChange={(e) => setLoc({ ...loc, phoneNo: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
 
-    <Field label={F.region || "Region"} icon={MapPin}>
-      <input className={INPUT_CLS} value={loc.region}
-             onChange={(e) => setLoc({ ...loc, region: e.target.value })}/>
-    </Field>
-    <Field label={F.postCode || "Post Code"} icon={Hash}>
-      <input className={INPUT_CLS} value={loc.postCode}
-             onChange={(e) => setLoc({ ...loc, postCode: e.target.value })}/>
-    </Field>
+      {/* SHIPMENT */}
+      {tab === "shipment" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={F.shipmentMethod || "Shipment Method"} icon={Truck}>
+            <input
+              className={INPUT_CLS}
+              value={shipmentMethod}
+              onChange={(e) => setShipmentMethod(e.target.value)}
+            />
+          </Field>
+          <Field label={F.shipmentAgent || "Shipment Agent"} icon={Ship}>
+            <input
+              className={INPUT_CLS}
+              value={shipmentAgent}
+              onChange={(e) => setShipmentAgent(e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
 
-    <Field label={F.country || "Country"} icon={Globe}>
-      <input className={INPUT_CLS} value={loc.country}
-             onChange={(e) => setLoc({ ...loc, country: e.target.value.toUpperCase() })}/>
-    </Field>
-    <Field label={F.email || "Email"} icon={Mail}>
-      <input className={INPUT_CLS} value={loc.email}
-             onChange={(e) => setLoc({ ...loc, email: e.target.value })}/>
-    </Field>
+      {/* TRANSPORT */}
+      {tab === "transport" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={F.transportNo || "Transport No."} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={tr.no}
+              onChange={(e) => setTr({ ...tr, no: e.target.value })}
+            />
+          </Field>
+          <Field label={F.transportName || "Transport Name"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={tr.name}
+              onChange={(e) => setTr({ ...tr, name: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.phone || "Phone"} icon={PhoneCall}>
-      <input className={INPUT_CLS} value={loc.phoneNo}
-             onChange={(e) => setLoc({ ...loc, phoneNo: e.target.value })}/>
-    </Field>
-  </div>
-)}
+          <Field label={F.transportId || "Transport ID"} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={tr.id}
+              onChange={(e) => setTr({ ...tr, id: e.target.value })}
+            />
+          </Field>
+          <Field label={F.driverName || "Driver Name"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={tr.dName}
+              onChange={(e) => setTr({ ...tr, dName: e.target.value })}
+            />
+          </Field>
 
+          <Field label={F.driverId || "Driver ID"} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={tr.dId}
+              onChange={(e) => setTr({ ...tr, dId: e.target.value })}
+            />
+          </Field>
+          <Field label={F.driverEmail || "Driver Email"} icon={Mail}>
+            <input
+              className={INPUT_CLS}
+              value={tr.dEmail}
+              onChange={(e) => setTr({ ...tr, dEmail: e.target.value })}
+            />
+          </Field>
 
+          <Field label={F.driverPhone || "Driver Phone"} icon={PhoneCall}>
+            <input
+              className={INPUT_CLS}
+              value={tr.dPhone}
+              onChange={(e) => setTr({ ...tr, dPhone: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
 
-{/* SHIPMENT */}
-{tab === "shipment" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label={F.shipmentMethod || "Shipment Method"} icon={Truck}>
-      <input className={INPUT_CLS} value={shipmentMethod}
-             onChange={(e) => setShipmentMethod(e.target.value)}/>
-    </Field>
-    <Field label={F.shipmentAgent || "Shipment Agent"} icon={Ship}>
-      <input className={INPUT_CLS} value={shipmentAgent}
-             onChange={(e) => setShipmentAgent(e.target.value)}/>
-    </Field>
-  </div>
-)}
+      {/* BROKER */}
+      {tab === "broker" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={TABS_L.broker || "Broker"} icon={IdCard}>
+            <CustomerCombobox
+              valueNo={br.no}
+              onPick={(c) => applyCustomer(c, setBr)}
+              excludeId={null}
+              placeholder={F.brokerNo || "Search broker no./name…"}
+            />
+          </Field>
+          <div />
 
+          <Field label={F.brokerNo || "Broker No."} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={br.no}
+              onChange={(e) => setBr({ ...br, no: e.target.value })}
+            />
+          </Field>
+          <Field label={F.name || "Name"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={br.name}
+              onChange={(e) => setBr({ ...br, name: e.target.value })}
+            />
+          </Field>
 
+          <Field label={F.name2 || "Name 2"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={br.name2}
+              onChange={(e) => setBr({ ...br, name2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.address || "Address"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={br.address}
+              onChange={(e) => setBr({ ...br, address: e.target.value })}
+            />
+          </Field>
 
-{/* TRANSPORT */}
-{tab === "transport" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label={F.transportNo || "Transport No."} icon={IdCard}>
-      <input className={INPUT_CLS} value={tr.no}
-             onChange={(e) => setTr({ ...tr, no: e.target.value })}/>
-    </Field>
-    <Field label={F.transportName || "Transport Name"} icon={UserIcon}>
-      <input className={INPUT_CLS} value={tr.name}
-             onChange={(e) => setTr({ ...tr, name: e.target.value })}/>
-    </Field>
+          <Field label={F.address2 || "Address 2"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={br.address2}
+              onChange={(e) => setBr({ ...br, address2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.city || "City"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={br.city}
+              onChange={(e) => setBr({ ...br, city: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.transportId || "Transport ID"} icon={IdCard}>
-      <input className={INPUT_CLS} value={tr.id}
-             onChange={(e) => setTr({ ...tr, id: e.target.value })}/>
-    </Field>
-    <Field label={F.driverName || "Driver Name"} icon={UserIcon}>
-      <input className={INPUT_CLS} value={tr.dName}
-             onChange={(e) => setTr({ ...tr, dName: e.target.value })}/>
-    </Field>
+          <Field label={F.region || "Region"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={br.region}
+              onChange={(e) => setBr({ ...br, region: e.target.value })}
+            />
+          </Field>
+          <Field label={F.postCode || "Post Code"} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={br.postCode}
+              onChange={(e) => setBr({ ...br, postCode: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.driverId || "Driver ID"} icon={IdCard}>
-      <input className={INPUT_CLS} value={tr.dId}
-             onChange={(e) => setTr({ ...tr, dId: e.target.value })}/>
-    </Field>
-    <Field label={F.driverEmail || "Driver Email"} icon={Mail}>
-      <input className={INPUT_CLS} value={tr.dEmail}
-             onChange={(e) => setTr({ ...tr, dEmail: e.target.value })}/>
-    </Field>
+          <Field label={F.country || "Country"} icon={Globe}>
+            <input
+              className={INPUT_CLS}
+              value={br.country}
+              onChange={(e) =>
+                setBr({ ...br, country: e.target.value.toUpperCase() })
+              }
+            />
+          </Field>
+          <Field label={F.email || "Email"} icon={Mail}>
+            <input
+              className={INPUT_CLS}
+              value={br.email}
+              onChange={(e) => setBr({ ...br, email: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.driverPhone || "Driver Phone"} icon={PhoneCall}>
-      <input className={INPUT_CLS} value={tr.dPhone}
-             onChange={(e) => setTr({ ...tr, dPhone: e.target.value })}/>
-    </Field>
-  </div>
-)}
+          <Field label={F.phone || "Phone"} icon={PhoneCall}>
+            <input
+              className={INPUT_CLS}
+              value={br.phoneNo}
+              onChange={(e) => setBr({ ...br, phoneNo: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
 
+      {Object.keys(errors).length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {ALERTS.fixErrors || "Please correct the highlighted fields."}
+        </div>
+      )}
 
-{/* BROKER */}
-{tab === "broker" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field label={TABS_L.broker || "Broker"} icon={IdCard}>
-      <CustomerCombobox
-        valueNo={br.no}
-        onPick={(c) => applyCustomer(c, setBr)}
-        excludeId={null}
-        placeholder={F.brokerNo || "Search broker no./name…"}
-      />
-    </Field>
-    <div />
-
-    <Field label={F.brokerNo || "Broker No."} icon={IdCard}>
-      <input className={INPUT_CLS} value={br.no}
-             onChange={(e) => setBr({ ...br, no: e.target.value })}/>
-    </Field>
-    <Field label={F.name || "Name"} icon={UserIcon}>
-      <input className={INPUT_CLS} value={br.name}
-             onChange={(e) => setBr({ ...br, name: e.target.value })}/>
-    </Field>
-
-    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
-      <input className={INPUT_CLS} value={br.name2}
-             onChange={(e) => setBr({ ...br, name2: e.target.value })}/>
-    </Field>
-    <Field label={F.address || "Address"} icon={Building}>
-      <input className={INPUT_CLS} value={br.address}
-             onChange={(e) => setBr({ ...br, address: e.target.value })}/>
-    </Field>
-
-    <Field label={F.address2 || "Address 2"} icon={Building}>
-      <input className={INPUT_CLS} value={br.address2}
-             onChange={(e) => setBr({ ...br, address2: e.target.value })}/>
-    </Field>
-    <Field label={F.city || "City"} icon={MapPin}>
-      <input className={INPUT_CLS} value={br.city}
-             onChange={(e) => setBr({ ...br, city: e.target.value })}/>
-    </Field>
-
-    <Field label={F.region || "Region"} icon={MapPin}>
-      <input className={INPUT_CLS} value={br.region}
-             onChange={(e) => setBr({ ...br, region: e.target.value })}/>
-    </Field>
-    <Field label={F.postCode || "Post Code"} icon={Hash}>
-      <input className={INPUT_CLS} value={br.postCode}
-             onChange={(e) => setBr({ ...br, postCode: e.target.value })}/>
-    </Field>
-
-    <Field label={F.country || "Country"} icon={Globe}>
-      <input className={INPUT_CLS} value={br.country}
-             onChange={(e) => setBr({ ...br, country: e.target.value.toUpperCase() })}/>
-    </Field>
-    <Field label={F.email || "Email"} icon={Mail}>
-      <input className={INPUT_CLS} value={br.email}
-             onChange={(e) => setBr({ ...br, email: e.target.value })}/>
-    </Field>
-
-    <Field label={F.phone || "Phone"} icon={PhoneCall}>
-      <input className={INPUT_CLS} value={br.phoneNo}
-             onChange={(e) => setBr({ ...br, phoneNo: e.target.value })}/>
-    </Field>
-  </div>
-)}
-
-
-
-
-{Object.keys(errors).length > 0 && (
-  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-    {ALERTS.fixErrors || "Please correct the highlighted fields."}
-  </div>
-)}
-
-<div className="flex justify-end gap-2 pt-2">
-  <button type="button" onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
-    {M.cancel || "Cancel"}
-  </button>
-  <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-    {isEdit ? (M.save || "Save changes") : (M.add || "Create document")}
-  </button>
-</div>
-
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+        >
+          {M.cancel || "Cancel"}
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
+          {isEdit ? M.save || "Save changes" : M.add || "Create document"}
+        </button>
+      </div>
     </form>
   );
 }
@@ -1539,7 +1982,11 @@ const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 /* ===================== UI helpers ===================== */
 
 function Th({ children, className = "" }) {
-  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+  return (
+    <th className={`text-left px-4 py-3 font-medium ${className}`}>
+      {children}
+    </th>
+  );
 }
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
@@ -1551,6 +1998,16 @@ function formatDate(s, locale, dash = "—") {
     return s || dash;
   }
 }
+
+function fmtDOT(n, decimals = 2) {
+  const val = Number(n);
+  if (!isFinite(val)) return "—";
+  return val.toLocaleString("de-DE", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  });
+}
 function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
@@ -1558,31 +2015,59 @@ function Toast({ type = "success", children, onClose }) {
     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
     : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
+        ✕
+      </button>
     </div>
   );
 }
 function StatusBadge({ value, map }) {
-  const v = canonStatus(value || "new");          // normalize first
+  const v = canonStatus(value || "new"); // normalize first
   const label = (map && map[v]) || STATUS_LABELS[v] || v;
   const cls =
-    v === "new"        ? "bg-slate-50 text-slate-700 border-slate-200" :
-    v === "on-hold"    ? "bg-amber-50 text-amber-700 border-amber-200" :
-    v === "accepted"   ? "bg-sky-50 text-sky-700 border-sky-200" :
-    v === "approved"   ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-    v === "matched"    ? "bg-indigo-50 text-indigo-700 border-indigo-200" :
-    v === "shipped"    ? "bg-purple-50 text-purple-700 border-purple-200" :
-    v === "invoiced"   ? "bg-blue-50 text-blue-700 border-blue-200" :
-    v === "paid"       ? "bg-teal-50 text-teal-700 border-teal-200" :
-    v === "canceled"   ? "bg-red-50 text-red-700 border-red-200" :
-                         "bg-slate-100 text-slate-700 border-slate-300";
+    v === "new"
+      ? "bg-slate-50 text-slate-700 border-slate-200"
+      : v === "on-hold"
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : v === "accepted"
+      ? "bg-sky-50 text-sky-700 border-sky-200"
+      : v === "approved"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : v === "matched"
+      ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+      : v === "shipped"
+      ? "bg-purple-50 text-purple-700 border-purple-200"
+      : v === "invoiced"
+      ? "bg-blue-50 text-blue-700 border-blue-200"
+      : v === "paid"
+      ? "bg-teal-50 text-teal-700 border-teal-200"
+      : v === "canceled"
+      ? "bg-red-50 text-red-700 border-red-200"
+      : "bg-slate-100 text-slate-700 border-slate-300";
 
-  return <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>{label}</span>;
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+      {label}
+    </span>
+  );
 }
 
+// Format numbers like "2 000 000,00" (space thousands, comma decimals)
+function fmtPL(n, decimals = 2) {
+  const val = Number(n || 0);
+  return val
+    .toLocaleString("pl-PL", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+      useGrouping: true,
+    })
+    .replace(/\u00A0/g, " "); // normalize NBSP to regular spaces
+}
 
 function KV({ label, icon: Icon, children }) {
   return (
@@ -1620,7 +2105,12 @@ function Field({ label, icon: Icon, error, children }) {
         {label}
       </div>
       <div className="relative">
-        {Icon && <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />}
+        {Icon && (
+          <Icon
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          />
+        )}
         {child}
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
