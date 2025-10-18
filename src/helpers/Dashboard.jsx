@@ -9,9 +9,12 @@ import {
   ShoppingCart,
   Coins,
   Shield,
-  Check,
+  Truck,
+  MapPin,
   Mail,
   Bell,
+  SlidersHorizontal,
+  BadgeCheck,
 } from "lucide-react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
@@ -24,7 +27,18 @@ import Sell from "../pages/Sell";
 import Exchange from "../pages/Exchange";
 import UsersPage from "../pages/Users";
 import LanguageSwitcher from "./LanguageSwitcher";
+import Locations from "../pages/Locations";
+import Transports from "../pages/Transports";
+import DefaultTransports from "../pages/DefaultTransports";
+import DefaultLocations from "../pages/DefaultLocations"; 
 import { useI18n } from "./i18n";
+
+// Helper: title-case fallback labels and strip underscores
+const toTitle = (s) => s.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+const labelize = (t, key) => {
+  const raw = t?.menu?.[key] ?? key;
+  return toTitle(String(raw).replace(/_/g, " "));
+};
 
 const HEADER_ICONS = {
   EXCHANGE: ArrowLeftRight,
@@ -34,6 +48,11 @@ const HEADER_ICONS = {
   BUY: ShoppingCart,
   SELL: Coins,
   USERS: UsersIcon,
+  LOCATIONS: MapPin,
+  TRANSPORTS: Truck,
+  PARAMETERS: SlidersHorizontal,
+  DEFAULT_TRANSPORTS: BadgeCheck,
+  DEFAULT_LOCATIONS: BadgeCheck, 
 };
 
 const PATH_TO_KEY = {
@@ -44,6 +63,11 @@ const PATH_TO_KEY = {
   "/app/vendors": "VENDORS",
   "/app/buy": "BUY",
   "/app/sell": "SELL",
+  "/app/locations": "LOCATIONS",
+  "/app/transports": "TRANSPORTS",
+   "/app/parameters": "PARAMETERS",
+  "/app/default-transports": "DEFAULT_TRANSPORTS",
+  "/app/default-locations": "DEFAULT_LOCATIONS",
 };
 
 function useActiveKey() {
@@ -81,7 +105,6 @@ export default function Dashboard({ onLogout }) {
     return (base.slice(0, 2) || "U").toUpperCase();
   }, [email]);
 
-  // modern soft colors per role (no borders)
   const roleChipClasses =
     {
       admin: "bg-amber-500/15 text-amber-800",
@@ -90,7 +113,6 @@ export default function Dashboard({ onLogout }) {
       viewer: "bg-slate-500/15 text-slate-800",
     }[role] || "bg-slate-500/15 text-slate-800";
 
-  // live date and time
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
@@ -147,22 +169,16 @@ export default function Dashboard({ onLogout }) {
             <div className="flex items-center gap-2">
               <Icon size={18} className="text-slate-500" />
               <h1 className="text-lg font-semibold tracking-wide">
-                {t.menu[active]}
+                {labelize(t, active)}
               </h1>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* User chip without email, with date/time, email & notification icons */}
-            <div
-              className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100/70 backdrop-blur px-3 py-1.5 max-w-[520px] shadow-sm hover:shadow transition"
-            >
-              {/* avatar */}
+            <div className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100/70 backdrop-blur px-3 py-1.5 max-w-[520px] shadow-sm hover:shadow transition">
               <div className="grid place-items-center h-7 w-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700 text-[11px] font-bold shrink-0">
                 {initials}
               </div>
-
-              {/* role + date/time */}
               <span
                 className={`inline-flex items-center gap-2 text-[11px] px-2 py-0.5 rounded-full ${roleChipClasses} whitespace-nowrap`}
               >
@@ -172,26 +188,18 @@ export default function Dashboard({ onLogout }) {
                   {now.toLocaleDateString()} {now.toLocaleTimeString()}
                 </span>
               </span>
-
-
-
-              {/* email icon */}
               <Mail
                 size={16}
                 className="text-slate-600 cursor-pointer hover:text-slate-800 transition"
+                onClick={copyEmail}
+                title={copied ? "Copied!" : "Copy email"}
               />
-
-              {/* notification icon */}
               <Bell
                 size={16}
                 className="text-slate-600 cursor-pointer hover:text-slate-800 transition"
               />
-
-              {/* presence dot */}
               <span className="ml-1 h-2 w-2 rounded-full bg-emerald-500/80 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" />
             </div>
-
-            {/* Language flags */}
             <LanguageSwitcher />
           </div>
         </header>
@@ -203,7 +211,11 @@ export default function Dashboard({ onLogout }) {
             <Route path="customers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="items" element={<Items />} />
+            <Route path="locations" element={<Locations />} />
             <Route path="parameters" element={<Parameters />} />
+            <Route path="transports" element={<Transports />} />
+            <Route path="default-transports" element={<DefaultTransports />} />
+            <Route path="default-locations" element={<DefaultLocations />} /> {/* <-- ADD THIS */}
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
             <Route path="sell" element={<Sell />} />

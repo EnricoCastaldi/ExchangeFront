@@ -1,5 +1,5 @@
 // src/helpers/Sidebar.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Users,
   Sprout,
@@ -12,18 +12,57 @@ import {
   PanelLeft,
   PanelRight,
   SlidersHorizontal,
+  MapPin,
+  Truck,
+  BadgeCheck,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
 import { useI18n } from "./i18n";
 
-/** Flat menu registry (for reuse inside groups) */
+/** Flat menu registry */
 const MENU_REGISTRY = {
   EXCHANGE: { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
+
   CUSTOMERS: { key: "CUSTOMERS", icon: Users, to: "/app/customers" },
   VENDORS: { key: "VENDORS", icon: Building2, to: "/app/vendors" },
   USERS: { key: "USERS", icon: UserCog, to: "/app/users" },
   ITEM: { key: "ITEM", icon: Sprout, to: "/app/items" },
+
+  // Parents (toggle only if they have children)
+  LOCATIONS: { key: "LOCATIONS", icon: MapPin, to: "/app/locations" },
+  TRANSPORTS: { key: "TRANSPORTS", icon: Truck, to: "/app/transports" },
+
+  // Submenu entries (main + default) for Locations
+  LOCATIONS_MAIN: {
+    key: "LOCATIONS_MAIN",
+    icon: MapPin,
+    to: "/app/locations",
+    parent: "LOCATIONS",
+  },
+  DEFAULT_LOCATIONS: {
+    key: "DEFAULT_LOCATIONS",
+    icon: BadgeCheck,
+    to: "/app/default-locations",
+    parent: "LOCATIONS",
+  },
+
+  // Submenu entries (main + default) for Transports
+  TRANSPORTS_MAIN: {
+    key: "TRANSPORTS_MAIN",
+    icon: Truck,
+    to: "/app/transports",
+    parent: "TRANSPORTS",
+  },
+  DEFAULT_TRANSPORTS: {
+    key: "DEFAULT_TRANSPORTS",
+    icon: BadgeCheck,
+    to: "/app/default-transports",
+    parent: "TRANSPORTS",
+  },
+
   PARAMETERS: { key: "PARAMETERS", icon: SlidersHorizontal, to: "/app/parameters" },
   BUY: { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
   SELL: { key: "SELL", icon: Coins, to: "/app/sell" },
@@ -31,32 +70,38 @@ const MENU_REGISTRY = {
 
 /** Grouping logic (order matters) */
 const GROUPS = [
-  {
-    key: "CORE",
-    titleKey: "CORE",
-    items: ["EXCHANGE"],
-  },
+  { key: "CORE", titleKey: "CORE", items: ["EXCHANGE"] },
   {
     key: "DATA",
     titleKey: "DATA",
-    items: ["CUSTOMERS", "VENDORS", "ITEM", "PARAMETERS"],
+    items: [
+      "CUSTOMERS",
+      "VENDORS",
+      "ITEM",
+
+      // Parent + submenu entries
+      "LOCATIONS",
+      "LOCATIONS_MAIN",
+      "DEFAULT_LOCATIONS",
+
+      // Parent + submenu entries
+      "TRANSPORTS",
+      "TRANSPORTS_MAIN",
+      "DEFAULT_TRANSPORTS",
+
+      "PARAMETERS",
+    ],
   },
-  {
-    key: "TRADING",
-    titleKey: "TRADING",
-    items: ["BUY", "SELL"],
-  },
-  {
-    key: "ADMIN",
-    titleKey: "ADMIN",
-    items: ["USERS"],
-  },
+  { key: "TRADING", titleKey: "TRADING", items: ["BUY", "SELL"] },
+  { key: "ADMIN", titleKey: "ADMIN", items: ["USERS"] },
 ];
 
 export default function Sidebar({ onLogout }) {
   const { t } = useI18n();
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  // Desktop collapsed state (persisted in localStorage)
+  // Collapsed state (persisted)
   const [collapsed, setCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved === "true";
@@ -66,7 +111,20 @@ export default function Sidebar({ onLogout }) {
   }, [collapsed]);
   const toggleDesktop = () => setCollapsed((c) => !c);
 
-  // Provide localized section titles with fallbacks
+  // Open submenus (persisted)
+  const [openMenus, setOpenMenus] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("sidebarOpenMenus") || "{}");
+      return typeof saved === "object" && saved ? saved : {};
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    localStorage.setItem("sidebarOpenMenus", JSON.stringify(openMenus));
+  }, [openMenus]);
+
+  // Section titles with fallbacks
   const sectionTitle = (key) =>
     t?.sidebarSections?.[key] ??
     ({
@@ -76,26 +134,166 @@ export default function Sidebar({ onLogout }) {
       ADMIN: "Admin",
     }[key] || key);
 
-  // Render one group (header + links)
+  // Label helper (translate if available, else replace underscores)
+  const labelize = (k) => {
+    if (k.endsWith("_MAIN")) {
+      const parent = MENU_REGISTRY[k]?.parent;
+      return String(t.menu?.[parent] ?? parent ?? k).replace(/_/g, " ");
+    }
+    return String(t.menu?.[k] ?? k).replace(/_/g, " ");
+  };
+
+  // Build hierarchy safely
+  const groupEntries = useMemo(() => {
+    return GROUPS.map((g) => {
+      const all = (g.items || [])
+        .map((id) => MENU_REGISTRY[id])
+        .filter(Boolean);
+      const parents = all.filter((m) => !m.parent);
+      const childrenByParent = all
+        .filter((m) => m.parent)
+        .reduce((acc, m) => {
+          const p = m.parent;
+          acc[p] = acc[p] || [];
+          acc[p].push(m);
+          return acc;
+        }, {});
+      return { ...g, parents, childrenByParent };
+    });
+  }, []);
+
+  // Exclusive toggle (also avoids redundant state writes)
+  const toggleExclusive = (key) =>
+    setOpenMenus((prev) => {
+      const isOpen = !!prev[key];
+      return isOpen ? {} : { [key]: true };
+    });
+
+  const openOnly = (key) =>
+    setOpenMenus((prev) => (prev[key] ? prev : { [key]: true }));
+
+  const closeAll = () => setOpenMenus({});
+
+  // Keep the relevant submenu open based on URL
+  useEffect(() => {
+    // if on a child route, open its parent
+    const child = Object.values(MENU_REGISTRY).find(
+      (m) => m?.parent && location.pathname.startsWith(m.to)
+    );
+    if (child?.parent) {
+      setOpenMenus((prev) => (prev[child.parent] ? prev : { [child.parent]: true }));
+      return;
+    }
+    // if directly on a parent route, open that parent
+    const parent = Object.values(MENU_REGISTRY).find(
+      (m) => m && !m.parent && location.pathname.startsWith(m.to)
+    );
+    if (parent?.key) {
+      setOpenMenus((prev) => (prev[parent.key] ? prev : { [parent.key]: true }));
+      return;
+    }
+    // default: close all
+    setOpenMenus({});
+  }, [location.pathname]);
+
   const Group = ({ group, compact = false }) => {
-    const items = group.items.map((id) => MENU_REGISTRY[id]).filter(Boolean);
-    if (!items.length) return null;
+    const parents = group?.parents ?? [];
+    const childrenByParent = group?.childrenByParent ?? {};
+    if (!parents.length && !Object.keys(childrenByParent).length) return null;
 
     return (
       <div>
-        {/* Header (only when expanded) */}
         {!compact && (
           <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/80">
             {sectionTitle(group.key)}
           </div>
         )}
-        {/* small separator for compact mode */}
         {compact && <div className="mx-2 my-2 h-px bg-white/10" aria-hidden />}
 
-        {/* Links */}
         <nav className="space-y-1">
-          {items.map(({ key, icon: Icon, to }) => {
-            const label = t.menu?.[key] ?? key; // safe fallback
+          {parents.map(({ key, icon: Icon, to }) => {
+            const kids = childrenByParent[key] || [];
+            const hasChildren = kids.length > 0;
+            const isOpen = !!openMenus[key];
+            const parentLabel = labelize(key);
+
+            // PARENTS WITH CHILDREN => toggle row (first click open; second click go to MAIN)
+            if (hasChildren) {
+              return (
+                <div key={key}>
+                  <div
+                    className={[
+                      "group relative w-full flex items-center gap-3 px-3 py-3 rounded-md transition",
+                      "text-[15px] font-semibold",
+                      "hover:bg-white/10",
+                      "cursor-pointer",
+                      compact ? "justify-center" : "justify-start",
+                    ].join(" ")}
+                    onClick={() => {
+                      if (!isOpen) {
+                        toggleExclusive(key);
+                      } else {
+                        const main =
+                          kids.find((m) => m.key?.endsWith?.("_MAIN")) || kids[0];
+                        if (main?.to) navigate(main.to);
+                      }
+                    }}
+                    title={compact ? parentLabel : undefined}
+                    aria-expanded={isOpen}
+                  >
+                    <Icon size={20} className="shrink-0" />
+                    {!compact && (
+                      <>
+                        <span className="truncate">{parentLabel}</span>
+                        <span className="ml-auto opacity-80">
+                          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </span>
+                      </>
+                    )}
+                    {compact && (
+                      <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                        {parentLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {isOpen && (
+                    <div className="mt-1 space-y-1">
+                      {kids.map(({ key: ckey, icon: CIcon, to: cto }) => {
+                        const childLabel = labelize(ckey);
+                        const parentKey = MENU_REGISTRY[ckey]?.parent;
+                        return (
+                          <NavLink
+                            key={ckey}
+                            to={cto}
+                            className={({ isActive }) =>
+                              [
+                                "group relative w-full flex items-center gap-3 px-3 py-2 rounded-md transition",
+                                "text-[13px] font-semibold",
+                                compact ? "justify-center" : "ml-6",
+                                isActive ? "bg-white/20" : "hover:bg-white/10",
+                              ].join(" ")
+                            }
+                            title={childLabel}
+                            onClick={() => openOnly(parentKey)}
+                          >
+                            <CIcon size={18} className="shrink-0" />
+                            {!compact && <span className="truncate">{childLabel}</span>}
+                            {compact && (
+                              <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                                {childLabel}
+                              </span>
+                            )}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // PARENTS WITHOUT CHILDREN => direct NavLink (navigate)
             return (
               <NavLink
                 key={key}
@@ -108,13 +306,14 @@ export default function Sidebar({ onLogout }) {
                     compact ? "justify-center" : "justify-start",
                   ].join(" ")
                 }
-                title={compact ? label : undefined}
+                title={compact ? parentLabel : undefined}
+                onClick={closeAll}
               >
                 <Icon size={20} className="shrink-0" />
-                {!compact && <span className="truncate">{label}</span>}
+                {!compact && <span className="truncate">{parentLabel}</span>}
                 {compact && (
                   <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                    {label}
+                    {parentLabel}
                   </span>
                 )}
               </NavLink>
@@ -126,17 +325,15 @@ export default function Sidebar({ onLogout }) {
   };
 
   return (
-    <aside
-      className={[
-        // prevent horizontal overflow and position tooltips safely
-        "bg-red-700 text-white h-full flex flex-col border-r border-white/10",
-        "transition-[width] duration-200 ease-in-out",
-        "overflow-x-hidden relative",
-        collapsed ? "w-16" : "w-56",
-      ].join(" ")}
-      aria-label="Sidebar"
-      aria-expanded={!collapsed}
-    >
+<aside
+  className={[
+    "bg-red-700 text-white h-full flex flex-col border-r border-white/10",
+    "transition-[width] duration-200 ease-in-out",
+    "overflow-x-hidden relative",
+    collapsed ? "w-16" : "w-56",
+  ].join(" ")}
+  aria-label="Sidebar"
+>
       {/* Header */}
       <div className="flex items-center justify-between px-2 py-3 border-b border-white/10">
         {!collapsed && (
@@ -144,22 +341,28 @@ export default function Sidebar({ onLogout }) {
             <img src={logo} alt="logo" className="h-8 w-auto object-contain drop-shadow-sm" />
           </div>
         )}
-        <button
-          onClick={toggleDesktop}
-          className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-700 shadow hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/30"
-          title={collapsed ? (t?.a11y?.expand || "Expand sidebar") : (t?.a11y?.collapse || "Collapse sidebar")}
-          aria-label={collapsed ? (t?.a11y?.expand || "Expand sidebar") : (t?.a11y?.collapse || "Collapse sidebar")}
-        >
-          {collapsed ? <PanelRight size={18} /> : <PanelLeft size={18} />}
-        </button>
+<button
+  onClick={toggleDesktop}
+  className="ml-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-700 shadow hover:bg-white/90 focus:outline-none focus:ring-2 focus:ring-white/30"
+  title={collapsed ? (t?.a11y?.expand || "Expand sidebar") : (t?.a11y?.collapse || "Collapse sidebar")}
+  aria-label={collapsed ? (t?.a11y?.expand || "Expand sidebar") : (t?.a11y?.collapse || "Collapse sidebar")}
+  aria-expanded={!collapsed}                 // ✅ move here
+  aria-controls="sidebar-sections"           // ✅ hook to the nav region
+>
+  {collapsed ? <PanelRight size={18} /> : <PanelLeft size={18} />}
+</button>
+
       </div>
 
-      {/* Groups: vertical scroll container (no horizontal overflow) */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden py-2 no-scrollbar">
-        {GROUPS.map((g) => (
-          <Group key={g.key} group={g} compact={collapsed} />
-        ))}
-      </div>
+      {/* Groups */}
+<div
+  id="sidebar-sections"                      // ✅ the element controlled by the button
+  className="flex-1 overflow-y-auto overflow-x-hidden py-2 no-scrollbar"
+>
+  {(groupEntries || []).map((g) => (
+    <Group key={g.key} group={g} compact={collapsed} />
+  ))}
+</div>
 
       {/* Logout */}
       <div className="px-2 py-3 border-t border-white/10">
