@@ -31,13 +31,18 @@ import Locations from "../pages/Locations";
 import Transports from "../pages/Transports";
 import DefaultTransports from "../pages/DefaultTransports";
 import DefaultLocations from "../pages/DefaultLocations"; 
+import DefaultItemParameters from "../pages/DefaultItemParameters";
+import SalesLineParameters from "../pages/SalesLineParameters";
 import { useI18n } from "./i18n";
 
 // Helper: title-case fallback labels and strip underscores
-const toTitle = (s) => s.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+const toTitle = (s) =>
+  s.toLocaleLowerCase().replace(/(^|[\s_-])(\p{L})/gu, (_, a, b) => a + b.toLocaleUpperCase());
+
 const labelize = (t, key) => {
-  const raw = t?.menu?.[key] ?? key;
-  return toTitle(String(raw).replace(/_/g, " "));
+  const raw = t?.menu?.[key];
+  if (raw) return raw;                 // ← trust your i18n text
+  return toTitle(String(key).replace(/_/g, " "));
 };
 
 const HEADER_ICONS = {
@@ -49,10 +54,12 @@ const HEADER_ICONS = {
   SELL: Coins,
   USERS: UsersIcon,
   LOCATIONS: MapPin,
+  DEFAULT_ITEM_PARAMETERS: BadgeCheck,
   TRANSPORTS: Truck,
   PARAMETERS: SlidersHorizontal,
   DEFAULT_TRANSPORTS: BadgeCheck,
   DEFAULT_LOCATIONS: BadgeCheck, 
+  SALES_LINE_PARAMETERS: SlidersHorizontal,
 };
 
 const PATH_TO_KEY = {
@@ -60,6 +67,7 @@ const PATH_TO_KEY = {
   "/app/customers": "CUSTOMERS",
   "/app/users": "USERS",
   "/app/items": "ITEM",
+  "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
   "/app/vendors": "VENDORS",
   "/app/buy": "BUY",
   "/app/sell": "SELL",
@@ -68,6 +76,7 @@ const PATH_TO_KEY = {
    "/app/parameters": "PARAMETERS",
   "/app/default-transports": "DEFAULT_TRANSPORTS",
   "/app/default-locations": "DEFAULT_LOCATIONS",
+  "/app/sales-line-parameters": "SALES_LINE_PARAMETERS",
 };
 
 function useActiveKey() {
@@ -211,6 +220,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="customers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="items" element={<Items />} />
+            <Route path="default-item-parameters" element={<DefaultItemParameters />} />
             <Route path="locations" element={<Locations />} />
             <Route path="parameters" element={<Parameters />} />
             <Route path="transports" element={<Transports />} />
@@ -219,6 +229,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
             <Route path="sell" element={<Sell />} />
+              <Route path="sales-line-parameters" element={<SalesLineParameters />} />
             <Route path="*" element={<Navigate to="exchange" replace />} />
           </Routes>
         </main>

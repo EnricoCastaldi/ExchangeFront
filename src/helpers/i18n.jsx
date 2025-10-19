@@ -15,10 +15,12 @@ const T = {
     menu: {
       EXCHANGE: "WYMIANA",
       CUSTOMERS: "KLIENCI",
-      ITEM: "PRODUKTY (ZBOŻA)",
+      ITEM: "PRODUKTY",
       LOCATIONS: "LOKALIZACJE",
       TRANSPORTS: "TRANSPORT",
       DEFAULT_TRANSPORTS: "DOMYŚLNE TRANSPORTY",
+      DEFAULT_ITEM_PARAMETERS: "DOMYŚLNE PARAMETRY PRODUKTU",
+      SALES_LINE_PARAMETERS: "PARAM. WIERSZA SPRZEDAŻY",
       DEFAULT_LOCATIONS: "DOMYŚLNE LOKALIZACJE",
       VENDORS: "DOSTAWCY",
       BUY: "ZAKUP",
@@ -189,6 +191,120 @@ const T = {
         },
       },
     },
+defaultItemParameters: {
+  title: "Domyślne parametry produktu",
+  controls: {
+    searchPlaceholder: "Szukaj: Nr produktu, kod parametru",
+    searchBtn: "Szukaj",
+    addBtn: "Dodaj domyślny parametr",
+  },
+  table: {
+    itemNo: "Nr produktu",
+    parameterCode: "Kod parametru",
+    created: "Utworzono",
+    actions: "",
+    loading: "Ładowanie…",
+    empty: "Brak domyślnych parametrów",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    itemNo: "Nr produktu",
+    parameterCode: "Kod parametru",
+    created: "Utworzono",
+    updated: "Zaktualizowano",
+  },
+  modal: {
+    titleNew: "Dodaj domyślny parametr",
+    titleEdit: "Edytuj domyślny parametr",
+    add: "Dodaj",
+    save: "Zapisz",
+    cancel: "Anuluj",
+    fields: {
+      itemNo: "Nr produktu *",
+      parameterCode: "Kod parametru *",
+    },
+    required: "Uzupełnij wymagane pola.",
+  },
+  alerts: {
+    loadFail: "Nie udało się wczytać domyślnych parametrów.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć ten rekord?",
+    deleted: "Usunięto.",
+    created: "Utworzono.",
+    updated: "Zaktualizowano.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz",
+    next: "Dalej",
+  },
+  a11y: { toggleDetails: "Pokaż/ukryj szczegóły" },
+},
+
+// --- inside T.pl ---
+salesLineParameters: {
+  locale: "pl-PL",
+  title: "Parametry wiersza sprzedaży",
+  controls: {
+    searchPlaceholder: "Szukaj: Nr dokumentu, Nr wiersza, Kod parametru",
+    searchBtn: "Szukaj",
+    addBtn: "Dodaj parametr",
+  },
+  table: {
+    documentNo: "Nr dokumentu",
+    documentLineNo: "Nr wiersza dokumentu",
+    paramCode: "Kod parametru",
+    paramValue: "Wartość parametru",
+    created: "Utworzono",
+    actions: "",
+    loading: "Ładowanie…",
+    empty: "Brak rekordów",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    documentNo: "Nr dokumentu",
+    documentLineNo: "Nr wiersza dokumentu",
+    paramCode: "Kod parametru",
+    paramValue: "Wartość parametru",
+    created: "Utworzono",
+    updated: "Zaktualizowano",
+  },
+  modal: {
+    titleNew: "Dodaj parametr",
+    titleEdit: "Edytuj parametr",
+    add: "Dodaj",
+    save: "Zapisz",
+    cancel: "Anuluj",
+    fields: {
+      documentNo: "Nr dokumentu *",
+      documentLineNo: "Nr wiersza dokumentu *",
+      paramCode: "Kod parametru *",
+      paramValue: "Wartość parametru *",
+    },
+    required: "Uzupełnij wymagane pola.",
+  },
+  alerts: {
+    loadFail: "Nie udało się wczytać parametrów wierszy sprzedaży.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć ten rekord?",
+    deleted: "Usunięto.",
+    created: "Utworzono.",
+    updated: "Zaktualizowano.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz",
+    next: "Dalej",
+  },
+  a11y: { toggleDetails: "Pokaż/ukryj szczegóły" },
+},
+
 
     customers: {
       controls: {
@@ -1204,7 +1320,9 @@ defaultLocations: {
       LOCATIONS: "LOCATIONS",
       TRANSPORTS: "TRANSPORTS",
       DEFAULT_TRANSPORTS: "DEFAULT TRANSPORTS",
+      DEFAULT_ITEM_PARAMETERS: "DEFAULT ITEM PARAMETERS",
       DEFAULT_LOCATIONS: "DEFAULT LOCATIONS",
+      SALES_LINE_PARAMETERS: "SALES LINE PARAMETERS",
       VENDORS: "VENDORS",
       BUY: "BUY",
       SELL: "SELL",
@@ -1369,6 +1487,121 @@ defaultLocations: {
         },
       },
     },
+
+    // --- inside T.en ---
+salesLineParameters: {
+  locale: "en-US",
+  title: "Sales Line Parameters",
+  controls: {
+    searchPlaceholder: "Search: Document No., Line No., Param Code",
+    searchBtn: "Search",
+    addBtn: "Add parameter",
+  },
+  table: {
+    documentNo: "Document No.",
+    documentLineNo: "Document Line No.",
+    paramCode: "Param. Code",
+    paramValue: "Param. Value",
+    created: "Created",
+    actions: "",
+    loading: "Loading…",
+    empty: "No records",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    documentNo: "Document No.",
+    documentLineNo: "Document Line No.",
+    paramCode: "Param. Code",
+    paramValue: "Param. Value",
+    created: "Created",
+    updated: "Updated",
+  },
+  modal: {
+    titleNew: "Add parameter",
+    titleEdit: "Edit parameter",
+    add: "Add",
+    save: "Save",
+    cancel: "Cancel",
+    fields: {
+      documentNo: "Document No. *",
+      documentLineNo: "Document Line No. *",
+      paramCode: "Param. Code *",
+      paramValue: "Param. Value *",
+    },
+    required: "Please fill required fields.",
+  },
+  alerts: {
+    loadFail: "Failed to load sales line parameters.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this record?",
+    deleted: "Deleted.",
+    created: "Created.",
+    updated: "Updated.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev",
+    next: "Next",
+  },
+  a11y: { toggleDetails: "Toggle details" },
+},
+
+    defaultItemParameters: {
+  title: "Default Item Parameters",
+  controls: {
+    searchPlaceholder: "Search: item no., parameter code",
+    searchBtn: "Search",
+    addBtn: "Add default parameter",
+  },
+  table: {
+    itemNo: "Item No.",
+    parameterCode: "Parameter Code",
+    created: "Created",
+    actions: "",
+    loading: "Loading…",
+    empty: "No default parameters",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    itemNo: "Item No.",
+    parameterCode: "Parameter Code",
+    created: "Created",
+    updated: "Updated",
+  },
+  modal: {
+    titleNew: "Add default parameter",
+    titleEdit: "Edit default parameter",
+    add: "Add",
+    save: "Save",
+    cancel: "Cancel",
+    fields: {
+      itemNo: "Item No. *",
+      parameterCode: "Parameter Code *",
+    },
+    required: "Please fill required fields.",
+  },
+  alerts: {
+    loadFail: "Failed to load default item parameters.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this record?",
+    deleted: "Deleted.",
+    created: "Created.",
+    updated: "Updated.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev",
+    next: "Next",
+  },
+  a11y: { toggleDetails: "Toggle details" },
+},
+
 
     customers: {
       controls: {
