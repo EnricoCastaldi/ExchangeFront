@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   ChevronRight,
   ChevronDown,
+  FileText, // <-- added
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -95,6 +96,13 @@ const MENU_REGISTRY = {
     to: "/app/sell",
     parent: "SELL",
   },
+  // NEW: Sales Offer Lines submenu
+  SALES_OFFER_LINES: {
+    key: "SALES_OFFER_LINES",
+    icon: FileText,
+    to: "/app/sales-offer-lines",
+    parent: "SELL",
+  },
   SALES_LINE_PARAMETERS: {
     key: "SALES_LINE_PARAMETERS",
     icon: SlidersHorizontal,
@@ -139,6 +147,7 @@ const GROUPS = [
       // Parent + submenu entries (SELL)
       "SELL",
       "SELL_MAIN",
+      "SALES_OFFER_LINES",     // <-- added here
       "SALES_LINE_PARAMETERS",
     ],
   },
@@ -324,7 +333,8 @@ export default function Sidebar({ onLogout }) {
                                 "group relative w-full flex items-center gap-3 px-3 py-2 rounded-md transition",
                                 "text-[13px] font-semibold",
                                 compact ? "justify-center" : "ml-6",
-                                isActive ? "bg-white/20" : "hover:bg-white/10",
+                                isActive ? "bg.white/20" : "hover:bg-white/10",
+                                isActive ? "bg-white/20" : "",
                               ].join(" ")
                             }
                             title={childLabel}
@@ -424,10 +434,10 @@ export default function Sidebar({ onLogout }) {
             "w-full flex items-center gap-2 rounded-md text-sm font-semibold transition",
             collapsed ? "justify-center px-2 py-2 hover:bg-white/10" : "px-3 py-2 bg-white/10 hover:bg-white/20",
           ].join(" ")}
-          title={collapsed ? (t.navbar.logout || "Log out") : undefined}
+          title={collapsed ? (t.navbar?.logout || "Log out") : undefined}
         >
           <LogOut size={18} />
-          {!collapsed && <span>{t.navbar.logout}</span>}
+          {!collapsed && <span>{t.navbar?.logout || "Log out"}</span>}
         </button>
       </div>
     </aside>

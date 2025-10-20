@@ -13,6 +13,7 @@ import {
   MapPin,
   Mail,
   Bell,
+  FileText,
   SlidersHorizontal,
   BadgeCheck,
 } from "lucide-react";
@@ -33,6 +34,7 @@ import DefaultTransports from "../pages/DefaultTransports";
 import DefaultLocations from "../pages/DefaultLocations"; 
 import DefaultItemParameters from "../pages/DefaultItemParameters";
 import SalesLineParameters from "../pages/SalesLineParameters";
+import SalesOfferLines from "../pages/SalesOfferLines";
 import { useI18n } from "./i18n";
 
 // Helper: title-case fallback labels and strip underscores
@@ -52,6 +54,7 @@ const HEADER_ICONS = {
   VENDORS: Building2,
   BUY: ShoppingCart,
   SELL: Coins,
+  SALES_OFFER_LINES: FileText,
   USERS: UsersIcon,
   LOCATIONS: MapPin,
   DEFAULT_ITEM_PARAMETERS: BadgeCheck,
@@ -71,6 +74,7 @@ const PATH_TO_KEY = {
   "/app/vendors": "VENDORS",
   "/app/buy": "BUY",
   "/app/sell": "SELL",
+  "/app/sales-offer-lines": "SALES_OFFER_LINES",
   "/app/locations": "LOCATIONS",
   "/app/transports": "TRANSPORTS",
    "/app/parameters": "PARAMETERS",
@@ -229,6 +233,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
             <Route path="sell" element={<Sell />} />
+            <Route path="sales-offer-lines" element={<SalesOfferLines />} />
               <Route path="sales-line-parameters" element={<SalesLineParameters />} />
             <Route path="*" element={<Navigate to="exchange" replace />} />
           </Routes>
