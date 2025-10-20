@@ -236,11 +236,13 @@ export default function SalesOfferLinesPage() {
 
   // data
   const [data, setData] = useState({ data: [], total: 0, pages: 0, page: 1 });
+  
 
   // UI
   const [expandedId, setExpandedId] = useState(null);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
+
 
   const fetchData = async () => {
     setLoading(true);
@@ -732,7 +734,7 @@ return (
                             <KV label={S.details.kv.additionalCosts} icon={FileText}>
                               {fmtDOT(d.additionalCosts, 2, locale)}
                             </KV>
-                            <KV label={S.details.kv.costMargin} icon={Percent}>
+                            <KV label={S.details.kv.costMarginPct} icon={Percent}>
                               {fmtDOT(d.costMargin, 2, locale)}
                             </KV>
                             <KV label={S.details.kv.transportCost} icon={Truck}>
@@ -977,7 +979,7 @@ function SalesOfferLineForm({
   const [buyVendorNo, setBuyVendorNo] = useState(initial?.buyVendorNo || "");
   const [payVendorNo, setPayVendorNo] = useState(initial?.payVendorNo || "");
   const [locationNo, setLocationNo] = useState(initial?.locationNo || "");
-
+const [paramMeta, setParamMeta] = useState({});
   // params 1..5
   const [p1c, setP1c] = useState(initial?.param1Code || "");
   const [p1v, setP1v] = useState(initial?.param1Value || "");
@@ -1018,6 +1020,129 @@ const TABS = [
   { id: "params", label: S.details.params,  Icon: SlidersHorizontal },
   { id: "audit",  label: S.details.audit,   Icon: ClipboardList },
 ];
+
+// --- Sales Line Parameters sync helpers ---
+async function findSLP(documentNo, documentLineNo, paramCode) {
+  const lineKey = Number(documentLineNo) || String(documentLineNo);
+  const qs = new URLSearchParams({
+    page: "1",
+    limit: "1",
+    documentNo,
+    documentLineNo: String(lineKey), // queries are strings anyway
+    paramCode,
+  });
+  const res = await fetch(`${API}/api/sales-line-parameters?${qs.toString()}`);
+  if (!res.ok) return null;
+  const json = await res.json().catch(() => null);
+  const row = json?.data?.[0];
+  return row ? (row.id || row._id) : null;
+}
+
+
+async function upsertSLP({ documentNo, documentLineNo, paramCode, paramValue }) {
+  // normalize the line key (some backends store lineNo as a number)
+  const lineKey = Number(documentLineNo) || String(documentLineNo);
+
+  // 1) find existing
+  const existingId = await findSLP(documentNo, lineKey, paramCode);
+  const body = { documentNo, documentLineNo: lineKey, paramCode };
+  if (paramValue !== "" && paramValue !== null && paramValue !== undefined) {
+    body.paramValue = paramValue; // let backend coerce type
+  }
+
+  if (existingId) {
+    // 2a) update
+    const res = await fetch(`${API}/api/sales-line-parameters/${existingId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || "Failed to update parameter.");
+    }
+    return true;
+  } else {
+    // 2b) create
+    const res = await fetch(`${API}/api/sales-line-parameters`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.message || "Failed to create parameter.");
+    }
+    return true;
+  }
+}
+
+async function syncLineParams({ documentNo, documentLineNo, params, removeMissing = false }) {
+  const filtered = params
+    .map((p) => ({
+      code: String(p.code || "").trim().toUpperCase(),
+      value: p.value,
+    }))
+    .filter((p) => p.code);
+
+  const failures = [];
+
+  for (const p of filtered) {
+    try {
+      await upsertSLP({
+        documentNo,
+        documentLineNo,
+        paramCode: p.code,
+        paramValue: p.value === "" ? undefined : p.value,
+      });
+    } catch (e) {
+      console.warn("Param upsert failed:", p.code, e?.message || e);
+      failures.push({ code: p.code, error: e?.message || "Failed" });
+    }
+  }
+
+  if (removeMissing) {
+    try {
+      const existing = await listSLPForLine(documentNo, documentLineNo);
+      const keep = new Set(filtered.map((p) => p.code));
+      const toDelete = existing.filter(
+        (r) => !keep.has(String(r.paramCode || "").toUpperCase())
+      );
+      for (const r of toDelete) {
+        try {
+          await fetch(`${API}/api/sales-line-parameters/${r.id || r._id}`, {
+            method: "DELETE",
+          });
+        } catch (e) {
+          console.warn("Param delete failed:", r.paramCode, e);
+        }
+      }
+    } catch (e) {
+      console.warn("List existing params failed:", e);
+    }
+  }
+
+  if (failures.length) {
+    const list = failures.map((f) => f.code).join(", ");
+    throw new Error(`Some parameters failed: ${list}`);
+  }
+}
+
+
+async function listSLPForLine(documentNo, documentLineNo) {
+  const qs = new URLSearchParams({
+    page: "1",
+    limit: "200",
+    documentNo,
+    documentLineNo,
+  });
+  const res = await fetch(`${API}/api/sales-line-parameters?${qs.toString()}`);
+  if (!res.ok) return [];
+  const json = await res.json().catch(() => ({}));
+  return Array.isArray(json?.data) ? json.data : [];
+}
+
+
 
   const save = async (e) => {
     e.preventDefault();
@@ -1087,26 +1212,68 @@ const TABS = [
       payload.dateModified = nowIso;
     }
 
-    try {
-      const url = isEdit
-        ? `${API}/api/sales-offer-lines/${initial._id}`
-        : `${API}/api/sales-offer-lines`;
-      const method = isEdit ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showNotice("error", json?.message || "Save failed");
-        return;
-      }
-      showNotice("success", isEdit ? "Line updated." : "Line created.");
-      onSaved();
-    } catch {
-      showNotice("error", "Save failed");
-    }
+try {
+  const url = isEdit
+    ? `${API}/api/sales-offer-lines/${initial._id}`
+    : `${API}/api/sales-offer-lines`;
+  const method = isEdit ? "PUT" : "POST";
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    showNotice("error", json?.message || "Save failed");
+    return;
+  }
+
+  // figure out documentNo + lineNo to bind parameters to
+  const saved = json || {};
+  const docNoForParams = (saved.documentNo || payload.documentNo || "").toUpperCase();
+  const lineNoForParams =
+    saved.lineNo != null
+      ? String(saved.lineNo)
+      : lineNo != null
+      ? String(lineNo)
+      : null;
+
+  if (!lineNoForParams) {
+    // cannot bind parameters without line number
+    showNotice("success", isEdit ? "Line updated." : "Line created.");
+    onSaved();
+    return;
+  }
+
+const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
+
+const paramsForSync = [
+  { code: (p1c || fallback(0)), value: p1v },
+  { code: (p2c || fallback(1)), value: p2v },
+  { code: (p3c || fallback(2)), value: p3v },
+  { code: (p4c || fallback(3)), value: p4v },
+  { code: (p5c || fallback(4)), value: p5v },
+];
+
+  // run the sync (set removeMissing=true if you want to delete absent ones)
+  try {
+    await syncLineParams({
+      documentNo: docNoForParams,
+      documentLineNo: String(lineNoForParams),
+      params: paramsForSync,
+      removeMissing: true, // set to false if you prefer not to delete extras
+    });
+  } catch (e) {
+    // don't block the main save, but notify
+    showNotice("error", e?.message || "Parameters sync failed.");
+  }
+
+  showNotice("success", isEdit ? "Line updated." : "Line created.");
+  onSaved();
+} catch {
+  showNotice("error", "Save failed");
+}
+
   };
 
   const isItem = (lineType || "").toLowerCase() === "item";
@@ -1145,6 +1312,126 @@ useEffect(() => {
   // Status (fill on create / when empty)
   setStatus(prev => (prev ? prev : canonStatus(header.status || "new")));
 }, [documentNo, docs]);
+
+
+
+
+// Default param codes for the current item
+const [defaultParamCodes, setDefaultParamCodes] = useState([]);
+
+// Load default codes when item changes
+useEffect(() => {
+  let abort = false;
+  (async () => {
+    const no = (itemNo || "").trim().toUpperCase();
+    if (!no) { if (!abort) setDefaultParamCodes([]); return; }
+    try {
+      const qs = new URLSearchParams({
+        page: "1",
+        limit: "50",
+        sort: "parameterCode:1",
+        itemNo: no, // backend does a prefix match; we pass exact
+      });
+      const res = await fetch(`${API}/api/mdefault-item-parameters?${qs.toString()}`);
+      const json = await res.json();
+      const codes = Array.from(
+        new Set((json?.data || [])
+          .map(r => (r.parameterCode || "").toUpperCase())
+          .filter(Boolean))
+      );
+      if (!abort) setDefaultParamCodes(codes);
+    } catch {
+      if (!abort) setDefaultParamCodes([]);
+    }
+  })();
+  return () => { abort = true; };
+}, [itemNo]);
+
+// { CODE -> { description, defaultValue } }
+
+
+const strOrEmpty = (v) => (v == null ? "" : String(v));
+
+useEffect(() => {
+  let abort = false;
+  (async () => {
+    if (!defaultParamCodes?.length) { if (!abort) setParamMeta({}); return; }
+
+    const exact = defaultParamCodes
+      .map(c => String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|");
+    const qs = new URLSearchParams({
+      page: "1",
+      limit: "500",
+      sort: "code:1",
+      query: `^(${exact})$`,
+    });
+
+    try {
+      const res = await fetch(`${API}/api/params?${qs.toString()}`);
+      const json = await res.json();
+      const map = {};
+      for (const p of json?.data || []) {
+        const code = (p.code || "").toUpperCase();
+
+        let dv = null;
+        if (p.defaultValueText != null) dv = p.defaultValueText;
+        else if (p.defaultValueBoolean != null) dv = p.defaultValueBoolean;
+        else if (p.defaultValueDecimal != null) {
+          const decRaw =
+            typeof p.defaultValueDecimal === "object" &&
+            p.defaultValueDecimal?.$numberDecimal != null
+              ? p.defaultValueDecimal.$numberDecimal
+              : p.defaultValueDecimal;
+          dv = decRaw != null ? Number(decRaw) : null;
+        }
+
+        map[code] = {
+          description: p.description || "",
+          defaultValue: dv,
+          type: p.type || "decimal",
+        };
+      }
+      if (abort) return;
+      setParamMeta(map);
+
+      // Prefill values if still empty — without reading p1v..p5v
+      const [c1, c2, c3, c4, c5] = defaultParamCodes.map(c => c?.toUpperCase());
+
+      const ensure = (dv) => (prev) =>
+        prev == null || prev === "" ? strOrEmpty(dv) : prev;
+
+      setP1v(ensure(map[c1]?.defaultValue));
+      setP2v(ensure(map[c2]?.defaultValue));
+      setP3v(ensure(map[c3]?.defaultValue));
+      setP4v(ensure(map[c4]?.defaultValue));
+      setP5v(ensure(map[c5]?.defaultValue));
+    } catch {
+      if (!abort) setParamMeta({});
+    }
+  })();
+  return () => { abort = true; };
+}, [defaultParamCodes]);
+
+
+
+// Push defaults into Param1..5 slots whenever defaults change
+useEffect(() => {
+  if (!defaultParamCodes.length) return;
+
+  // First 5 only
+  const [c1, c2, c3, c4, c5] = defaultParamCodes;
+
+  setP1c(c1 || ""); if (p1v === undefined) setP1v("");
+  setP2c(c2 || ""); if (p2v === undefined) setP2v("");
+  setP3c(c3 || ""); if (p3v === undefined) setP3v("");
+  setP4c(c4 || ""); if (p4v === undefined) setP4v("");
+  setP5c(c5 || ""); if (p5v === undefined) setP5v("");
+  // values remain as user-editable; backend model doesn’t carry default numeric values
+  // If you want to CLEAR values on item change, do it here instead.
+  // setP1v(""); setP2v(""); setP3v(""); setP4v(""); setP5v("");
+}, [defaultParamCodes]); // eslint-disable-line
+
 
 return (
   <form onSubmit={save} className="space-y-4">
@@ -1387,7 +1674,7 @@ return (
             onChange={(e) => setAdditionalCosts(e.target.value)}
           />
         </Field>
-        <Field label={S.details.kv.costMargin} icon={Percent}>
+        <Field label={S.details.kv.costMarginPct} icon={Percent}>
           <input
             type="number"
             step="0.01"
@@ -1461,15 +1748,57 @@ return (
     )}
 
     {/* PARAMS */}
-    {tab === "params" && (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <ParamRow idx="1" c={p1c} v={p1v} setC={setP1c} setV={setP1v} documentNo={documentNo} lineNo={lineNo} />
-        <ParamRow idx="2" c={p2c} v={p2v} setC={setP2c} setV={setP2v} documentNo={documentNo} lineNo={lineNo} />
-        <ParamRow idx="3" c={p3c} v={p3v} setC={setP3c} setV={setP3v} documentNo={documentNo} lineNo={lineNo} />
-        <ParamRow idx="4" c={p4c} v={p4v} setC={setP4c} setV={setP4v} documentNo={documentNo} lineNo={lineNo} />
-        <ParamRow idx="5" c={p5c} v={p5v} setC={setP5c} setV={setP5v} documentNo={documentNo} lineNo={lineNo} />
+{tab === "params" && (
+  <div className="space-y-2">
+    {defaultParamCodes.length > 0 && (
+      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+        Loaded <b>{defaultParamCodes.length}</b> default parameter
+        {defaultParamCodes.length === 1 ? "" : "s"} for item <span className="font-mono">{itemNo || "—"}</span>.
       </div>
     )}
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+<ParamRow
+  idx="1" c={p1c} v={p1v} setC={setP1c} setV={setP1v}
+  defaultCode={defaultParamCodes[0]}
+  description={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.description}
+  defaultValue={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.defaultValue}
+  paramType={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.type}
+/>
+<ParamRow
+  idx="2" c={p2c} v={p2v} setC={setP2c} setV={setP2v}
+  defaultCode={defaultParamCodes[1]}
+  description={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.description}
+  defaultValue={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.defaultValue}
+  paramType={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.type}
+/>
+<ParamRow
+  idx="3" c={p3c} v={p3v} setC={setP3c} setV={setP3v}
+  defaultCode={defaultParamCodes[2]}
+  description={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.description}
+  defaultValue={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.defaultValue}
+  paramType={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.type}
+/>
+<ParamRow
+  idx="4" c={p4c} v={p4v} setC={setP4c} setV={setP4v}
+  defaultCode={defaultParamCodes[3]}
+  description={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.description}
+  defaultValue={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.defaultValue}
+  paramType={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.type}
+/>
+<ParamRow
+  idx="5" c={p5c} v={p5v} setC={setP5c} setV={setP5v}
+  defaultCode={defaultParamCodes[4]}
+  description={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.description}
+  defaultValue={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.defaultValue}
+  paramType={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.type}
+/>
+
+    </div>
+  </div>
+)}
+
+
 
     {/* footer buttons */}
     <div className="flex justify-end gap-2 pt-2">
@@ -1489,53 +1818,130 @@ return (
 
 }
 
-function ParamRow({ idx, c, v, setC, setV, documentNo, lineNo }) {
+function ParamRow({
+  idx,
+  c,
+  v,
+  setC,
+  setV,
+  defaultCode,
+  description,
+  defaultValue,
+  paramType, // "decimal" | "text" | "boolean"
+}) {
   const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
   const [range, setRange] = useState({ min: null, max: null, def: null });
+  const [desc, setDesc] = useState(description || "");
+  const [kind, setKind] = useState(paramType || "decimal"); // UI control type
+
+  const hasDefault = !!defaultCode;
+
+  useEffect(() => {
+    if (hasDefault) setC(defaultCode);
+  }, [hasDefault, defaultCode, setC]);
+
+  useEffect(() => {
+    setDesc(description || "");
+    setRange({
+      min: null,
+      max: null,
+      def: defaultValue ?? null,
+    });
+    if (paramType) setKind(paramType);
+  }, [description, defaultValue, paramType]);
+
+  const valuePlaceholder =
+    range.def != null ? `Default ${range.def}` : undefined;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       <Field label={`Param${idx} Code`}>
-<ParameterPicker
-  value={c}
-  onPick={(p) => {
-    setC(p.code || "");
-    setRange({ min: null, max: null, def: null }); // sales-line-parameters doesn't provide min/max/default
-    setV((prev) => (p.resolvedValue != null ? String(p.resolvedValue) : prev));
-  }}
-  placeholder="Search parameters…"
-/>
+        {hasDefault ? (
+          <div>
+            <input
+              className={INPUT_CLS + " bg-slate-50"}
+              value={`${defaultCode || ""}${desc ? " | " + desc : ""}`}
+              disabled
+            />
+          </div>
+        ) : (
+          <div>
+            <ParameterPicker
+              value={c}
+              onPick={(p) => {
+                const pickedCode = (p?.code || "").toUpperCase();
+                setC(pickedCode);
+                setKind(p?.type || "decimal");
+
+                if (
+                  p &&
+                  (p.description ||
+                    p.defaultValue != null ||
+                    p.minValue != null ||
+                    p.maxValue != null)
+                ) {
+                  setDesc(p.description || "");
+                  setRange({
+                    min: p.minValue ?? null,
+                    max: p.maxValue ?? null,
+                    def: p.defaultValue ?? null,
+                  });
+                  if ((v == null || v === "") && p.defaultValue != null) {
+                    setV(String(p.defaultValue));
+                  }
+                } else {
+                  setDesc("");
+                  setRange({ min: null, max: null, def: null });
+                }
+              }}
+              placeholder="Search parameters…"
+              displayWhenClosed={c ? `${c}${desc ? " | " + desc : ""}` : ""}
+            />
+            {desc && (
+              <div className="mt-1 text-[11px] uppercase tracking-wide text-slate-500">
+                {desc}
+              </div>
+            )}
+          </div>
+        )}
       </Field>
 
       <Field label={`Param${idx} Value`}>
-        <input
-          type="number"
-          step="0.01"
-          className={INPUT_CLS}
-          value={v}
-          onChange={(e) => setV(e.target.value)}
-          onBlur={(e) => {
-            const n = e.target.value === "" ? null : Number(e.target.value);
-            if (n == null || !Number.isFinite(n)) return;
-            if (range.min != null && n < range.min) setV(String(range.min));
-            if (range.max != null && n > range.max) setV(String(range.max));
-          }}
-          placeholder={
-            range.def != null
-              ? `Default ${range.def}${
-                  range.min != null || range.max != null
-                    ? ` · Range ${range.min ?? "−∞"}…${range.max ?? "+∞"}`
-                    : ""
-                }`
-              : range.min != null || range.max != null
-              ? `Range ${range.min ?? "−∞"}…${range.max ?? "+∞"}`
-              : undefined
-          }
-        />
+        {kind === "boolean" ? (
+          <select
+            className={INPUT_CLS}
+            value={String(v ?? "")}
+            onChange={(e) => setV(e.target.value === "true")}
+          >
+            <option value="">—</option>
+            <option value="true">True</option>
+            <option value="false">False</option>
+          </select>
+        ) : (
+          <input
+            type={kind === "decimal" ? "number" : "text"}
+            step={kind === "decimal" ? "0.01" : undefined}
+            className={INPUT_CLS}
+            value={v}
+            onChange={(e) => setV(e.target.value)}
+            onBlur={(e) => {
+              if (kind !== "decimal") return;
+              const n = e.target.value === "" ? null : Number(e.target.value);
+              if (n == null || !Number.isFinite(n)) return;
+              if (range.min != null && n < range.min) setV(String(range.min));
+              if (range.max != null && n > range.max) setV(String(range.max));
+            }}
+            placeholder={valuePlaceholder}
+          />
+        )}
       </Field>
     </div>
   );
 }
+
+
+
+
 
 
 function formatDate(s, dash = "—") {
@@ -1786,6 +2192,7 @@ function ItemPicker({
         });
         const res = await fetch(`${API}/api/mitems?${params.toString()}`);
         const json = await res.json();
+        
         if (!abort) setItems(json?.data || []);
       } catch {
         if (!abort) setItems([]);
@@ -1894,8 +2301,9 @@ function ItemPicker({
 
 function ParameterPicker({
   value,                    // current selected param code (string)
-  onPick,                   // ({ code, resolvedValue }) => void
+  onPick,                   // ({ code, description, type, minValue, maxValue, defaultValue }) => void
   placeholder = "Search parameters…",
+   displayWhenClosed,    
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -1917,40 +2325,28 @@ function ParameterPicker({
         const qs = new URLSearchParams({
           limit: "50",
           page: "1",
-          // We want stable browsing; you can also use createdAt:-1 if you prefer recency
-          sort: "paramCode:1",
+          sort: "code:1",
+          active: "true",
         });
         if (debounced) qs.set("query", debounced);
 
-        const url = `${API}/api/sales-line-parameters?${qs.toString()}`;
-        console.log("[ParameterPicker] fetch:", url);
-
+        const url = `${API}/api/params?${qs.toString()}`;
         const res = await fetch(url);
         if (!res.ok) {
-          console.error("[ParameterPicker] fetch failed:", res.status);
           if (!abort) setList([]);
           return;
         }
         const json = await res.json();
-
-        // Deduplicate by paramCode (keep the first row we encounter)
-        const seen = new Set();
-        const rows = [];
-        for (const r of json?.data || []) {
-          const code = (r.paramCode || "").toString().trim().toUpperCase();
-          if (!code || seen.has(code)) continue;
-          seen.add(code);
-          rows.push({
-            code,
-            resolvedValue: Number.isFinite(Number(r.paramValue))
-              ? Number(r.paramValue)
-              : null,
-            sourceRow: r,
-          });
-        }
+        const rows = (json?.data || []).map((p) => ({
+          code: String(p.code || "").toUpperCase(),
+          description: p.description || "",
+          type: p.type || "decimal",
+          minValue: p.minValue ?? null,
+          maxValue: p.maxValue ?? null,
+          defaultValue: p.defaultValue ?? null,
+        }));
         if (!abort) setList(rows);
-      } catch (err) {
-        console.error("[ParameterPicker] error:", err);
+      } catch {
         if (!abort) setList([]);
       } finally {
         if (!abort) setLoading(false);
@@ -1961,11 +2357,10 @@ function ParameterPicker({
     return () => { abort = true; };
   }, [open, debounced]);
 
-  const displayText = open ? query : (value || "");
+ const displayText = open ? query : (displayWhenClosed ?? value ?? "");
 
   return (
     <div ref={rootRef} className="relative">
-      {/* input */}
       <div
         className="h-9 w-full cursor-text rounded-xl border bg-white px-3 text-sm border-slate-300 focus-within:border-slate-400 flex items-center gap-2"
         onClick={() => setOpen(true)}
@@ -1980,7 +2375,6 @@ function ParameterPicker({
         <ChevronDown size={16} className="shrink-0 text-slate-400" />
       </div>
 
-      {/* panel */}
       {open && (
         <div
           className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg"
@@ -1996,7 +2390,7 @@ function ParameterPicker({
                   type="button"
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    onPick({ code: query.trim().toUpperCase(), resolvedValue: null });
+                    onPick({ code: query.trim().toUpperCase() });
                     setQuery("");
                     setOpen(false);
                   }}
@@ -2016,7 +2410,7 @@ function ParameterPicker({
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault();
-                        onPick(p); // { code, resolvedValue }
+                        onPick(p); // { code, description, type, minValue, maxValue, defaultValue }
                         setQuery("");
                         setOpen(false);
                       }}
@@ -2027,9 +2421,14 @@ function ParameterPicker({
                       ].join(" ")}
                     >
                       <div className="font-semibold tracking-tight">{p.code}</div>
-                      {p.resolvedValue != null && (
+                      {p.description && (
                         <div className="text-[11px] tracking-wide text-slate-500">
-                          Example value: {p.resolvedValue}
+                          {p.description}
+                        </div>
+                      )}
+                      {p.defaultValue != null && (
+                        <div className="text-[11px] tracking-wide text-slate-500">
+                          Default: {p.defaultValue}
                         </div>
                       )}
                     </button>
@@ -2043,6 +2442,7 @@ function ParameterPicker({
     </div>
   );
 }
+
 
 
 
@@ -2077,3 +2477,4 @@ function Field({ label, icon: Icon, error, children }) {
     </label>
   );
 }
+export { SalesOfferLineForm };

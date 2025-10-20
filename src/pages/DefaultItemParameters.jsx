@@ -127,6 +127,49 @@ export default function DefaultItemParameters() {
   const activeFilterCount = [itemFilter, paramFilter].filter(Boolean)
     .length;
 
+
+
+    // --- sources for selects ---
+const [itemsOpt, setItemsOpt] = useState({ data: [], total: 0 });
+const [paramsOpt, setParamsOpt] = useState({ data: [], total: 0 });
+const [loadingSources, setLoadingSources] = useState(false);
+
+const fetchSelectSources = async () => {
+  setLoadingSources(true);
+  try {
+    // Items
+    const itemsQS = new URLSearchParams({
+      page: "1",
+      limit: "1000",            // adjust if needed
+      sort: "itemNo:1",         // or whatever field you sort by
+    });
+    const itemsRes = await fetch(`${API}/api/mitems?${itemsQS.toString()}`);
+    const itemsJson = await itemsRes.json();
+    setItemsOpt(itemsJson || { data: [] });
+
+    // Parameters
+    const paramsQS = new URLSearchParams({
+      page: "1",
+      limit: "1000",            // adjust if needed
+      sort: "code:1",           // if your backend sorts by code; ok if unknown
+    });
+    const paramsRes = await fetch(`${API}/api/params?${paramsQS.toString()}`);
+    const paramsJson = await paramsRes.json();
+    setParamsOpt(paramsJson || { data: [] });
+  } catch {
+    // non-fatal; the modal will show disabled selects + a hint
+  } finally {
+    setLoadingSources(false);
+  }
+};
+
+// load the droplist sources once
+useEffect(() => {
+  fetchSelectSources();
+  // eslint-disable-next-line
+}, []);
+
+
   // ---------- Data ----------
   const fetchData = async () => {
     setLoading(true);
@@ -492,15 +535,18 @@ export default function DefaultItemParameters() {
             setEditing(null);
           }}
         >
-          <DefaultItemParameterForm
-            initial={editing}
-            onCancel={() => {
-              setOpen(false);
-              setEditing(null);
-            }}
-            onSubmit={handleSubmit}
-            L={L}
-          />
+<DefaultItemParameterForm
+  initial={editing}
+  onCancel={() => {
+    setOpen(false);
+    setEditing(null);
+  }}
+  onSubmit={handleSubmit}
+  L={L}
+  itemsOpt={itemsOpt?.data || []}
+  paramsOpt={paramsOpt?.data || []}
+  loadingSources={loadingSources}
+/>
         </Modal>
       )}
     </div>
@@ -591,14 +637,14 @@ function Modal({ children, onClose, title = "Default Item Parameter" }) {
 }
 
 /* ---------- Form ---------- */
-function DefaultItemParameterForm({ initial, onSubmit, onCancel, L }) {
+function DefaultItemParameterForm({ initial, onSubmit, onCancel, L, itemsOpt = [], paramsOpt = [], loadingSources = false }) {
   const isEdit = Boolean(initial?.id || initial?._id);
-  const [itemNo, setItemNo] = useState(
-    (initial?.itemNo || "").toString().toUpperCase()
-  );
-  const [parameterCode, setParameterCode] = useState(
-    (initial?.parameterCode || "").toString().toUpperCase()
-  );
+  const [itemNo, setItemNo] = useState((initial?.itemNo || "").toString().toUpperCase());
+  const [parameterCode, setParameterCode] = useState((initial?.parameterCode || "").toString().toUpperCase());
+
+const getParamCode = (p) =>
+  (p?.parameterCode || p?.code || "").toString().toUpperCase();
+
 
   const submit = (e) => {
     e.preventDefault();
@@ -612,27 +658,61 @@ function DefaultItemParameterForm({ initial, onSubmit, onCancel, L }) {
     });
   };
 
+  const itemDisabled = loadingSources || !itemsOpt?.length;
+  const paramDisabled = loadingSources || !paramsOpt?.length;
+
   return (
     <form onSubmit={submit} className="space-y-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label={L.modal.fields.itemNo} icon={Sprout}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono"
-            value={itemNo}
-            onChange={(e) => setItemNo(e.target.value)}
-            placeholder="e.g. ITEM-001"
-          />
-        </Field>
+        {/* Item selector */}
+<Field label={L.modal.fields.itemNo} icon={Sprout}>
+  <TwoLineSelect
+    value={itemNo}
+    onChange={setItemNo}
+    placeholder="Pick item…"
+    searchable
+    options={(itemsOpt || []).map(it => ({
+      id: it.id || it._id || (it.itemNo || it.no || it.code),
+      code: (it.itemNo || it.no || it.code || "").toString().toUpperCase(),
+      description: (it.name || it.description || "").toString(), // second line
+      // extra text (optional) included in search but not rendered:
+      extra: [
+        it.vendorName,
+        it.category,
+      ].filter(Boolean).join(" "),
+    }))}
+  />
+</Field>
 
-        <Field label={L.modal.fields.parameterCode} icon={SlidersHorizontal}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono"
-            value={parameterCode}
-            onChange={(e) => setParameterCode(e.target.value)}
-            placeholder="e.g. HUMIDITY"
-          />
-        </Field>
+
+        {/* Parameter selector */}
+<Field label={L.modal.fields.parameterCode} icon={SlidersHorizontal}>
+  <TwoLineSelect
+    value={parameterCode}
+    onChange={setParameterCode}
+    placeholder="Pick parameter…"
+    searchable
+    options={(paramsOpt || []).map(p => ({
+      id: p.id || p._id || (p.code ?? p.parameterCode),
+      code: (p.parameterCode || p.code || "").toString().toUpperCase(),
+      description: (p.description || "").toString(),
+      extra: (p.name || p.label || "").toString(), // searchable only
+    }))}
+  />
+</Field>
+
+
+
+
       </div>
+
+      {(itemDisabled || paramDisabled) && (
+        <p className="text-xs text-slate-500">
+          {loadingSources
+            ? "Loading source lists…"
+            : "No items/parameters found. You can add them in their respective modules."}
+        </p>
+      )}
 
       <div className="flex justify-end gap-2 pt-2">
         <button
@@ -645,6 +725,7 @@ function DefaultItemParameterForm({ initial, onSubmit, onCancel, L }) {
         <button
           type="submit"
           className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          disabled={!itemNo || !parameterCode}
         >
           {isEdit ? L.modal.save : L.modal.add}
         </button>
@@ -652,6 +733,7 @@ function DefaultItemParameterForm({ initial, onSubmit, onCancel, L }) {
     </form>
   );
 }
+
 
 /* Field with optional icon */
 function Field({ label, icon: Icon, children }) {
@@ -662,7 +744,6 @@ function Field({ label, icon: Icon, children }) {
         ),
       })
     : children;
-
   return (
     <label className="text-sm block">
       <div className="mb-1 text-slate-600 flex items-center gap-2">
@@ -679,5 +760,168 @@ function Field({ label, icon: Icon, children }) {
         {child}
       </div>
     </label>
+  );
+}
+
+/* ---------- TwoLineSelect (code-only trigger, two-line menu, searchable) ---------- */
+function TwoLineSelect({
+  value,
+  onChange,
+  options,            // [{ id, code, description, extra? }]
+  placeholder = "Pick value…",
+  className = "",
+  searchable = false,
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [hoverIdx, setHoverIdx] = React.useState(-1);
+  const [query, setQuery] = React.useState("");
+  const ref = React.useRef(null);
+
+  const selected = React.useMemo(
+    () => options.find(o => o.code === value) || null,
+    [options, value]
+  );
+
+  // close on outside click
+  React.useEffect(() => {
+    const onDoc = (e) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  // open with keyboard
+  const onKeyDown = (e) => {
+    if (!open && (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      setOpen(true);
+      setHoverIdx(Math.max(0, options.findIndex(o => o.code === value)));
+      return;
+    }
+    if (!open) return;
+
+    if (e.key === "Escape") { setOpen(false); return; }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHoverIdx(i => Math.min(filtered.length - 1, (i < 0 ? 0 : i + 1)));
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHoverIdx(i => Math.max(0, (i < 0 ? 0 : i - 1)));
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const opt = filtered[hoverIdx];
+      if (opt) { onChange(opt.code); setOpen(false); }
+    }
+  };
+
+  // filter logic (code + description + extra)
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(o => {
+      const hay = [
+        o.code || "",
+        o.description || "",
+        o.extra || "",
+      ].join(" ").toLowerCase();
+      return hay.includes(q);
+    });
+  }, [options, query]);
+
+  // reset query when opening
+  React.useEffect(() => {
+    if (open) {
+      setQuery("");
+      // set initial hover to selected or first
+      const idx = filtered.findIndex(o => o.code === value);
+      setHoverIdx(idx >= 0 ? idx : (filtered.length ? 0 : -1));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  return (
+    <div ref={ref} className={`relative ${className}`}>
+      {/* Trigger */}
+      <button
+        type="button"
+        className="w-full h-10 rounded-xl border border-slate-300 bg-white pl-3 pr-9 text-left outline-none focus:border-slate-400"
+        onClick={() => setOpen(o => !o)}
+        onKeyDown={onKeyDown}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span className={`text-sm ${selected ? "text-slate-800" : "text-slate-400"}`}>
+          {selected ? selected.code : placeholder}
+        </span>
+        <svg
+          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          strokeLinecap="round" strokeLinejoin="round"
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+
+      {/* Menu */}
+      {open && (
+        <div
+          role="listbox"
+          tabIndex={-1}
+          className="absolute z-50 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden"
+        >
+          {/* Search bar */}
+          {searchable && (
+            <div className="p-2 border-b border-slate-100 bg-slate-50">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Type to search…"
+                className="w-full h-8 rounded-lg border border-slate-300 bg-white px-2 text-sm outline-none focus:border-slate-400"
+                onKeyDown={(e) => {
+                  // keep arrow/enter navigation working
+                  if (["ArrowDown","ArrowUp","Enter","Escape"].includes(e.key)) {
+                    onKeyDown(e);
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          <div className="max-h-64 overflow-y-auto">
+            {filtered.length === 0 && (
+              <div className="p-3 text-xs text-slate-500">No options</div>
+            )}
+            {filtered.map((o, idx) => {
+              const active = idx === hoverIdx;
+              const isSelected = o.code === value;
+              return (
+                <div
+                  key={o.id || o.code}
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => setHoverIdx(idx)}
+                  onMouseDown={(e) => { e.preventDefault(); onChange(o.code); setOpen(false); }}
+                  className={`px-3 py-2 cursor-pointer select-none ${active ? "bg-slate-100" : "bg-white"}`}
+                >
+                  <div className="text-sm font-semibold tracking-wide text-slate-800">
+                    {o.code}
+                  </div>
+                  {o.description && (
+                    <div className="text-[11px] uppercase text-slate-500 leading-tight">
+                      {o.description}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
