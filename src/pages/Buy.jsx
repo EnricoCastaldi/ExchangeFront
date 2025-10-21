@@ -109,7 +109,7 @@ export default function Buy() {
     currency: T.currency || "Currency",
     currencyFactor: T.currencyFactor || "Currency Factor",
     buyFrom: T.buyFrom || "Buy-from",
-    payTo: T.payTo || "Pay-to",
+    payTo: T.payTo || T.payVendor || "Pay-to",
     location: T.location || "Location",
     shipment: T.shipment || "Shipment",
     transport: T.transport || "Transport",

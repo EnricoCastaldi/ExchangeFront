@@ -80,6 +80,27 @@ const T = {
         canceled: "Anulowany",
       },
 
+      lines: {
+  title: "Pozycje (suma)",
+  addBtn: "Dodaj wiersz",
+  loading: "Ładowanie wierszy…",
+  empty: "Brak wierszy",
+  totalsLabel: "Suma:",
+  headers: {
+    lineNo: "Nr wiersza",
+    status: "Status",
+    type: "Typ",
+    item: "Produkt",
+    uom: "J.m.",
+    unitPrice: "Cena jedn.",
+    qty: "Ilość",
+    lineValue: "Wartość wiersza",
+    transport: "Transport",
+    updated: "Zaktualizowano",
+    actions: "Akcje",
+  },
+},
+
       kv: {
         // nagłówek
         externalDocumentNo: "Nr dokumentu zewn.",
