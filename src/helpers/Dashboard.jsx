@@ -35,6 +35,8 @@ import DefaultLocations from "../pages/DefaultLocations";
 import DefaultItemParameters from "../pages/DefaultItemParameters";
 import SalesLineParameters from "../pages/SalesLineParameters";
 import SalesOfferLines from "../pages/SalesOfferLines";
+import PurchaseLineParameters from "../pages/PurchaseLineParameters";
+import PurchaseOfferLines from "../pages/PurchaseOfferLines";
 import { useI18n } from "./i18n";
 
 // Helper: title-case fallback labels and strip underscores
@@ -53,6 +55,8 @@ const HEADER_ICONS = {
   ITEM: Sprout,
   VENDORS: Building2,
   BUY: ShoppingCart,
+  PURCHASE_LINE_PARAMETERS: SlidersHorizontal,
+  PURCHASE_OFFER_LINES: FileText,
   SELL: Coins,
   SALES_OFFER_LINES: FileText,
   USERS: UsersIcon,
@@ -73,6 +77,8 @@ const PATH_TO_KEY = {
   "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
   "/app/vendors": "VENDORS",
   "/app/buy": "BUY",
+  "/app/purchase-line-parameters": "PURCHASE_LINE_PARAMETERS",
+  "/app/purchase-offer-lines": "PURCHASE_OFFER_LINES",
   "/app/sell": "SELL",
   "/app/sales-offer-lines": "SALES_OFFER_LINES",
   "/app/locations": "LOCATIONS",
@@ -232,6 +238,8 @@ export default function Dashboard({ onLogout }) {
             <Route path="default-locations" element={<DefaultLocations />} /> {/* <-- ADD THIS */}
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
+            <Route path="purchase-line-parameters" element={<PurchaseLineParameters />} />
+            <Route path="purchase-offer-lines" element={<PurchaseOfferLines />} /> 
             <Route path="sell" element={<Sell />} />
             <Route path="sales-offer-lines" element={<SalesOfferLines />} />
               <Route path="sales-line-parameters" element={<SalesLineParameters />} />

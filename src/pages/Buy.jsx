@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useI18n } from "../helpers/i18n";
+import { PurchaseOfferLineForm } from "./PurchaseOfferLines";
+import PurchaseOfferPdf from "../components/PurchaseOfferPdf";
 import {
   Search,
   Plus,
@@ -126,6 +128,10 @@ export default function Buy() {
     },
   };
 
+  const LL = T.lines || {};
+  const LH = LL.headers || {};
+  const S_lines = T.lineForm || {};
+
   // filters / paging
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
@@ -159,6 +165,99 @@ export default function Buy() {
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
 
+  const [lineCache, setLineCache] = useState({});
+
+  const [openLineForm, setOpenLineForm] = useState(false);
+  const [lineInitial, setLineInitial] = useState(null);
+
+  const [docsForPicker, setDocsForPicker] = useState([]);
+  const [docsForPickerLoading, setDocsForPickerLoading] = useState(false);
+  const [openPdfFor, setOpenPdfFor] = useState(null);
+
+  useEffect(() => {
+    if (!openLineForm) return;
+    let cancelled = false;
+    (async () => {
+      setDocsForPickerLoading(true);
+      try {
+        const res = await fetch(
+          `${API}/api/purchase-offers?limit=1000&sortBy=createdAt&sortDir=desc`
+        );
+        const json = await res.json().catch(() => ({}));
+        const raw = Array.isArray(json?.data) ? json.data : [];
+        const normalized = raw.map((d) => ({
+          ...d,
+          documentNo: d.documentNo || d.no || "",
+        }));
+        const seen = new Set();
+        const unique = normalized.filter((d) => {
+          if (!d.documentNo || seen.has(d.documentNo)) return false;
+          seen.add(d.documentNo);
+          return true;
+        });
+        if (!cancelled) setDocsForPicker(unique);
+      } catch {
+        if (!cancelled) setDocsForPicker([]);
+      } finally {
+        if (!cancelled) setDocsForPickerLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openLineForm]);
+
+  const ensureLines = useCallback(
+    async (documentNo, { force = false } = {}) => {
+      if (!documentNo) return;
+      const cached = lineCache[documentNo];
+      if (!force && (cached?.loading || cached?.rows)) return;
+
+      setLineCache((m) => ({
+        ...m,
+        [documentNo]: {
+          ...(cached || {}),
+          loading: true,
+          error: null,
+          rows: null,
+        },
+      }));
+
+      try {
+        const params = new URLSearchParams({
+          page: "1",
+          limit: "500",
+          documentNo,
+        });
+        const url = `${API}/api/purchase-offer-lines?${params.toString()}`;
+        const res = await fetch(url);
+        const json = await res.json().catch(() => ({}));
+        const rows = Array.isArray(json?.data) ? json.data : [];
+        setLineCache((m) => ({
+          ...m,
+          [documentNo]: { loading: false, error: null, rows },
+        }));
+      } catch {
+        setLineCache((m) => ({
+          ...m,
+          [documentNo]: {
+            loading: false,
+            error: "Failed to load lines.",
+            rows: [],
+          },
+        }));
+      }
+    },
+    [lineCache]
+  );
+
+  const refreshLines = useCallback(
+    (documentNo) => {
+      ensureLines(documentNo, { force: true });
+    },
+    [ensureLines]
+  );
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -173,7 +272,9 @@ export default function Buy() {
       if (dateFrom) params.set("dateFrom", dateFrom);
       if (dateTo) params.set("dateTo", dateTo);
 
-      const res = await fetch(`${API}/api/purchase-offers?${params.toString()}`);
+      const res = await fetch(
+        `${API}/api/purchase-offers?${params.toString()}`
+      );
       const json = await res.json();
       setData(json);
     } catch {
@@ -196,7 +297,9 @@ export default function Buy() {
   const onDelete = async (_id) => {
     if (!window.confirm(L.deleteConfirm)) return;
     try {
-      const res = await fetch(`${API}/api/purchase-offers/${_id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/purchase-offers/${_id}`, {
+        method: "DELETE",
+      });
       if (res.status === 204) {
         if (expandedId === _id) setExpandedId(null);
         showNotice("success", L.deleted);
@@ -241,11 +344,25 @@ export default function Buy() {
     return arr;
   }, [data.data, sortBy, sortDir]);
 
-  function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
+  function SortableTh({
+    id,
+    sortBy,
+    sortDir,
+    onSort,
+    children,
+    className = "",
+  }) {
     const active = sortBy === id;
-    const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+    const ariaSort = active
+      ? sortDir === "asc"
+        ? "ascending"
+        : "descending"
+      : "none";
     return (
-      <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
+      <th
+        aria-sort={ariaSort}
+        className={`text-left px-4 py-3 font-medium ${className}`}
+      >
         <button
           type="button"
           onClick={() => onSort(id)}
@@ -270,7 +387,10 @@ export default function Buy() {
       )}
 
       {/* Controls */}
-      <form onSubmit={onSearch} className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm">
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -391,13 +511,13 @@ export default function Buy() {
                 <SortableTh id="dueDate" {...{ sortBy, sortDir, onSort }}>
                   {L.dueDate}
                 </SortableTh>
-<SortableTh
-  id="currencyCode"
-  {...{ sortBy, sortDir, onSort }}
-  className="text-center"
->
-  {L.currency}
-</SortableTh>
+                <SortableTh
+                  id="currencyCode"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-center"
+                >
+                  {L.currency}
+                </SortableTh>
                 <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
                   {L.created}
                 </SortableTh>
@@ -408,13 +528,19 @@ export default function Buy() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {L.loading}
                   </td>
                 </tr>
               ) : (data.data?.length || 0) === 0 ? (
                 <tr>
-                  <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {L.empty}
                   </td>
                 </tr>
@@ -426,7 +552,11 @@ export default function Buy() {
                         <button
                           className="p-1 rounded hover:bg-slate-100"
                           onClick={() =>
-                            setExpandedId((id) => (id === d._id ? null : d._id))
+                            setExpandedId((id) => {
+                              const next = id === d._id ? null : d._id;
+                              if (next) ensureLines(d.documentNo);
+                              return next;
+                            })
                           }
                           aria-label="Toggle details"
                           title="Toggle details"
@@ -450,14 +580,14 @@ export default function Buy() {
                       </Td>
                       <Td>{formatDate(d.documentDate, locale, "—")}</Td>
                       <Td>{formatDate(d.dueDate, locale, "—")}</Td>
-<Td className="text-center font-medium">
-
-  {d.currencyCode || "—"}{" "}
-  <span className="text-slate-500">
-    {d.currencyFactor ? `• ${fmtDOT(d.currencyFactor, 4)}` : ""}
-  </span>
-</Td>
-
+                      <Td className="text-center font-medium">
+                        {d.currencyCode || "—"}{" "}
+                        <span className="text-slate-500">
+                          {d.currencyFactor
+                            ? `• ${fmtDOT(d.currencyFactor, 4)}`
+                            : ""}
+                        </span>
+                      </Td>
 
                       <Td>{formatDate(d.createdAt, locale, "—")}</Td>
                       <Td>
@@ -473,6 +603,15 @@ export default function Buy() {
                             <Pencil size={16} />
                           </button>
                           <button
+                            className="p-2 rounded-lg hover:bg-slate-100"
+                            onClick={() => setOpenPdfFor(d)}
+                            title="Generate PDF"
+                            aria-label="Generate PDF"
+                          >
+                            <FileText size={16} />
+                          </button>
+
+                          <button
                             className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
                             onClick={() => onDelete(d._id)}
                             title="Delete"
@@ -485,8 +624,200 @@ export default function Buy() {
 
                     {expandedId === d._id && (
                       <tr>
-                        <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+                        <td
+                          colSpan={COL_COUNT}
+                          className="bg-slate-50 border-t"
+                        >
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                            {/* NEW — Lines block */}
+                            <Section
+                              className="md:col-span-3"
+                              title={
+                                <div className="flex items-center justify-between">
+                                  <span>
+                                    {LL.title || "Lines (sum)"}{" "}
+                                    {(lineCache[d.documentNo]?.rows || [])
+                                      .length || 0}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setLineInitial({
+                                        documentNo: d.documentNo,
+                                        status: canonStatus(d.status || "new"),
+                                      });
+                                      setOpenLineForm(true);
+                                    }}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-700"
+                                    title={LL.addBtn || "Add Line"}
+                                  >
+                                    <Plus size={14} /> {LL.addBtn || "Add Line"}
+                                  </button>
+                                </div>
+                              }
+                            >
+                              {(() => {
+                                const docNo = d.documentNo;
+                                const cache = lineCache[docNo] || {
+                                  loading: false,
+                                  error: null,
+                                  rows: [],
+                                };
+
+                                if (cache.loading)
+                                  return (
+                                    <div className="text-sm text-slate-500 px-1 py-1">
+                                      {LL.loading || "Loading lines…"}
+                                    </div>
+                                  );
+                                if (cache.error)
+                                  return (
+                                    <div className="text-sm text-red-600 px-1 py-1">
+                                      {cache.error}
+                                    </div>
+                                  );
+                                if (!cache.rows || cache.rows.length === 0)
+                                  return (
+                                    <div className="text-sm text-slate-500 px-1 py-1">
+                                      {LL.empty || "No lines"}
+                                    </div>
+                                  );
+
+                                const sumLineValue = cache.rows.reduce(
+                                  (a, r) => a + (Number(r.lineValue) || 0),
+                                  0
+                                );
+                                const sumTransport = cache.rows.reduce(
+                                  (a, r) => a + (Number(r.transportCost) || 0),
+                                  0
+                                );
+
+                                return (
+                                  <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                    <table className="min-w-full text-xs">
+                                      <thead className="bg-slate-50 text-slate-600">
+                                        <tr>
+                                          <th className="text-left px-3 py-2 font-medium">
+                                            {LH.lineNo || "Line No."}
+                                          </th>
+                                          <th className="text-left px-3 py-2 font-medium">
+                                            {LH.status || "Status"}
+                                          </th>
+                                          <th className="text-left px-3 py-2 font-medium">
+                                            {LH.type || "Type"}
+                                          </th>
+                                          <th className="text-left px-3 py-2 font-medium">
+                                            {LH.item || "Item"}
+                                          </th>
+                                          <th className="text-left px-3 py-2 font-medium">
+                                            {LH.uom || "UOM"}
+                                          </th>
+                                          <th className="text-right px-3 py-2 font-medium">
+                                            {LH.unitPrice || "Unit Price"}
+                                          </th>
+                                          <th className="text-right px-3 py-2 font-medium">
+                                            {LH.qty || "Qty"}
+                                          </th>
+                                          <th className="text-right px-3 py-2 font-medium">
+                                            {LH.lineValue || "Line Value"}
+                                          </th>
+                                          <th className="text-right px-3 py-2 font-medium">
+                                            {LH.transport || "Transport"}
+                                          </th>
+                                          <th className="text-left px-3 py-2 font-medium">
+                                            {LH.updated || "Updated"}
+                                          </th>
+                                          <th className="text-right px-3 py-2 font-medium">
+                                            {LH.actions || "Actions"}
+                                          </th>
+                                        </tr>
+                                      </thead>
+
+                                      <tbody>
+                                        {cache.rows.map((ln) => (
+                                          <tr key={ln._id} className="border-t">
+                                            <td className="px-3 py-2 font-mono">
+                                              {ln.lineNo ?? "—"}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <StatusBadge
+                                                value={ln.status}
+                                                map={L.statusMap}
+                                              />
+                                            </td>
+                                            <td className="px-3 py-2 capitalize">
+                                              {ln.lineType || "—"}
+                                            </td>
+                                            <td className="px-3 py-2 truncate max-w-[220px]">
+                                              {ln.itemNo || "—"}
+                                            </td>
+                                            <td className="px-3 py-2 font-mono">
+                                              {ln.unitOfMeasure || "—"}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                              {fmtDOT(ln.unitPrice, 2)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                              {fmtDOT(ln.quantity, 3)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right font-medium">
+                                              {fmtDOT(ln.lineValue, 2)}
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                              {fmtDOT(ln.transportCost, 2)}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              {formatDate(
+                                                ln.updatedAt || ln.dateModified,
+                                                locale,
+                                                "—"
+                                              )}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <div className="flex justify-end">
+                                                <button
+                                                  type="button"
+                                                  className="p-1.5 rounded-lg hover:bg-slate-100"
+                                                  title="Edit line"
+                                                  onClick={() => {
+                                                    setLineInitial(ln);
+                                                    setOpenLineForm(true);
+                                                  }}
+                                                >
+                                                  <Pencil size={16} />
+                                                </button>
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+
+                                      <tfoot className="bg-slate-50">
+                                        <tr className="border-t">
+                                          <td
+                                            className="px-3 py-2 text-right font-semibold"
+                                            colSpan={7}
+                                          >
+                                            {LL.totalsLabel || "Totals:"}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-semibold">
+                                            {fmtDOT(sumLineValue, 2)}
+                                          </td>
+                                          <td className="px-3 py-2 text-right font-semibold">
+                                            {fmtDOT(sumTransport, 2)}
+                                          </td>
+                                          <td
+                                            className="px-3 py-2"
+                                            colSpan={2}
+                                          ></td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                );
+                              })()}
+                            </Section>
+
                             <Section title="Header">
                               <KV label={L.kv.externalDocumentNo} icon={Hash}>
                                 {d.externalDocumentNo || "—"}
@@ -507,11 +838,12 @@ export default function Buy() {
                                 {formatDate(d.dateModified, locale, "—")}
                               </KV>
 
-<KV label={L.kv.currency} icon={DollarSign}>
-  {d.currencyCode || "—"}{" "}
-  {d.currencyFactor ? `(${fmtDOT(d.currencyFactor, 6)})` : ""}
-
-</KV>
+                              <KV label={L.kv.currency} icon={DollarSign}>
+                                {d.currencyCode || "—"}{" "}
+                                {d.currencyFactor
+                                  ? `(${fmtDOT(d.currencyFactor, 6)})`
+                                  : ""}
+                              </KV>
 
                               <KV label={L.kv.documentDate} icon={CalendarIcon}>
                                 {formatDate(d.documentDate, locale, "—")}
@@ -519,11 +851,25 @@ export default function Buy() {
                               <KV label={L.kv.serviceDate} icon={CalendarIcon}>
                                 {formatDate(d.serviceDate, locale, "—")}
                               </KV>
-                              <KV label={L.kv.requestedDeliveryDate} icon={CalendarIcon}>
-                                {formatDate(d.requestedDeliveryDate, locale, "—")}
+                              <KV
+                                label={L.kv.requestedDeliveryDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(
+                                  d.requestedDeliveryDate,
+                                  locale,
+                                  "—"
+                                )}
                               </KV>
-                              <KV label={L.kv.promisedDeliveryDate} icon={CalendarIcon}>
-                                {formatDate(d.promisedDeliveryDate, locale, "—")}
+                              <KV
+                                label={L.kv.promisedDeliveryDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(
+                                  d.promisedDeliveryDate,
+                                  locale,
+                                  "—"
+                                )}
                               </KV>
                               <KV label={L.kv.receiptDate} icon={CalendarIcon}>
                                 {formatDate(d.receiptDate, locale, "—")}
@@ -534,75 +880,183 @@ export default function Buy() {
                             </Section>
 
                             <Section title={L.buyFrom}>
-                              <KV label={L.kv.no} icon={IdCard}>{d.buyVendorNo || "—"}</KV>
-                              <KV label={L.kv.name} icon={UserIcon}>{d.buyVendorName || "—"}</KV>
-                              <KV label={L.kv.name2} icon={UserIcon}>{d.buyVendorName2 || "—"}</KV>
-                              <KV label={L.kv.address} icon={Building}>{d.buyVendorAddress || "—"}</KV>
-                              <KV label={L.kv.address2} icon={Building}>{d.buyVendorAddress2 || "—"}</KV>
-                              <KV label={L.kv.city} icon={MapPin}>{d.buyVendorCity || "—"}</KV>
-                              <KV label={L.kv.region} icon={MapPin}>{d.buyVendorRegion || "—"}</KV>
-                              <KV label={L.kv.postCode} icon={Hash}>{d.buyVendorPostCode || "—"}</KV>
-                              <KV label={L.kv.country} icon={Globe}>{d.buyVendorCountry || "—"}</KV>
-                              <KV label={L.kv.email} icon={Mail}>{d.buyVendorEmail || "—"}</KV>
-                              <KV label={L.kv.phone} icon={PhoneCall}>{d.buyVendorPhoneNo || "—"}</KV>
+                              <KV label={L.kv.no} icon={IdCard}>
+                                {d.buyVendorNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={UserIcon}>
+                                {d.buyVendorName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={UserIcon}>
+                                {d.buyVendorName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.buyVendorAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.buyVendorAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.buyVendorCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.buyVendorRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.buyVendorPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.buyVendorCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.buyVendorEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.buyVendorPhoneNo || "—"}
+                              </KV>
                             </Section>
 
                             <Section title={L.payTo}>
-                              <KV label={L.kv.no} icon={IdCard}>{d.payVendorNo || "—"}</KV>
-                              <KV label={L.kv.name} icon={UserIcon}>{d.payVendorName || "—"}</KV>
-                              <KV label={L.kv.name2} icon={UserIcon}>{d.payVendorName2 || "—"}</KV>
-                              <KV label={L.kv.address} icon={Building}>{d.payVendorAddress || "—"}</KV>
-                              <KV label={L.kv.address2} icon={Building}>{d.payVendorAddress2 || "—"}</KV>
-                              <KV label={L.kv.city} icon={MapPin}>{d.payVendorCity || "—"}</KV>
-                              <KV label={L.kv.region} icon={MapPin}>{d.payVendorRegion || "—"}</KV>
-                              <KV label={L.kv.postCode} icon={Hash}>{d.payVendorPostCode || "—"}</KV>
-                              <KV label={L.kv.country} icon={Globe}>{d.payVendorCountry || "—"}</KV>
-                              <KV label={L.kv.email} icon={Mail}>{d.payVendorEmail || "—"}</KV>
-                              <KV label={L.kv.phone} icon={PhoneCall}>{d.payVendorPhoneNo || "—"}</KV>
-                              <KV label={L.kv.nip} icon={Hash}>{d.payVendorNip || "—"}</KV>
+                              <KV label={L.kv.no} icon={IdCard}>
+                                {d.payVendorNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={UserIcon}>
+                                {d.payVendorName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={UserIcon}>
+                                {d.payVendorName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.payVendorAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.payVendorAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.payVendorCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.payVendorRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.payVendorPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.payVendorCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.payVendorEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.payVendorPhoneNo || "—"}
+                              </KV>
+                              <KV label={L.kv.nip} icon={Hash}>
+                                {d.payVendorNip || "—"}
+                              </KV>
                             </Section>
 
                             <Section title={L.location}>
-                              <KV label={L.kv.no} icon={IdCard}>{d.locationNo || "—"}</KV>
-                              <KV label={L.kv.name} icon={Building}>{d.locationName || "—"}</KV>
-                              <KV label={L.kv.name2} icon={Building}>{d.locationName2 || "—"}</KV>
-                              <KV label={L.kv.address} icon={Building}>{d.locationAddress || "—"}</KV>
-                              <KV label={L.kv.address2} icon={Building}>{d.locationAddress2 || "—"}</KV>
-                              <KV label={L.kv.city} icon={MapPin}>{d.locationCity || "—"}</KV>
-                              <KV label={L.kv.region} icon={MapPin}>{d.locationRegion || "—"}</KV>
-                              <KV label={L.kv.postCode} icon={Hash}>{d.locationPostCode || "—"}</KV>
-                              <KV label={L.kv.country} icon={Globe}>{d.locationCountry || "—"}</KV>
-                              <KV label={L.kv.email} icon={Mail}>{d.locationEmail || "—"}</KV>
-                              <KV label={L.kv.phone} icon={PhoneCall}>{d.locationPhoneNo || "—"}</KV>
+                              <KV label={L.kv.no} icon={IdCard}>
+                                {d.locationNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={Building}>
+                                {d.locationName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={Building}>
+                                {d.locationName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.locationAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.locationAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.locationCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.locationRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.locationPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.locationCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.locationEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.locationPhoneNo || "—"}
+                              </KV>
                             </Section>
 
                             <Section title={L.shipment}>
-                              <KV label={L.kv.method} icon={Truck}>{d.shipmentMethod || "—"}</KV>
-                              <KV label={L.kv.agent} icon={Ship}>{d.shipmentAgent || "—"}</KV>
+                              <KV label={L.kv.method} icon={Truck}>
+                                {d.shipmentMethod || "—"}
+                              </KV>
+                              <KV label={L.kv.agent} icon={Ship}>
+                                {d.shipmentAgent || "—"}
+                              </KV>
                             </Section>
 
                             <Section title={L.transport}>
-                              <KV label={L.kv.transportNo} icon={IdCard}>{d.transportNo || "—"}</KV>
-                              <KV label={L.kv.transportName} icon={UserIcon}>{d.transportName || "—"}</KV>
-                              <KV label={L.kv.transportId} icon={IdCard}>{d.transportId || "—"}</KV>
-                              <KV label={L.kv.driverName} icon={UserIcon}>{d.transportDriverName || "—"}</KV>
-                              <KV label={L.kv.driverId} icon={IdCard}>{d.transportDriverId || "—"}</KV>
-                              <KV label={L.kv.driverEmail} icon={Mail}>{d.transportDriverEmail || "—"}</KV>
-                              <KV label={L.kv.driverPhone} icon={PhoneCall}>{d.transportDriverPhoneNo || "—"}</KV>
+                              <KV label={L.kv.transportNo} icon={IdCard}>
+                                {d.transportNo || "—"}
+                              </KV>
+                              <KV label={L.kv.transportName} icon={UserIcon}>
+                                {d.transportName || "—"}
+                              </KV>
+                              <KV label={L.kv.transportId} icon={IdCard}>
+                                {d.transportId || "—"}
+                              </KV>
+                              <KV label={L.kv.driverName} icon={UserIcon}>
+                                {d.transportDriverName || "—"}
+                              </KV>
+                              <KV label={L.kv.driverId} icon={IdCard}>
+                                {d.transportDriverId || "—"}
+                              </KV>
+                              <KV label={L.kv.driverEmail} icon={Mail}>
+                                {d.transportDriverEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.driverPhone} icon={PhoneCall}>
+                                {d.transportDriverPhoneNo || "—"}
+                              </KV>
                             </Section>
 
                             <Section title={L.broker}>
-                              <KV label={L.kv.brokerNo} icon={IdCard}>{d.brokerNo || "—"}</KV>
-                              <KV label={L.kv.name} icon={UserIcon}>{d.brokerName || "—"}</KV>
-                              <KV label={L.kv.name2} icon={UserIcon}>{d.brokerName2 || "—"}</KV>
-                              <KV label={L.kv.address} icon={Building}>{d.brokerAddress || "—"}</KV>
-                              <KV label={L.kv.address2} icon={Building}>{d.brokerAddress2 || "—"}</KV>
-                              <KV label={L.kv.city} icon={MapPin}>{d.brokerCity || "—"}</KV>
-                              <KV label={L.kv.region} icon={MapPin}>{d.brokerRegion || "—"}</KV>
-                              <KV label={L.kv.postCode} icon={Hash}>{d.brokerPostCode || "—"}</KV>
-                              <KV label={L.kv.country} icon={Globe}>{d.brokerCountry || "—"}</KV>
-                              <KV label={L.kv.email} icon={Mail}>{d.brokerEmail || "—"}</KV>
-                              <KV label={L.kv.phone} icon={PhoneCall}>{d.brokerPhoneNo || "—"}</KV>
+                              <KV label={L.kv.brokerNo} icon={IdCard}>
+                                {d.brokerNo || "—"}
+                              </KV>
+                              <KV label={L.kv.name} icon={UserIcon}>
+                                {d.brokerName || "—"}
+                              </KV>
+                              <KV label={L.kv.name2} icon={UserIcon}>
+                                {d.brokerName2 || "—"}
+                              </KV>
+                              <KV label={L.kv.address} icon={Building}>
+                                {d.brokerAddress || "—"}
+                              </KV>
+                              <KV label={L.kv.address2} icon={Building}>
+                                {d.brokerAddress2 || "—"}
+                              </KV>
+                              <KV label={L.kv.city} icon={MapPin}>
+                                {d.brokerCity || "—"}
+                              </KV>
+                              <KV label={L.kv.region} icon={MapPin}>
+                                {d.brokerRegion || "—"}
+                              </KV>
+                              <KV label={L.kv.postCode} icon={Hash}>
+                                {d.brokerPostCode || "—"}
+                              </KV>
+                              <KV label={L.kv.country} icon={Globe}>
+                                {d.brokerCountry || "—"}
+                              </KV>
+                              <KV label={L.kv.email} icon={Mail}>
+                                {d.brokerEmail || "—"}
+                              </KV>
+                              <KV label={L.kv.phone} icon={PhoneCall}>
+                                {d.brokerPhoneNo || "—"}
+                              </KV>
                             </Section>
                           </div>
                         </td>
@@ -619,7 +1073,9 @@ export default function Buy() {
           <div className="text-xs text-slate-500">
             {T.footer?.meta
               ? T.footer.meta(data.total, data.page, data.pages)
-              : `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
+              : `Total: ${data.total} • Page ${data.page} of ${
+                  data.pages || 1
+                }`}
           </div>
           <div className="flex items-center gap-2">
             <select
@@ -659,7 +1115,9 @@ export default function Buy() {
       {openForm && (
         <Modal
           title={
-            editing ? T.modal?.titleEdit || "Edit Purchase Offer" : T.modal?.titleNew || "New Purchase Offer"
+            editing
+              ? T.modal?.titleEdit || "Edit Purchase Offer"
+              : T.modal?.titleNew || "New Purchase Offer"
           }
           onClose={() => {
             setOpenForm(false);
@@ -680,6 +1138,60 @@ export default function Buy() {
             }}
             showNotice={showNotice}
           />
+        </Modal>
+      )}
+
+      {openLineForm && (
+        <Modal
+          title={lineInitial?._id ? "Edit Line" : "New Purchase Offer Line"}
+          onClose={() => {
+            setOpenLineForm(false);
+            setLineInitial(null);
+          }}
+        >
+          <PurchaseOfferLineForm
+            initial={
+              lineInitial || {
+                documentNo: lineInitial?.documentNo || "",
+                status: lineInitial?.status || "new",
+              }
+            }
+            docs={docsForPicker}
+            docsLoading={docsForPickerLoading}
+            S={S_lines}
+            locale={locale}
+            showNotice={showNotice}
+            onCancel={() => {
+              setOpenLineForm(false);
+              setLineInitial(null);
+            }}
+            onSaved={(saved) => {
+              const docNo = saved?.documentNo ?? lineInitial?.documentNo;
+              if (docNo) {
+                setLineCache((m) => {
+                  const prev = m[docNo]?.rows || [];
+                  const rows = saved?._id
+                    ? [saved, ...prev.filter((r) => r._id !== saved._id)]
+                    : prev;
+                  return {
+                    ...m,
+                    [docNo]: { loading: false, error: null, rows },
+                  };
+                });
+                refreshLines(docNo);
+              }
+              setOpenLineForm(false);
+              setLineInitial(null);
+            }}
+          />
+        </Modal>
+      )}
+      {openPdfFor && (
+        <Modal
+          title={`PDF — ${openPdfFor.documentNo || ""}`}
+          onClose={() => setOpenPdfFor(null)}
+        >
+          <PurchaseOfferPdf api={API} document={openPdfFor} lang="pl" />
         </Modal>
       )}
     </div>
@@ -706,7 +1218,12 @@ function Modal({ children, onClose, title }) {
 }
 
 /** Typeahead combobox for /api/mvendors (blocked=none) */
-function VendorCombobox({ valueNo, onPick, placeholder = "Type no./name…", excludeId }) {
+function VendorCombobox({
+  valueNo,
+  onPick,
+  placeholder = "Type no./name…",
+  excludeId,
+}) {
   const [input, setInput] = useState(valueNo ? valueNo : "");
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(-1);
@@ -721,7 +1238,9 @@ function VendorCombobox({ valueNo, onPick, placeholder = "Type no./name…", exc
       .then((json) => {
         if (stop) return;
         const rows = Array.isArray(json?.data) ? json.data : [];
-        const filtered = excludeId ? rows.filter((r) => r._id !== excludeId) : rows;
+        const filtered = excludeId
+          ? rows.filter((r) => r._id !== excludeId)
+          : rows;
         setOpts(
           filtered.map((r) => ({
             _id: r._id,
@@ -847,23 +1366,43 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
   const [documentNo, setDocumentNo] = useState(initial?.documentNo || "");
   const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
 
-  const [externalDocumentNo, setExternalDocumentNo] = useState(initial?.externalDocumentNo || "");
+  const [externalDocumentNo, setExternalDocumentNo] = useState(
+    initial?.externalDocumentNo || ""
+  );
   const [documentInfo, setDocumentInfo] = useState(initial?.documentInfo || "");
-  const [currencyCode, setCurrencyCode] = useState(initial?.currencyCode || "USD");
-  const [currencyFactor, setCurrencyFactor] = useState(initial?.currencyFactor ?? 1);
-  const [documentDate, setDocumentDate] = useState(initial?.documentDate ? initial.documentDate.slice(0, 10) : "");
-  const [serviceDate, setServiceDate] = useState(initial?.serviceDate ? initial.serviceDate.slice(0, 10) : "");
+  const [currencyCode, setCurrencyCode] = useState(
+    initial?.currencyCode || "USD"
+  );
+  const [currencyFactor, setCurrencyFactor] = useState(
+    initial?.currencyFactor ?? 1
+  );
+  const [documentDate, setDocumentDate] = useState(
+    initial?.documentDate ? initial.documentDate.slice(0, 10) : ""
+  );
+  const [serviceDate, setServiceDate] = useState(
+    initial?.serviceDate ? initial.serviceDate.slice(0, 10) : ""
+  );
   const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(
-    initial?.requestedDeliveryDate ? initial.requestedDeliveryDate.slice(0, 10) : ""
+    initial?.requestedDeliveryDate
+      ? initial.requestedDeliveryDate.slice(0, 10)
+      : ""
   );
   const [promisedDeliveryDate, setPromisedDeliveryDate] = useState(
-    initial?.promisedDeliveryDate ? initial.promisedDeliveryDate.slice(0, 10) : ""
+    initial?.promisedDeliveryDate
+      ? initial.promisedDeliveryDate.slice(0, 10)
+      : ""
   );
-  const [receiptDate, setReceiptDate] = useState(initial?.receiptDate ? initial.receiptDate.slice(0, 10) : "");
+  const [receiptDate, setReceiptDate] = useState(
+    initial?.receiptDate ? initial.receiptDate.slice(0, 10) : ""
+  );
   const [validityDate, setValidityDate] = useState(
-    initial?.documentValidityDate ? initial.documentValidityDate.slice(0, 10) : ""
+    initial?.documentValidityDate
+      ? initial.documentValidityDate.slice(0, 10)
+      : ""
   );
-  const [dueDate, setDueDate] = useState(initial?.dueDate ? initial.dueDate.slice(0, 10) : "");
+  const [dueDate, setDueDate] = useState(
+    initial?.dueDate ? initial.dueDate.slice(0, 10) : ""
+  );
 
   // buy-from vendor
   const [buy, setBuy] = useState({
@@ -912,8 +1451,12 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
   });
 
   // shipment
-  const [shipmentMethod, setShipmentMethod] = useState(initial?.shipmentMethod || "");
-  const [shipmentAgent, setShipmentAgent] = useState(initial?.shipmentAgent || "");
+  const [shipmentMethod, setShipmentMethod] = useState(
+    initial?.shipmentMethod || ""
+  );
+  const [shipmentAgent, setShipmentAgent] = useState(
+    initial?.shipmentAgent || ""
+  );
 
   // transport
   const [tr, setTr] = useState({
@@ -950,7 +1493,15 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
 
     if (Object.keys(errs).length) {
       setErrors(errs);
-      setTab(errs.documentNo ? "header" : errs.buyNo ? "buy" : errs.payNo ? "pay" : "header");
+      setTab(
+        errs.documentNo
+          ? "header"
+          : errs.buyNo
+          ? "buy"
+          : errs.payNo
+          ? "pay"
+          : "header"
+      );
       return;
     }
 
@@ -1112,7 +1663,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
                     : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                 ].join(" ")}
               >
-                <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
+                <t.Icon
+                  size={16}
+                  className={active ? "opacity-80" : "opacity-60"}
+                />
                 {t.label}
               </button>
             );
@@ -1130,7 +1684,11 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
       {/* HEADER */}
       {tab === "header" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={F.documentNo || "Document No."} icon={Hash} error={errors.documentNo}>
+          <Field
+            label={F.documentNo || "Document No."}
+            icon={Hash}
+            error={errors.documentNo}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={documentNo}
@@ -1153,7 +1711,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
             </select>
           </Field>
 
-          <Field label={F.externalDocumentNo || "External Doc. No."} icon={Hash}>
+          <Field
+            label={F.externalDocumentNo || "External Doc. No."}
+            icon={Hash}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={externalDocumentNo}
@@ -1177,7 +1738,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
             />
           </Field>
 
-          <Field label={F.currencyFactor || "Currency Factor"} icon={DollarSign}>
+          <Field
+            label={F.currencyFactor || "Currency Factor"}
+            icon={DollarSign}
+          >
             <input
               type="number"
               step="0.0001"
@@ -1195,7 +1759,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
               onChange={(e) => setDocumentDate(e.target.value)}
             />
           </Field>
-          <Field label={F.serviceDate || "Service/Delivery Date"} icon={CalendarIcon}>
+          <Field
+            label={F.serviceDate || "Service/Delivery Date"}
+            icon={CalendarIcon}
+          >
             <input
               type="date"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1203,7 +1770,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
               onChange={(e) => setServiceDate(e.target.value)}
             />
           </Field>
-          <Field label={F.requestedDeliveryDate || "Requested Delivery Date"} icon={CalendarIcon}>
+          <Field
+            label={F.requestedDeliveryDate || "Requested Delivery Date"}
+            icon={CalendarIcon}
+          >
             <input
               type="date"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1211,7 +1781,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
               onChange={(e) => setRequestedDeliveryDate(e.target.value)}
             />
           </Field>
-          <Field label={F.promisedDeliveryDate || "Promised Delivery Date"} icon={CalendarIcon}>
+          <Field
+            label={F.promisedDeliveryDate || "Promised Delivery Date"}
+            icon={CalendarIcon}
+          >
             <input
               type="date"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1227,7 +1800,10 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
               onChange={(e) => setReceiptDate(e.target.value)}
             />
           </Field>
-          <Field label={F.validityDate || "Document Validity Date"} icon={CalendarIcon}>
+          <Field
+            label={F.validityDate || "Document Validity Date"}
+            icon={CalendarIcon}
+          >
             <input
               type="date"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1249,7 +1825,11 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
       {/* BUY-FROM */}
       {tab === "buy" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label={F.pickBuy || "Pick Buy-from Vendor"} icon={IdCard} error={errors.buyNo}>
+          <Field
+            label={F.pickBuy || "Pick Buy-from Vendor"}
+            icon={IdCard}
+            error={errors.buyNo}
+          >
             <VendorCombobox
               valueNo={buy.no}
               onPick={(v) => applyVendor(v, setBuy)}
@@ -1336,7 +1916,9 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
             <input
               className={INPUT_CLS}
               value={buy.country}
-              onChange={(e) => setBuy({ ...buy, country: e.target.value.toUpperCase() })}
+              onChange={(e) =>
+                setBuy({ ...buy, country: e.target.value.toUpperCase() })
+              }
             />
           </Field>
         </div>
@@ -1345,7 +1927,11 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
       {/* PAY-TO */}
       {tab === "pay" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label={F.pickPay || "Pick Pay-to Vendor"} icon={IdCard} error={errors.payNo}>
+          <Field
+            label={F.pickPay || "Pick Pay-to Vendor"}
+            icon={IdCard}
+            error={errors.payNo}
+          >
             <VendorCombobox
               valueNo={pay.no}
               onPick={(v) => applyVendor(v, setPay)}
@@ -1440,7 +2026,9 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
             <input
               className={INPUT_CLS}
               value={pay.country}
-              onChange={(e) => setPay({ ...pay, country: e.target.value.toUpperCase() })}
+              onChange={(e) =>
+                setPay({ ...pay, country: e.target.value.toUpperCase() })
+              }
             />
           </Field>
         </div>
@@ -1513,7 +2101,9 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
             <input
               className={INPUT_CLS}
               value={loc.country}
-              onChange={(e) => setLoc({ ...loc, country: e.target.value.toUpperCase() })}
+              onChange={(e) =>
+                setLoc({ ...loc, country: e.target.value.toUpperCase() })
+              }
             />
           </Field>
           <Field label={F.email || "Email"} icon={Mail}>
@@ -1612,105 +2202,106 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
         </div>
       )}
 
+      {tab === "broker" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Pick broker from vendors */}
+          <Field label={TABS_L.broker || "Broker"} icon={IdCard}>
+            <VendorCombobox
+              valueNo={br.no}
+              onPick={(v) => applyVendor(v, setBr)}
+              excludeId={null}
+              placeholder={F.brokerNo || "Search vendor no./name…"}
+            />
+          </Field>
+          <div />
 
-{tab === "broker" && (
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    {/* Pick broker from vendors */}
-    <Field label={TABS_L.broker || "Broker"} icon={IdCard}>
-      <VendorCombobox
-        valueNo={br.no}
-        onPick={(v) => applyVendor(v, setBr)}
-        excludeId={null}
-        placeholder={F.brokerNo || "Search vendor no./name…"}
-      />
-    </Field>
-    <div />
+          {/* Auto-filled but editable fields */}
+          <Field label={F.brokerNo || "Broker No."} icon={IdCard}>
+            <input
+              className={INPUT_CLS}
+              value={br.no}
+              onChange={(e) => setBr({ ...br, no: e.target.value })}
+            />
+          </Field>
+          <Field label={F.name || "Name"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={br.name}
+              onChange={(e) => setBr({ ...br, name: e.target.value })}
+            />
+          </Field>
 
-    {/* Auto-filled but editable fields */}
-    <Field label={F.brokerNo || "Broker No."} icon={IdCard}>
-      <input
-        className={INPUT_CLS}
-        value={br.no}
-        onChange={(e) => setBr({ ...br, no: e.target.value })}
-      />
-    </Field>
-    <Field label={F.name || "Name"} icon={UserIcon}>
-      <input
-        className={INPUT_CLS}
-        value={br.name}
-        onChange={(e) => setBr({ ...br, name: e.target.value })}
-      />
-    </Field>
+          <Field label={F.name2 || "Name 2"} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={br.name2}
+              onChange={(e) => setBr({ ...br, name2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.address || "Address"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={br.address}
+              onChange={(e) => setBr({ ...br, address: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.name2 || "Name 2"} icon={UserIcon}>
-      <input
-        className={INPUT_CLS}
-        value={br.name2}
-        onChange={(e) => setBr({ ...br, name2: e.target.value })}
-      />
-    </Field>
-    <Field label={F.address || "Address"} icon={Building}>
-      <input
-        className={INPUT_CLS}
-        value={br.address}
-        onChange={(e) => setBr({ ...br, address: e.target.value })}
-      />
-    </Field>
+          <Field label={F.address2 || "Address 2"} icon={Building}>
+            <input
+              className={INPUT_CLS}
+              value={br.address2}
+              onChange={(e) => setBr({ ...br, address2: e.target.value })}
+            />
+          </Field>
+          <Field label={F.city || "City"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={br.city}
+              onChange={(e) => setBr({ ...br, city: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.address2 || "Address 2"} icon={Building}>
-      <input
-        className={INPUT_CLS}
-        value={br.address2}
-        onChange={(e) => setBr({ ...br, address2: e.target.value })}
-      />
-    </Field>
-    <Field label={F.city || "City"} icon={MapPin}>
-      <input
-        className={INPUT_CLS}
-        value={br.city}
-        onChange={(e) => setBr({ ...br, city: e.target.value })}
-      />
-    </Field>
+          <Field label={F.region || "Region"} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={br.region}
+              onChange={(e) => setBr({ ...br, region: e.target.value })}
+            />
+          </Field>
+          <Field label={F.postCode || "Post Code"} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={br.postCode}
+              onChange={(e) => setBr({ ...br, postCode: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.region || "Region"} icon={MapPin}>
-      <input
-        className={INPUT_CLS}
-        value={br.region}
-        onChange={(e) => setBr({ ...br, region: e.target.value })}
-      />
-    </Field>
-    <Field label={F.postCode || "Post Code"} icon={Hash}>
-      <input
-        className={INPUT_CLS}
-        value={br.postCode}
-        onChange={(e) => setBr({ ...br, postCode: e.target.value })}
-      />
-    </Field>
+          <Field label={F.country || "Country"} icon={Globe}>
+            <input
+              className={INPUT_CLS}
+              value={br.country}
+              onChange={(e) =>
+                setBr({ ...br, country: e.target.value.toUpperCase() })
+              }
+            />
+          </Field>
+          <Field label={F.email || "Email"} icon={Mail}>
+            <input
+              className={INPUT_CLS}
+              value={br.email}
+              onChange={(e) => setBr({ ...br, email: e.target.value })}
+            />
+          </Field>
 
-    <Field label={F.country || "Country"} icon={Globe}>
-      <input
-        className={INPUT_CLS}
-        value={br.country}
-        onChange={(e) => setBr({ ...br, country: e.target.value.toUpperCase() })}
-      />
-    </Field>
-    <Field label={F.email || "Email"} icon={Mail}>
-      <input
-        className={INPUT_CLS}
-        value={br.email}
-        onChange={(e) => setBr({ ...br, email: e.target.value })}
-      />
-    </Field>
-
-    <Field label={F.phone || "Phone"} icon={PhoneCall}>
-      <input
-        className={INPUT_CLS}
-        value={br.phoneNo}
-        onChange={(e) => setBr({ ...br, phoneNo: e.target.value })}
-      />
-    </Field>
-  </div>
-)}
+          <Field label={F.phone || "Phone"} icon={PhoneCall}>
+            <input
+              className={INPUT_CLS}
+              value={br.phoneNo}
+              onChange={(e) => setBr({ ...br, phoneNo: e.target.value })}
+            />
+          </Field>
+        </div>
+      )}
 
       {Object.keys(errors).length > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -1739,7 +2330,11 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
 
 /* ===================== UI helpers ===================== */
 function Th({ children, className = "" }) {
-  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+  return (
+    <th className={`text-left px-4 py-3 font-medium ${className}`}>
+      {children}
+    </th>
+  );
 }
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
@@ -1758,7 +2353,9 @@ function Toast({ type = "success", children, onClose }) {
     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
     : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
       <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
@@ -1791,7 +2388,11 @@ function StatusBadge({ value, map }) {
       ? "bg-red-50 text-red-700 border-red-200"
       : "bg-slate-100 text-slate-700 border-slate-300";
 
-  return <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>{label}</span>;
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+      {label}
+    </span>
+  );
 }
 
 function KV({ label, icon: Icon, children }) {
@@ -1826,14 +2427,18 @@ function fmtDOT(n, decimals = 2) {
   });
 }
 
-function Section({ title, children }) {
+function Section({ title, children, className = "", ...rest }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3">
+    <div
+      className={`rounded-xl border border-slate-200 bg-white p-3 ${className}`}
+      {...rest}
+    >
       <div className="mb-2 text-xs font-semibold text-slate-600">{title}</div>
       <div className="space-y-2">{children}</div>
     </div>
   );
 }
+
 function Field({ label, icon: Icon, error, children }) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {

@@ -17,7 +17,7 @@ import {
   BadgeCheck,
   ChevronRight,
   ChevronDown,
-  FileText, // <-- added
+  FileText,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -45,7 +45,7 @@ const MENU_REGISTRY = {
     to: "/app/items",
     parent: "ITEM",
   },
-  DEF_ITEM_PARAMETERS: {
+  DEFAULT_ITEM_PARAMETERS: {
     key: "DEFAULT_ITEM_PARAMETERS",
     icon: BadgeCheck,
     to: "/app/default-item-parameters",
@@ -86,7 +86,26 @@ const MENU_REGISTRY = {
     to: "/app/parameters",
   },
 
+  // BUY as a parent with submenu
   BUY: { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
+  BUY_MAIN: {
+    key: "BUY_MAIN",
+    icon: ShoppingCart,
+    to: "/app/buy",
+    parent: "BUY",
+  },
+  PURCHASE_LINE_PARAMETERS: {
+    key: "PURCHASE_LINE_PARAMETERS",
+    icon: SlidersHorizontal,
+    to: "/app/purchase-line-parameters",
+    parent: "BUY",
+  },
+    PURCHASE_OFFER_LINES: {                        
+    key: "PURCHASE_OFFER_LINES",
+    icon: FileText,
+    to: "/app/purchase-offer-lines",
+    parent: "BUY",
+  },
 
   // SELL as a parent with submenu
   SELL: { key: "SELL", icon: Coins, to: "/app/sell" },
@@ -96,7 +115,6 @@ const MENU_REGISTRY = {
     to: "/app/sell",
     parent: "SELL",
   },
-  // NEW: Sales Offer Lines submenu
   SALES_OFFER_LINES: {
     key: "SALES_OFFER_LINES",
     icon: FileText,
@@ -124,7 +142,7 @@ const GROUPS = [
       // Parent + submenu entries (ITEM)
       "ITEM",
       "ITEM_MAIN",
-      "DEF_ITEM_PARAMETERS",
+      "DEFAULT_ITEM_PARAMETERS",
 
       // Parent + submenu entries (LOCATIONS)
       "LOCATIONS",
@@ -143,11 +161,17 @@ const GROUPS = [
     key: "TRADING",
     titleKey: "TRADING",
     items: [
+      // BUY parent + submenu
       "BUY",
-      // Parent + submenu entries (SELL)
+      "BUY_MAIN",
+      "PURCHASE_OFFER_LINES", 
+      "PURCHASE_LINE_PARAMETERS",
+
+
+      // SELL parent + submenu
       "SELL",
       "SELL_MAIN",
-      "SALES_OFFER_LINES",     // <-- added here
+      "SALES_OFFER_LINES",
       "SALES_LINE_PARAMETERS",
     ],
   },
@@ -333,8 +357,7 @@ export default function Sidebar({ onLogout }) {
                                 "group relative w-full flex items-center gap-3 px-3 py-2 rounded-md transition",
                                 "text-[13px] font-semibold",
                                 compact ? "justify-center" : "ml-6",
-                                isActive ? "bg.white/20" : "hover:bg-white/10",
-                                isActive ? "bg-white/20" : "",
+                                isActive ? "bg-white/20" : "hover:bg-white/10",
                               ].join(" ")
                             }
                             title={childLabel}
