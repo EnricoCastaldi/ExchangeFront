@@ -370,83 +370,117 @@ function PurchaseOfferLineForm({
   }, [defaultParamCodes]);
 
   // Save
-  async function save(e) {
-    e.preventDefault();
-    const errs = {};
-    if (!documentNo.trim()) errs.documentNo = "Document No. *";
-    if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
-    if (!isEdit && !getUserCode()) errs.userCreated = "Missing user code (session).";
-    setErrors(errs);
-    if (Object.keys(errs).length) {
-      if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
+async function save(e) {
+  e.preventDefault();
+
+  // ----- 1) validate -----
+  const errs = {};
+  if (!documentNo.trim()) errs.documentNo = "Document No. *";
+  if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
+  if (!isEdit && !getUserCode()) errs.userCreated = "Missing user code (session).";
+  setErrors(errs);
+  if (Object.keys(errs).length) {
+    if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
+    return;
+  }
+
+  // ----- 2) payload -----
+  const payload = {
+    documentNo: documentNo.trim(),
+    status: canonStatus(status),
+    lineType: (lineType || "item").toLowerCase(),
+    lineNo: isEdit ? lineNo : undefined,
+    itemNo: itemNo || null,
+    unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
+    unitPrice: Number(unitPrice) || 0,
+    quantity: Number(quantity) || 0,
+
+    tollCost: Number(tollCost) || 0,
+    driverCost: Number(driverCost) || 0,
+    vehicleCost: Number(vehicleCost) || 0,
+    additionalCosts: Number(additionalCosts) || 0,
+    costMargin: Number(costMargin) || 0,
+
+    serviceDate,
+    requestedDeliveryDate,
+    promisedDeliveryDate,
+    shipmentDate,
+    documentValidityDate,
+    documentValidityHour,
+
+    buyVendorNo: buyVendorNo || null,
+    payVendorNo: payVendorNo || null,
+    locationNo: locationNo || null,
+
+    param1Code: p1c || null, param1Value: p1v || null,
+    param2Code: p2c || null, param2Value: p2v || null,
+    param3Code: p3c || null, param3Value: p3v || null,
+    param4Code: p4c || null, param4Value: p4v || null,
+    param5Code: p5c || null, param5Value: p5v || null,
+  };
+
+  const nowIso = new Date().toISOString();
+  const userCode = getUserCode();
+  if (!isEdit) {
+    payload.userCreated = userCode;
+    payload.dateCreated = nowIso;
+  } else {
+    payload.userModified = userCode;
+    payload.dateModified = nowIso;
+  }
+
+  // ----- 3) save line -----
+  try {
+    const url = isEdit
+      ? `${API}/api/purchase-offer-lines/${initial._id}`
+      : `${API}/api/purchase-offer-lines`;
+    const method = isEdit ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showNotice?.("error", json?.message || "Save failed");
       return;
     }
 
-    const payload = {
-      documentNo: documentNo.trim(),
-      status: canonStatus(status),
-      lineType: (lineType || "item").toLowerCase(),
-      lineNo: isEdit ? lineNo : undefined,
-      itemNo: itemNo || null,
-      unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
-      unitPrice: Number(unitPrice) || 0,
-      quantity: Number(quantity) || 0,
+    const saved = json || {};
 
-      tollCost: Number(tollCost) || 0,
-      driverCost: Number(driverCost) || 0,
-      vehicleCost: Number(vehicleCost) || 0,
-      additionalCosts: Number(additionalCosts) || 0,
-      costMargin: Number(costMargin) || 0,
+    // ----- 4) (re)build PURCHASE blocks (DELETE then POST chunks only) -----
+    try {
+      const mustResync =
+        !isEdit ||
+        Number(saved.quantity)         !== Number(initial?.quantity) ||
+        Number(saved.unitPrice)        !== Number(initial?.unitPrice) ||
+        String(saved.unitOfMeasure||"").toUpperCase() !== String(initial?.unitOfMeasure||"").toUpperCase() ||
+        Number(saved.tollCost)         !== Number(initial?.tollCost) ||
+        Number(saved.driverCost)       !== Number(initial?.driverCost) ||
+        Number(saved.vehicleCost)      !== Number(initial?.vehicleCost) ||
+        Number(saved.additionalCosts)  !== Number(initial?.additionalCosts) ||
+        Number(saved.costMargin)       !== Number(initial?.costMargin) ||
+        String(saved.status||"")       !== String(initial?.status||"") ||
+        String(saved.itemNo||"")       !== String(initial?.itemNo||"");
 
-      serviceDate: serviceDate || null,
-      requestedDeliveryDate: requestedDeliveryDate || null,
-      promisedDeliveryDate: promisedDeliveryDate || null,
-      shipmentDate: shipmentDate || null,
-      documentValidityDate: documentValidityDate || null,
-      documentValidityHour: documentValidityHour || null,
-
-      buyVendorNo: buyVendorNo || null,
-      payVendorNo: payVendorNo || null,
-      locationNo: locationNo || null,
-
-      param1Code: p1c || null, param1Value: p1v || null,
-      param2Code: p2c || null, param2Value: p2v || null,
-      param3Code: p3c || null, param3Value: p3v || null,
-      param4Code: p4c || null, param4Value: p4v || null,
-      param5Code: p5c || null, param5Value: p5v || null,
-    };
-
-    const nowIso = new Date().toISOString();
-    const userCode = getUserCode();
-    if (!isEdit) {
-      payload.userCreated = userCode;
-      payload.dateCreated = nowIso;
-    } else {
-      payload.userModified = userCode;
-      payload.dateModified = nowIso;
+      if (mustResync) {
+        await createPurchaseBlocksForLine(saved, userCode);
+      }
+    } catch (e) {
+      showNotice?.("error", e?.message || "Failed to (re)create purchase blocks.");
+      // If blocks must be atomic with line save, uncomment:
+      // return;
     }
 
+    // ----- 5) sync purchase line parameters -----
     try {
-      const url = isEdit
-        ? `${API}/api/purchase-offer-lines/${initial._id}`
-        : `${API}/api/purchase-offer-lines`;
-      const method = isEdit ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showNotice?.("error", json?.message || "Save failed");
-        return;
-      }
-
-      // sync line parameters
-      const saved = json || {};
       const docNoForParams = (saved.documentNo || payload.documentNo || "").toUpperCase();
       const lineNoForParams =
-        saved.lineNo != null ? String(saved.lineNo) : (lineNo != null ? String(lineNo) : null);
+        saved.lineNo != null ? String(saved.lineNo)
+        : lineNo != null     ? String(lineNo)
+        : null;
 
       if (lineNoForParams) {
         const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
@@ -458,24 +492,24 @@ function PurchaseOfferLineForm({
           { code: (p5c || fallback(4)), value: p5v },
         ].filter(p => p.code);
 
-        try {
-          await syncPurchaseLineParams({
-            documentNo: docNoForParams,
-            documentLineNo: String(lineNoForParams),
-            params: paramsForSync,
-            removeMissing: true,
-          });
-        } catch (e) {
-          showNotice?.("error", e?.message || "Parameters sync failed.");
-        }
+        await syncPurchaseLineParams({
+          documentNo: docNoForParams,
+          documentLineNo: String(lineNoForParams),
+          params: paramsForSync,
+          removeMissing: true,
+        });
       }
-
-      showNotice?.("success", isEdit ? "Line updated." : "Line created.");
-      onSaved?.();
-    } catch {
-      showNotice?.("error", "Save failed");
+    } catch (e) {
+      showNotice?.("error", e?.message || "Parameters sync failed.");
     }
+
+    // ----- 6) done -----
+    showNotice?.("success", isEdit ? "Line updated." : "Line created.");
+    onSaved?.();
+  } catch {
+    showNotice?.("error", "Save failed");
   }
+}
 
   return (
     <form onSubmit={save} className="space-y-4">
@@ -2384,6 +2418,101 @@ function ParamRow({
    After successful save in PurchaseOfferLineForm.save(), add:
 ============================================================ */
 
+// ---- (anywhere below in the same file — e.g., after other helpers) ----
+// PURCHASE blocks: delete + recreate (POST only, no display)
+async function deleteAllPurchaseBlocks(documentNo, lineNo) {
+  const qs = new URLSearchParams({
+    documentNo: String(documentNo || "").trim(),
+    lineNo: String(lineNo ?? ""),
+  });
+
+  const res = await fetch(`${API}/api/purchase-offer-lines-blocks?${qs.toString()}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || "Failed to delete existing purchase blocks.");
+  }
+}
+
+async function createPurchaseBlocksForLine(savedLine, userCode) {
+  const MAX_BLOCK_QTY = 25;
+
+  // helpers
+  const splitIntoBlocks = (total) => {
+    const t = Math.max(0, Number(total) || 0);
+    const full = Math.floor(t / MAX_BLOCK_QTY);
+    const rem  = t % MAX_BLOCK_QTY;
+    const parts = Array(full).fill(MAX_BLOCK_QTY);
+    if (rem > 0) parts.push(rem);
+    if (parts.length === 0) parts.push(0); // keep a single block even if qty=0
+    return parts;
+  };
+  const prorate = (v, share, total) => {
+    const V = Number(v) || 0;
+    const T = Number(total) || 0;
+    if (T <= 0) return 0;
+    return +(V * (share / T)).toFixed(2);
+  };
+
+  if (!savedLine?.documentNo) throw new Error("createPurchaseBlocksForLine: missing documentNo");
+  if (savedLine?.lineNo == null) throw new Error("createPurchaseBlocksForLine: missing lineNo");
+
+  const totalQty = Number(savedLine.quantity) || 0;
+  const parts = splitIntoBlocks(totalQty);
+
+  // 1) clean slate
+  await deleteAllPurchaseBlocks(savedLine.documentNo, savedLine.lineNo);
+
+  // 2) recreate blocks (block numbers 1..N)
+  for (let i = 0; i < parts.length; i++) {
+    const q = parts[i];
+    const body = {
+      // identity
+      documentNo: savedLine.documentNo,
+      lineNo: savedLine.lineNo,
+      block: i + 1,
+      userCreated: userCode,
+
+      // copy core
+      status: savedLine.status,
+      lineType: savedLine.lineType,
+      itemNo: savedLine.itemNo,
+      unitOfMeasure: savedLine.unitOfMeasure,
+      unitPrice: Number(savedLine.unitPrice) || 0,
+      quantity: q,
+
+      // dates
+      serviceDate: savedLine.serviceDate || null,
+      requestedDeliveryDate: savedLine.requestedDeliveryDate || null,
+      promisedDeliveryDate: savedLine.promisedDeliveryDate || null,
+      shipmentDate: savedLine.shipmentDate || null,
+      documentValidityDate: savedLine.documentValidityDate || null,
+      documentValidityHour: savedLine.documentValidityHour || null,
+
+      // parties
+      buyVendorNo: savedLine.buyVendorNo || null,
+      payVendorNo: savedLine.payVendorNo || null,
+      locationNo: savedLine.locationNo || null,
+
+      // costs (prorated by qty share)
+      tollCost:        prorate(savedLine.tollCost,        q, totalQty),
+      driverCost:      prorate(savedLine.driverCost,      q, totalQty),
+      vehicleCost:     prorate(savedLine.vehicleCost,     q, totalQty),
+      additionalCosts: prorate(savedLine.additionalCosts, q, totalQty),
+      costMargin: Number(savedLine.costMargin) || 0,
+    };
+
+    const res = await fetch(`${API}/api/purchase-offer-lines-blocks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.message || `Failed to create purchase block ${body.block}`);
+  }
+}
 
 
 

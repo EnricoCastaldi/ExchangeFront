@@ -1144,137 +1144,152 @@ async function listSLPForLine(documentNo, documentLineNo) {
 
 
 
-  const save = async (e) => {
-    e.preventDefault();
-    const errs = {};
-    const lt = (lineType || "").toLowerCase();
-    const isItem = lt === "item";
+const save = async (e) => {
+  e.preventDefault();
 
-    if (!documentNo.trim()) errs.documentNo = "Document No. *";
-    if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
-    if (!isEdit && !getUserCode())
-      errs.userCreated = "Missing user code (session).";
+  // ----- 1) form validation -----
+  const errs = {};
+  const lt = (lineType || "").toLowerCase();
+  const isItem = lt === "item";
 
-    if (Object.keys(errs).length) {
-      setErrors(errs);
-      // smart focus to the tab with the first error
-      if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
+  if (!documentNo.trim()) errs.documentNo = "Document No. *";
+  if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
+  if (!isEdit && !getUserCode()) errs.userCreated = "Missing user code (session).";
+
+  if (Object.keys(errs).length) {
+    setErrors(errs);
+    if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
+    return;
+  }
+
+  // ----- 2) prepare payload for /api/sales-offer-lines -----
+  const payload = {
+    documentNo: documentNo.trim(),
+    status: canonStatus(status),
+    lineType: (lineType || "item").toLowerCase(),
+    lineNo: isEdit ? lineNo : undefined, // backend may auto-assign on create in your impl
+    itemNo: itemNo || null,
+    unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
+    unitPrice: Number(unitPrice) || 0,
+    quantity: Number(quantity) || 0,
+
+    tollCost: Number(tollCost) || 0,
+    driverCost: Number(driverCost) || 0,
+    vehicleCost: Number(vehicleCost) || 0,
+    additionalCosts: Number(additionalCosts) || 0,
+    costMargin: Number(costMargin) || 0,
+
+    serviceDate: serviceDate || null,
+    requestedDeliveryDate: requestedDeliveryDate || null,
+    promisedDeliveryDate: promisedDeliveryDate || null,
+    shipmentDate: shipmentDate || null,
+    documentValidityDate: documentValidityDate || null,
+    documentValidityHour: documentValidityHour || null,
+
+    buyVendorNo: buyVendorNo || null,
+    payVendorNo: payVendorNo || null,
+    locationNo: locationNo || null,
+
+    param1Code: p1c || null, param1Value: p1v || null,
+    param2Code: p2c || null, param2Value: p2v || null,
+    param3Code: p3c || null, param3Value: p3v || null,
+    param4Code: p4c || null, param4Value: p4v || null,
+    param5Code: p5c || null, param5Value: p5v || null,
+  };
+
+  const nowIso = new Date().toISOString();
+  const userCode = getUserCode();
+  if (!isEdit) {
+    payload.userCreated = userCode;
+    payload.dateCreated = nowIso;
+  } else {
+    payload.userModified = userCode;
+    payload.dateModified = nowIso;
+  }
+
+  try {
+    // ----- 3) save the main line -----
+    const url = isEdit
+      ? `${API}/api/sales-offer-lines/${initial._id}`
+      : `${API}/api/sales-offer-lines`;
+    const method = isEdit ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showNotice("error", json?.message || "Save failed");
       return;
     }
 
-    const payload = {
-      documentNo: documentNo.trim(),
-      status: canonStatus(status),
-      lineType: (lineType || "item").toLowerCase(),
-      lineNo: isEdit ? lineNo : undefined, // server auto-assigns when missing
-      itemNo: itemNo || null,
-      unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
-      unitPrice: Number(unitPrice) || 0,
-      quantity: Number(quantity) || 0,
+    const saved = json || {};
 
-      tollCost: Number(tollCost) || 0,
-      driverCost: Number(driverCost) || 0,
-      vehicleCost: Number(vehicleCost) || 0,
-      additionalCosts: Number(additionalCosts) || 0,
-      costMargin: Number(costMargin) || 0,
+    // ----- 4) create / refresh blocks (25-qty rule) -----
+    try {
+      // re-sync on create OR when critical fields changed
+      const mustResync =
+        !isEdit ||
+        Number(saved.quantity) !== Number(initial?.quantity) ||
+        Number(saved.unitPrice) !== Number(initial?.unitPrice) ||
+        String(saved.unitOfMeasure || "").toUpperCase() !== String(initial?.unitOfMeasure || "").toUpperCase() ||
+        Number(saved.tollCost)        !== Number(initial?.tollCost) ||
+        Number(saved.driverCost)      !== Number(initial?.driverCost) ||
+        Number(saved.vehicleCost)     !== Number(initial?.vehicleCost) ||
+        Number(saved.additionalCosts) !== Number(initial?.additionalCosts) ||
+        Number(saved.costMargin)      !== Number(initial?.costMargin) ||
+        String(saved.status || "")    !== String(initial?.status || "") ||
+        String(saved.itemNo || "")    !== String(initial?.itemNo || "");
 
-      serviceDate: serviceDate || null,
-      requestedDeliveryDate: requestedDeliveryDate || null,
-      promisedDeliveryDate: promisedDeliveryDate || null,
-      shipmentDate: shipmentDate || null,
-      documentValidityDate: documentValidityDate || null,
-      documentValidityHour: documentValidityHour || null,
-
-      buyVendorNo: buyVendorNo || null,
-      payVendorNo: payVendorNo || null,
-      locationNo: locationNo || null,
-
-      param1Code: p1c || null,
-      param1Value: p1v || null,
-      param2Code: p2c || null,
-      param2Value: p2v || null,
-      param3Code: p3c || null,
-      param3Value: p3v || null,
-      param4Code: p4c || null,
-      param4Value: p4v || null,
-      param5Code: p5c || null,
-      param5Value: p5v || null,
-    };
-
-    const nowIso = new Date().toISOString();
-    const userCode = getUserCode();
-
-    if (!isEdit) {
-      payload.userCreated = userCode;
-      payload.dateCreated = nowIso;
-    } else {
-      payload.userModified = userCode;
-      payload.dateModified = nowIso;
+      if (mustResync) {
+        await createBlocksForLine(saved, userCode);
+      }
+    } catch (e) {
+      showNotice("error", e?.message || "Failed to create blocks.");
+      // If you prefer hard-stop on block failure, uncomment:
+      // return;
     }
 
-try {
-  const url = isEdit
-    ? `${API}/api/sales-offer-lines/${initial._id}`
-    : `${API}/api/sales-offer-lines`;
-  const method = isEdit ? "PUT" : "POST";
-  const res = await fetch(url, {
-    method,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    showNotice("error", json?.message || "Save failed");
-    return;
-  }
+    // ----- 5) sync Sales Line Parameters (optional but kept) -----
+    try {
+      const docNoForParams = (saved.documentNo || payload.documentNo || "").toUpperCase();
+      const lineNoForParams =
+        saved.lineNo != null ? String(saved.lineNo)
+        : lineNo != null     ? String(lineNo)
+        : null;
 
-  // figure out documentNo + lineNo to bind parameters to
-  const saved = json || {};
-  const docNoForParams = (saved.documentNo || payload.documentNo || "").toUpperCase();
-  const lineNoForParams =
-    saved.lineNo != null
-      ? String(saved.lineNo)
-      : lineNo != null
-      ? String(lineNo)
-      : null;
+      const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
+      const paramsForSync = [
+        { code: (p1c || fallback(0)), value: p1v },
+        { code: (p2c || fallback(1)), value: p2v },
+        { code: (p3c || fallback(2)), value: p3v },
+        { code: (p4c || fallback(3)), value: p4v },
+        { code: (p5c || fallback(4)), value: p5v },
+      ];
 
-  if (!lineNoForParams) {
-    // cannot bind parameters without line number
+      if (lineNoForParams) {
+        await syncLineParams({
+          documentNo: docNoForParams,
+          documentLineNo: String(lineNoForParams),
+          params: paramsForSync,
+          removeMissing: true,
+        });
+      }
+    } catch (e) {
+      showNotice("error", e?.message || "Parameters sync failed.");
+    }
+
+    // ----- 6) done -----
     showNotice("success", isEdit ? "Line updated." : "Line created.");
     onSaved();
-    return;
+  } catch (err) {
+    showNotice("error", "Save failed");
   }
+};
 
-const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
-
-const paramsForSync = [
-  { code: (p1c || fallback(0)), value: p1v },
-  { code: (p2c || fallback(1)), value: p2v },
-  { code: (p3c || fallback(2)), value: p3v },
-  { code: (p4c || fallback(3)), value: p4v },
-  { code: (p5c || fallback(4)), value: p5v },
-];
-
-  // run the sync (set removeMissing=true if you want to delete absent ones)
-  try {
-    await syncLineParams({
-      documentNo: docNoForParams,
-      documentLineNo: String(lineNoForParams),
-      params: paramsForSync,
-      removeMissing: true, // set to false if you prefer not to delete extras
-    });
-  } catch (e) {
-    // don't block the main save, but notify
-    showNotice("error", e?.message || "Parameters sync failed.");
-  }
-
-  showNotice("success", isEdit ? "Line updated." : "Line created.");
-  onSaved();
-} catch {
-  showNotice("error", "Save failed");
-}
-
-  };
 
   const isItem = (lineType || "").toLowerCase() === "item";
 
@@ -1816,6 +1831,109 @@ return (
   </form>
 );
 
+}
+
+async function deleteAllBlocks(documentNo, lineNo) {
+  const qs = new URLSearchParams({
+    documentNo: String(documentNo || "").trim(),
+    lineNo: String(lineNo ?? ""),
+  });
+
+  const res = await fetch(`${API}/api/sales-offer-lines-blocks?${qs.toString()}`, {
+    method: "DELETE",
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || "Failed to delete existing blocks.");
+  }
+}
+
+async function createBlocksForLine(savedLine, userCode) {
+  const MAX_BLOCK_QTY = 25;
+
+  // --- tiny helpers kept private inside this function ---
+  const splitIntoBlocks = (total) => {
+    const t = Math.max(0, Number(total) || 0);
+    const full = Math.floor(t / MAX_BLOCK_QTY);
+    const rem  = t % MAX_BLOCK_QTY;
+    const parts = Array(full).fill(MAX_BLOCK_QTY);
+    if (rem > 0) parts.push(rem);
+    if (parts.length === 0) parts.push(0); // still create a single block with 0 if qty=0
+    return parts;
+  };
+
+  const prorate = (v, share, total) => {
+    const V = Number(v) || 0;
+    const T = Number(total) || 0;
+    if (T <= 0) return 0;
+    return +(V * (share / T)).toFixed(2);
+  };
+  // ------------------------------------------------------
+
+  if (!savedLine?.documentNo) throw new Error("createBlocksForLine: missing documentNo");
+  if (savedLine?.lineNo == null) throw new Error("createBlocksForLine: missing lineNo");
+
+  const totalQty = Number(savedLine.quantity) || 0;
+  const parts = splitIntoBlocks(totalQty);
+
+  // 1) Clean slate (avoid duplicate unique key (documentNo,lineNo,block))
+  await deleteAllBlocks(savedLine.documentNo, savedLine.lineNo);
+
+  // 2) Create N blocks (block = 1..N)
+  const created = [];
+  for (let i = 0; i < parts.length; i++) {
+    const q = parts[i];
+    const body = {
+      // identity
+      documentNo: savedLine.documentNo,
+      lineNo: savedLine.lineNo,
+      block: i + 1,
+      userCreated: userCode,
+
+      // copy core
+      status: savedLine.status,
+      lineType: savedLine.lineType,
+      itemNo: savedLine.itemNo,
+      unitOfMeasure: savedLine.unitOfMeasure,
+      unitPrice: Number(savedLine.unitPrice) || 0,
+      quantity: q,
+
+      // dates (optional)
+      serviceDate: savedLine.serviceDate || null,
+      requestedDeliveryDate: savedLine.requestedDeliveryDate || null,
+      promisedDeliveryDate: savedLine.promisedDeliveryDate || null,
+      shipmentDate: savedLine.shipmentDate || null,
+      documentValidityDate: savedLine.documentValidityDate || null,
+      documentValidityHour: savedLine.documentValidityHour || null,
+
+      // parties (optional)
+      buyVendorNo: savedLine.buyVendorNo || null,
+      payVendorNo: savedLine.payVendorNo || null,
+      locationNo: savedLine.locationNo || null,
+
+      // costs (prorated by quantity share)
+      tollCost:        prorate(savedLine.tollCost,        q, totalQty),
+      driverCost:      prorate(savedLine.driverCost,      q, totalQty),
+      vehicleCost:     prorate(savedLine.vehicleCost,     q, totalQty),
+      additionalCosts: prorate(savedLine.additionalCosts, q, totalQty),
+      costMargin: Number(savedLine.costMargin) || 0, // % stays same
+    };
+
+    const res = await fetch(`${API}/api/sales-offer-lines-blocks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(json?.message || `Failed to create block ${body.block}`);
+    }
+    created.push(json);
+  }
+
+  return created;
 }
 
 function ParamRow({
