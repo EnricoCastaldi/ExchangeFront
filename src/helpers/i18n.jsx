@@ -14,7 +14,7 @@ const T = {
     },
     menu: {
       EXCHANGE: "WYMIANA",
-      CUSTOMERS: "KLIENCI",
+      BUYERS: "NABYWCA",
       ITEM: "PRODUKTY",
       LOCATIONS: "LOKALIZACJE",
       TRANSPORTS: "TRANSPORT",
@@ -579,7 +579,7 @@ salesOfferLines: {
 },
 
 
-    customers: {
+    BUYERS: {
       controls: {
         searchPlaceholder: "Szukaj: nazwa, e-mail, kraj, miasto",
         countryPlaceholder: "Kod kraju",
@@ -1662,7 +1662,7 @@ sells:  {
     },
     menu: {
       EXCHANGE: "EXCHANGE",
-      CUSTOMERS: "CUSTOMERS",
+      BUYERS: "BUYERS",
       ITEM: "ITEMS (GRAINS)",
       LOCATIONS: "LOCATIONS",
       TRANSPORTS: "TRANSPORTS",
@@ -2440,7 +2440,7 @@ sells : {
 
 
 
-    customers: {
+    BUYERS: {
       controls: {
         searchPlaceholder: "Search name, email, country, city",
         allStatuses: "All statuses",
@@ -2467,7 +2467,7 @@ sells : {
         created: "Created",
         actions: "",
         loading: "Loading...",
-        empty: "No customers found",
+        empty: "No BUYERS found",
         dash: "—",
       },
       footer: {

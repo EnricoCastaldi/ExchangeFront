@@ -51,7 +51,7 @@ const labelize = (t, key) => {
 
 const HEADER_ICONS = {
   EXCHANGE: ArrowLeftRight,
-  CUSTOMERS: UsersIcon,
+  BUYERS: UsersIcon,
   ITEM: Sprout,
   VENDORS: Building2,
   BUY: ShoppingCart,
@@ -71,7 +71,7 @@ const HEADER_ICONS = {
 
 const PATH_TO_KEY = {
   "/app/exchange": "EXCHANGE",
-  "/app/customers": "CUSTOMERS",
+  "/app/buyers": "BUYERS",
   "/app/users": "USERS",
   "/app/items": "ITEM",
   "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
@@ -227,7 +227,7 @@ export default function Dashboard({ onLogout }) {
           <Routes>
             <Route index element={<Navigate to="exchange" replace />} />
             <Route path="exchange" element={<Exchange />} />
-            <Route path="customers" element={<Customers />} />
+            <Route path="buyers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="items" element={<Items />} />
             <Route path="default-item-parameters" element={<DefaultItemParameters />} />

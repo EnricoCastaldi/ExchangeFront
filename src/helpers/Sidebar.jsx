@@ -27,24 +27,16 @@ import { useI18n } from "./i18n";
 const MENU_REGISTRY = {
   EXCHANGE: { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
 
-  CUSTOMERS: { key: "CUSTOMERS", icon: Users, to: "/app/customers" },
+  BUYERS: { key: "BUYERS", icon: Users, to: "/app/buyers" },
   VENDORS: { key: "VENDORS", icon: Building2, to: "/app/vendors" },
   USERS: { key: "USERS", icon: UserCog, to: "/app/users" },
 
-  // Make ITEM a parent (with children below)
   ITEM: { key: "ITEM", icon: Sprout, to: "/app/items" },
-
-  // Parents (toggle only if they have children)
   LOCATIONS: { key: "LOCATIONS", icon: MapPin, to: "/app/locations" },
   TRANSPORTS: { key: "TRANSPORTS", icon: Truck, to: "/app/transports" },
 
-  // --- Submenu entries (main + default) for Items ---
-  ITEM_MAIN: {
-    key: "ITEM_MAIN",
-    icon: Sprout,
-    to: "/app/items",
-    parent: "ITEM",
-  },
+  // Items submenu
+  ITEM_MAIN: { key: "ITEM_MAIN", icon: Sprout, to: "/app/items", parent: "ITEM" },
   DEFAULT_ITEM_PARAMETERS: {
     key: "DEFAULT_ITEM_PARAMETERS",
     icon: BadgeCheck,
@@ -52,7 +44,7 @@ const MENU_REGISTRY = {
     parent: "ITEM",
   },
 
-  // --- Submenu entries (main + default) for Locations ---
+  // Locations submenu
   LOCATIONS_MAIN: {
     key: "LOCATIONS_MAIN",
     icon: MapPin,
@@ -66,7 +58,7 @@ const MENU_REGISTRY = {
     parent: "LOCATIONS",
   },
 
-  // --- Submenu entries (main + default) for Transports ---
+  // Transports submenu
   TRANSPORTS_MAIN: {
     key: "TRANSPORTS_MAIN",
     icon: Truck,
@@ -80,41 +72,27 @@ const MENU_REGISTRY = {
     parent: "TRANSPORTS",
   },
 
-  PARAMETERS: {
-    key: "PARAMETERS",
-    icon: SlidersHorizontal,
-    to: "/app/parameters",
-  },
+  PARAMETERS: { key: "PARAMETERS", icon: SlidersHorizontal, to: "/app/parameters" },
 
-  // BUY as a parent with submenu
+  // BUY
   BUY: { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
-  BUY_MAIN: {
-    key: "BUY_MAIN",
-    icon: ShoppingCart,
-    to: "/app/buy",
-    parent: "BUY",
-  },
+  BUY_MAIN: { key: "BUY_MAIN", icon: ShoppingCart, to: "/app/buy", parent: "BUY" },
   PURCHASE_LINE_PARAMETERS: {
     key: "PURCHASE_LINE_PARAMETERS",
     icon: SlidersHorizontal,
     to: "/app/purchase-line-parameters",
     parent: "BUY",
   },
-    PURCHASE_OFFER_LINES: {                        
+  PURCHASE_OFFER_LINES: {
     key: "PURCHASE_OFFER_LINES",
     icon: FileText,
     to: "/app/purchase-offer-lines",
     parent: "BUY",
   },
 
-  // SELL as a parent with submenu
+  // SELL
   SELL: { key: "SELL", icon: Coins, to: "/app/sell" },
-  SELL_MAIN: {
-    key: "SELL_MAIN",
-    icon: Coins,
-    to: "/app/sell",
-    parent: "SELL",
-  },
+  SELL_MAIN: { key: "SELL_MAIN", icon: Coins, to: "/app/sell", parent: "SELL" },
   SALES_OFFER_LINES: {
     key: "SALES_OFFER_LINES",
     icon: FileText,
@@ -129,27 +107,24 @@ const MENU_REGISTRY = {
   },
 };
 
-/** Grouping logic (order matters) */
+/** Grouping order */
 const GROUPS = [
   { key: "CORE", titleKey: "CORE", items: ["EXCHANGE"] },
   {
     key: "DATA",
     titleKey: "DATA",
     items: [
-      "CUSTOMERS",
+      "BUYERS",
       "VENDORS",
 
-      // Parent + submenu entries (ITEM)
       "ITEM",
       "ITEM_MAIN",
       "DEFAULT_ITEM_PARAMETERS",
 
-      // Parent + submenu entries (LOCATIONS)
       "LOCATIONS",
       "LOCATIONS_MAIN",
       "DEFAULT_LOCATIONS",
 
-      // Parent + submenu entries (TRANSPORTS)
       "TRANSPORTS",
       "TRANSPORTS_MAIN",
       "DEFAULT_TRANSPORTS",
@@ -161,14 +136,11 @@ const GROUPS = [
     key: "TRADING",
     titleKey: "TRADING",
     items: [
-      // BUY parent + submenu
       "BUY",
       "BUY_MAIN",
-      "PURCHASE_OFFER_LINES", 
+      "PURCHASE_OFFER_LINES",
       "PURCHASE_LINE_PARAMETERS",
 
-
-      // SELL parent + submenu
       "SELL",
       "SELL_MAIN",
       "SALES_OFFER_LINES",
@@ -183,17 +155,30 @@ export default function Sidebar({ onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Collapsed state (persisted)
+  // Compact sizing (centralized)
+  const SIZES = {
+    parentText: "text-sm font-medium",
+    childText: "text-xs font-medium",
+    sectionText: "text-[10px] font-semibold",
+    parentPy: "py-2.5",
+    childPy: "py-2",
+    parentIcon: 18,
+    childIcon: 16,
+    chevron: 14,
+  };
+
+  // Collapsed state
   const [collapsed, setCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
     return saved === "true";
+    // default false
   });
   useEffect(() => {
     localStorage.setItem("sidebarCollapsed", String(collapsed));
   }, [collapsed]);
   const toggleDesktop = () => setCollapsed((c) => !c);
 
-  // Open submenus (persisted)
+  // Open submenus
   const [openMenus, setOpenMenus] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("sidebarOpenMenus") || "{}");
@@ -209,16 +194,9 @@ export default function Sidebar({ onLogout }) {
   // Section titles with fallbacks
   const sectionTitle = (key) =>
     t?.sidebarSections?.[key] ??
-    (
-      {
-        CORE: "Core",
-        DATA: "Data",
-        TRADING: "Trading",
-        ADMIN: "Admin",
-      }[key] || key
-    );
+    ({ CORE: "Core", DATA: "Data", TRADING: "Trading", ADMIN: "Admin" }[key] || key);
 
-  // Label helper (translate if available, else replace underscores)
+  // Label helper
   const labelize = (k) => {
     if (k.endsWith("_MAIN")) {
       const parent = MENU_REGISTRY[k]?.parent;
@@ -227,7 +205,7 @@ export default function Sidebar({ onLogout }) {
     return String(t.menu?.[k] ?? k).replace(/_/g, " ");
   };
 
-  // Build hierarchy safely
+  // Build hierarchy
   const groupEntries = useMemo(() => {
     return GROUPS.map((g) => {
       const all = (g.items || []).map((id) => MENU_REGISTRY[id]).filter(Boolean);
@@ -236,49 +214,38 @@ export default function Sidebar({ onLogout }) {
         .filter((m) => m.parent)
         .reduce((acc, m) => {
           const p = m.parent;
-          acc[p] = acc[p] || [];
-          acc[p].push(m);
+          (acc[p] = acc[p] || []).push(m);
           return acc;
         }, {});
       return { ...g, parents, childrenByParent };
     });
   }, []);
 
-  // Exclusive toggle (also avoids redundant state writes)
+  // Exclusive toggle
   const toggleExclusive = (key) =>
-    setOpenMenus((prev) => {
-      const isOpen = !!prev[key];
-      return isOpen ? {} : { [key]: true };
-    });
+    setOpenMenus((prev) => (prev[key] ? {} : { [key]: true }));
 
   const openOnly = (key) =>
     setOpenMenus((prev) => (prev[key] ? prev : { [key]: true }));
 
   const closeAll = () => setOpenMenus({});
 
-  // Keep the relevant submenu open based on URL
+  // Keep relevant submenu open based on URL
   useEffect(() => {
-    // if on a child route, open its parent
     const child = Object.values(MENU_REGISTRY).find(
       (m) => m?.parent && location.pathname.startsWith(m.to)
     );
     if (child?.parent) {
-      setOpenMenus((prev) =>
-        prev[child.parent] ? prev : { [child.parent]: true }
-      );
+      setOpenMenus((prev) => (prev[child.parent] ? prev : { [child.parent]: true }));
       return;
     }
-    // if directly on a parent route, open that parent
     const parent = Object.values(MENU_REGISTRY).find(
       (m) => m && !m.parent && location.pathname.startsWith(m.to)
     );
     if (parent?.key) {
-      setOpenMenus((prev) =>
-        prev[parent.key] ? prev : { [parent.key]: true }
-      );
+      setOpenMenus((prev) => (prev[parent.key] ? prev : { [parent.key]: true }));
       return;
     }
-    // default: close all
     setOpenMenus({});
   }, [location.pathname]);
 
@@ -290,7 +257,9 @@ export default function Sidebar({ onLogout }) {
     return (
       <div>
         {!compact && (
-          <div className="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-white/80">
+          <div
+            className={`px-3 pt-3 pb-1 ${SIZES.sectionText} uppercase tracking-wide text-white/80`}
+          >
             {sectionTitle(group.key)}
           </div>
         )}
@@ -303,14 +272,14 @@ export default function Sidebar({ onLogout }) {
             const isOpen = !!openMenus[key];
             const parentLabel = labelize(key);
 
-            // PARENTS WITH CHILDREN => toggle row (first click open; second click go to MAIN)
             if (hasChildren) {
               return (
                 <div key={key}>
                   <div
                     className={[
-                      "group relative w-full flex items-center gap-3 px-3 py-3 rounded-md transition",
-                      "text-[15px] font-semibold",
+                      "group relative w-full flex items-center gap-3 px-3 rounded-md transition",
+                      SIZES.parentText,
+                      SIZES.parentPy,
                       "hover:bg-white/10",
                       "cursor-pointer",
                       compact ? "justify-center" : "justify-start",
@@ -327,12 +296,16 @@ export default function Sidebar({ onLogout }) {
                     title={compact ? parentLabel : undefined}
                     aria-expanded={isOpen}
                   >
-                    <Icon size={20} className="shrink-0" />
+                    <Icon size={SIZES.parentIcon} className="shrink-0" />
                     {!compact && (
                       <>
                         <span className="truncate">{parentLabel}</span>
                         <span className="ml-auto opacity-80">
-                          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          {isOpen ? (
+                            <ChevronDown size={SIZES.chevron} />
+                          ) : (
+                            <ChevronRight size={SIZES.chevron} />
+                          )}
                         </span>
                       </>
                     )}
@@ -354,8 +327,9 @@ export default function Sidebar({ onLogout }) {
                             to={cto}
                             className={({ isActive }) =>
                               [
-                                "group relative w-full flex items-center gap-3 px-3 py-2 rounded-md transition",
-                                "text-[13px] font-semibold",
+                                "group relative w-full flex items-center gap-3 px-3 rounded-md transition",
+                                SIZES.childText,
+                                SIZES.childPy,
                                 compact ? "justify-center" : "ml-6",
                                 isActive ? "bg-white/20" : "hover:bg-white/10",
                               ].join(" ")
@@ -363,7 +337,7 @@ export default function Sidebar({ onLogout }) {
                             title={childLabel}
                             onClick={() => openOnly(parentKey)}
                           >
-                            <CIcon size={18} className="shrink-0" />
+                            <CIcon size={SIZES.childIcon} className="shrink-0" />
                             {!compact && <span className="truncate">{childLabel}</span>}
                             {compact && (
                               <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
@@ -379,15 +353,16 @@ export default function Sidebar({ onLogout }) {
               );
             }
 
-            // PARENTS WITHOUT CHILDREN => direct NavLink (navigate)
+            // Parent without children
             return (
               <NavLink
                 key={key}
                 to={to}
                 className={({ isActive }) =>
                   [
-                    "group relative w-full flex items-center gap-3 px-3 py-3 rounded-md transition",
-                    "text-[15px] font-semibold",
+                    "group relative w-full flex items-center gap-3 px-3 rounded-md transition",
+                    SIZES.parentText,
+                    SIZES.parentPy,
                     isActive ? "bg-white/20" : "hover:bg-white/10",
                     compact ? "justify-center" : "justify-start",
                   ].join(" ")
@@ -395,7 +370,7 @@ export default function Sidebar({ onLogout }) {
                 title={compact ? parentLabel : undefined}
                 onClick={closeAll}
               >
-                <Icon size={20} className="shrink-0" />
+                <Icon size={SIZES.parentIcon} className="shrink-0" />
                 {!compact && <span className="truncate">{parentLabel}</span>}
                 {compact && (
                   <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-black/80 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
@@ -410,6 +385,7 @@ export default function Sidebar({ onLogout }) {
     );
   };
 
+  // Single root wrapper (aside)
   return (
     <aside
       className={[
@@ -440,10 +416,7 @@ export default function Sidebar({ onLogout }) {
       </div>
 
       {/* Groups */}
-      <div
-        id="sidebar-sections"
-        className="flex-1 overflow-y-auto overflow-x-hidden py-2 no-scrollbar"
-      >
+      <div id="sidebar-sections" className="flex-1 overflow-y-auto overflow-x-hidden py-2 no-scrollbar">
         {(groupEntries || []).map((g) => (
           <Group key={g.key} group={g} compact={collapsed} />
         ))}
@@ -454,12 +427,14 @@ export default function Sidebar({ onLogout }) {
         <button
           onClick={onLogout}
           className={[
-            "w-full flex items-center gap-2 rounded-md text-sm font-semibold transition",
-            collapsed ? "justify-center px-2 py-2 hover:bg-white/10" : "px-3 py-2 bg-white/10 hover:bg-white/20",
+            "w-full flex items-center gap-2 rounded-md transition",
+            collapsed
+              ? "justify-center px-2 py-2 hover:bg-white/10 text-xs font-medium"
+              : "px-3 py-2 bg-white/10 hover:bg-white/20 text-sm font-medium",
           ].join(" ")}
           title={collapsed ? (t.navbar?.logout || "Log out") : undefined}
         >
-          <LogOut size={18} />
+          <LogOut size={collapsed ? 16 : 18} />
           {!collapsed && <span>{t.navbar?.logout || "Log out"}</span>}
         </button>
       </div>
