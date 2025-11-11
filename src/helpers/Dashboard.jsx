@@ -38,6 +38,7 @@ import SalesLineParameters from "../pages/SalesLineParameters";
 import SalesOfferLines from "../pages/SalesOfferLines";
 import PurchaseLineParameters from "../pages/PurchaseLineParameters";
 import PurchaseOfferLines from "../pages/PurchaseOfferLines";
+import Agreements from "../pages/Agreements";
 import { useI18n } from "./i18n";
 
 // Helper: title-case fallback labels and strip underscores
@@ -56,6 +57,7 @@ const HEADER_ICONS = {
   BUYERS: UsersIcon,
   ITEM: Sprout,
   VENDORS: Building2,
+  AGREEMENTS: FileText,
   BUY: ShoppingCart,
   PURCHASE_LINE_PARAMETERS: SlidersHorizontal,
   PURCHASE_OFFER_LINES: FileText,
@@ -79,6 +81,7 @@ const PATH_TO_KEY = {
   "/app/items": "ITEM",
   "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
   "/app/vendors": "VENDORS",
+  "/app/agreements": "AGREEMENTS",
   "/app/buy": "BUY",
   "/app/purchase-line-parameters": "PURCHASE_LINE_PARAMETERS",
   "/app/purchase-offer-lines": "PURCHASE_OFFER_LINES",
@@ -240,6 +243,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="transports" element={<Transports />} />
             <Route path="default-transports" element={<DefaultTransports />} />
             <Route path="default-locations" element={<DefaultLocations />} /> {/* <-- ADD THIS */}
+            <Route path="agreements" element={<Agreements />} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
             <Route path="purchase-line-parameters" element={<PurchaseLineParameters />} />

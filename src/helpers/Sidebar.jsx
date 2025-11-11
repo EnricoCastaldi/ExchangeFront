@@ -75,7 +75,7 @@ const MENU_REGISTRY = {
   },
 
   PARAMETERS: { key: "PARAMETERS", icon: SlidersHorizontal, to: "/app/parameters" },
-
+  AGREEMENTS: { key: "AGREEMENTS", icon: FileText, to: "/app/agreements" },
   // BUY
   BUY: { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
   BUY_MAIN: { key: "BUY_MAIN", icon: ShoppingCart, to: "/app/buy", parent: "BUY" },
@@ -107,6 +107,7 @@ const MENU_REGISTRY = {
     to: "/app/sales-line-parameters",
     parent: "SELL",
   },
+  
 };
 
 /** Grouping order */
@@ -139,6 +140,7 @@ const GROUPS = [
     key: "TRADING",
     titleKey: "TRADING",
     items: [
+      "AGREEMENTS",
       "BUY",
       "BUY_MAIN",
       "PURCHASE_OFFER_LINES",
