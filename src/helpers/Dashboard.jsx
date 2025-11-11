@@ -23,6 +23,7 @@ import Customers from "../pages/Customers";
 import Items from "../pages/Items";
 import Parameters from "../pages/Parameters";
 import Vendors from "../pages/Vendors";
+import Contacts from "../pages/Contacts";
 import Buy from "../pages/Buy";
 import Sell from "../pages/Sell";
 import Exchange from "../pages/Exchange";
@@ -51,6 +52,7 @@ const labelize = (t, key) => {
 
 const HEADER_ICONS = {
   EXCHANGE: ArrowLeftRight,
+  CONTACTS: UsersIcon,
   BUYERS: UsersIcon,
   ITEM: Sprout,
   VENDORS: Building2,
@@ -71,6 +73,7 @@ const HEADER_ICONS = {
 
 const PATH_TO_KEY = {
   "/app/exchange": "EXCHANGE",
+  "/app/contacts": "CONTACTS",
   "/app/buyers": "BUYERS",
   "/app/users": "USERS",
   "/app/items": "ITEM",
@@ -227,6 +230,7 @@ export default function Dashboard({ onLogout }) {
           <Routes>
             <Route index element={<Navigate to="exchange" replace />} />
             <Route path="exchange" element={<Exchange />} />
+            <Route path="contacts" element={<Contacts />} />
             <Route path="buyers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
             <Route path="items" element={<Items />} />

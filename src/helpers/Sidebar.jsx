@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   ChevronRight,
   ChevronDown,
+  BookUser,
   FileText,
 } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -27,6 +28,7 @@ import { useI18n } from "./i18n";
 const MENU_REGISTRY = {
   EXCHANGE: { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
 
+  CONTACTS: { key: "CONTACTS", icon: BookUser, to: "/app/contacts" },
   BUYERS: { key: "BUYERS", icon: Users, to: "/app/buyers" },
   VENDORS: { key: "VENDORS", icon: Building2, to: "/app/vendors" },
   USERS: { key: "USERS", icon: UserCog, to: "/app/users" },
@@ -114,6 +116,7 @@ const GROUPS = [
     key: "DATA",
     titleKey: "DATA",
     items: [
+      "CONTACTS",
       "BUYERS",
       "VENDORS",
 
