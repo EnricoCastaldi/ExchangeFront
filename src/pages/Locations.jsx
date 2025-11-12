@@ -13,6 +13,8 @@ import {
   SlidersHorizontal,
   Hash,
   MapPin,
+  Maximize2,
+  Minimize2,
   Building2,
   Mail,
   Phone,
@@ -33,7 +35,7 @@ const API =
 
 export default function Locations() {
   const { t, locale } = useI18n();
-  const P = t?.locations || {}; // optional i18n namespace
+  const P = t?.locations || {};
 
   const L = {
     title: P.title || "Locations",
@@ -82,6 +84,10 @@ export default function Locations() {
       phoneNo: P?.details?.phoneNo || "Phone",
       minQty: P?.details?.minQty || "Min Qty",
       maxQty: P?.details?.maxQty || "Max Qty",
+      // NEW cost labels (with fallbacks)
+      additionalCost: P?.details?.additionalCost || "Additional cost",
+      loadingCost: P?.details?.loadingCost || "Loading cost",
+      unloadingCost: P?.details?.unloadingCost || "Unloading cost",
       active: P?.details?.active || "Active",
       created: P?.details?.created || "Created",
       updated: P?.details?.updated || "Updated",
@@ -107,6 +113,10 @@ export default function Locations() {
         phoneNo: P?.modal?.fields?.phoneNo || "Phone No.",
         minQty: P?.modal?.fields?.minQty || "Min Qty (int)",
         maxQty: P?.modal?.fields?.maxQty || "Max Qty (int)",
+        // NEW cost fields (with fallbacks)
+        additionalCost: P?.modal?.fields?.additionalCost || "Additional Cost",
+        loadingCost: P?.modal?.fields?.loadingCost || "Loading Cost",
+        unloadingCost: P?.modal?.fields?.unloadingCost || "Unloading Cost",
         active: P?.modal?.fields?.active || "Active",
       },
       required: P?.modal?.required || "Please fill required fields.",
@@ -400,7 +410,6 @@ export default function Locations() {
                 <Th className="text-right">{L.table.actions}</Th>
               </tr>
             </thead>
-
             <tbody>
               {loading ? (
                 <tr>
@@ -484,6 +493,18 @@ export default function Locations() {
                             <KV label={L.details.phoneNo} icon={Phone}>{r.phoneNo || L.table.dash}</KV>
                             <KV label={L.details.minQty} icon={ArrowDown01}>{fmtInt(r.minQty)}</KV>
                             <KV label={L.details.maxQty} icon={ArrowUp01}>{fmtInt(r.maxQty)}</KV>
+
+                            {/* NEW: costs */}
+                            <KV label={L.details.additionalCost} icon={AlignLeft}>
+                              {fmtDec(r.additionalCost)}
+                            </KV>
+                            <KV label={L.details.loadingCost} icon={AlignLeft}>
+                              {fmtDec(r.loadingCost)}
+                            </KV>
+                            <KV label={L.details.unloadingCost} icon={AlignLeft}>
+                              {fmtDec(r.unloadingCost)}
+                            </KV>
+
                             <KV label={L.details.active} icon={ToggleRight}>{activeChip(r.active)}</KV>
                             <KV label={L.details.created} icon={Calendar}>
                               {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
@@ -628,22 +649,67 @@ function Toast({ type = "success", children, onClose }) {
     </div>
   );
 }
-function Modal({ children, onClose, title = "Location" }) {
+function Modal({ children, onClose, title = "Location", fullscreen = false, backdrop = "dim" }) {
+  const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // backdrop: "dim" | "transparent" | "blur" | "none"
+  let backdropNode = null;
+  if (backdrop === "dim") backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+  else if (backdrop === "transparent") backdropNode = <div className="absolute inset-0" onClick={onClose} />;
+  else if (backdrop === "blur") backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+
+  const containerCls = [
+    "relative bg-white shadow-xl border border-slate-200",
+    isFull ? "w-screen h-screen max-w-none rounded-none" : "w-full max-w-4xl rounded-2xl",
+  ].join(" ");
+
+  const bodyCls = isFull
+    ? "p-4 h-[calc(100vh-52px)] overflow-auto"
+    : "p-4 max-h-[75vh] overflow-auto";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-xl border border-slate-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
-          <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100">
-            <X size={18} />
-          </button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Modal"}
+    >
+      {backdropNode}
+      <div className={containerCls}>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur"
+          onDoubleClick={() => setIsFull((v) => !v)}
+        >
+          <h3 className="font-semibold truncate pr-2">{title}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsFull((v) => !v)}
+              className="p-2 rounded hover:bg-slate-100"
+              title={isFull ? "Restore" : "Expand"}
+              aria-label={isFull ? "Restore" : "Expand"}
+            >
+              {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button onClick={onClose} className="p-2 rounded hover:bg-slate-100" title="Close" aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="p-4 max-h-[75vh] overflow-auto">{children}</div>
+        <div className={bodyCls}>{children}</div>
       </div>
     </div>
   );
 }
+
 
 /* ---------- Helpers ---------- */
 function activeChip(on, L) {
@@ -663,6 +729,12 @@ function fmtInt(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString() : "0";
 }
+// NEW: decimal formatter with 2 fraction digits
+function fmtDec(v) {
+  const n = Number(v ?? 0);
+  if (!Number.isFinite(n)) return "0.00";
+  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
 
 /* ---------- Form ---------- */
 function LocationForm({ initial, onSubmit, onCancel, L }) {
@@ -681,6 +753,17 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
   const [minQty, setMinQty] = useState(initial?.minQty ?? "");
   const [maxQty, setMaxQty] = useState(initial?.maxQty ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
+
+  // NEW: costs
+  const [additionalCost, setAdditionalCost] = useState(
+    initial?.additionalCost ?? ""
+  );
+  const [loadingCost, setLoadingCost] = useState(
+    initial?.loadingCost ?? ""
+  );
+  const [unloadingCost, setUnloadingCost] = useState(
+    initial?.unloadingCost ?? ""
+  );
 
   const submit = (e) => {
     e.preventDefault();
@@ -702,6 +785,10 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
       phoneNo: phoneNo.trim(),
       minQty: minQty === "" ? null : Number(minQty),
       maxQty: maxQty === "" ? null : Number(maxQty),
+      // NEW: costs -> numbers or null when empty
+      additionalCost: additionalCost === "" ? null : Number(additionalCost),
+      loadingCost: loadingCost === "" ? null : Number(loadingCost),
+      unloadingCost: unloadingCost === "" ? null : Number(unloadingCost),
       active: Boolean(active),
     };
     onSubmit(payload);
@@ -816,6 +903,41 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             value={maxQty}
             onChange={(e) => setMaxQty(e.target.value)}
             placeholder="0"
+          />
+        </Field>
+
+        {/* NEW: costs */}
+        <Field label={L.modal.fields.additionalCost} icon={AlignLeft}>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            value={additionalCost}
+            onChange={(e) => setAdditionalCost(e.target.value)}
+            placeholder="0.00"
+          />
+        </Field>
+        <Field label={L.modal.fields.loadingCost} icon={AlignLeft}>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            value={loadingCost}
+            onChange={(e) => setLoadingCost(e.target.value)}
+            placeholder="0.00"
+          />
+        </Field>
+        <Field label={L.modal.fields.unloadingCost} icon={AlignLeft}>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            value={unloadingCost}
+            onChange={(e) => setUnloadingCost(e.target.value)}
+            placeholder="0.00"
           />
         </Field>
 

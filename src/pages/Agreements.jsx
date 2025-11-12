@@ -4,7 +4,8 @@ import { useI18n } from "../helpers/i18n";
 import {
   Search, Plus, Trash2, Pencil, X, ChevronDown, ChevronRight,
   Hash, Tag, FileText, Link as LinkIcon, Calendar, ShieldCheck,
-  CheckCircle2, AlertTriangle, SlidersHorizontal,
+  CheckCircle2, AlertTriangle, SlidersHorizontal,  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 const API =
@@ -16,7 +17,7 @@ const API =
 export default function Agreements() {
   const { t, locale } = useI18n();
   const A = t.agreements || {};
-  const COL_COUNT = 12;
+  const COL_COUNT = 9;
 
   // -------- filters / paging
   const [q, setQ] = useState("");
@@ -519,20 +520,59 @@ function signedChip(v, A) {
     </span>
   );
 }
-function Modal({ children, onClose, title }) {
+function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim" }) {
+  const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  let backdropNode = null;
+  if (backdrop === "dim") backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+  else if (backdrop === "transparent") backdropNode = <div className="absolute inset-0" onClick={onClose} />;
+  else if (backdrop === "blur") backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+
+  const containerCls = [
+    "relative bg-white shadow-xl border border-slate-200",
+    isFull ? "w-screen h-screen max-w-none rounded-none" : "w-full max-w-3xl rounded-2xl",
+  ].join(" ");
+
+  const bodyCls = isFull ? "p-4 h-[calc(100vh-52px)] overflow-auto" : "p-4 max-h-[75vh] overflow-auto";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-xl border border-slate-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
-          <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100"><X size={18} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || "Modal"}>
+      {backdropNode}
+      <div className={containerCls}>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur"
+          onDoubleClick={() => setIsFull((v) => !v)}
+        >
+          <h3 className="font-semibold truncate pr-2">{title}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsFull((v) => !v)}
+              className="p-2 rounded hover:bg-slate-100"
+              title={isFull ? "Restore" : "Expand"}
+              aria-label={isFull ? "Restore" : "Expand"}
+            >
+              {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button onClick={onClose} className="p-2 rounded hover:bg-slate-100" title="Close" aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="p-4 max-h-[75vh] overflow-auto">{children}</div>
+        <div className={bodyCls}>{children}</div>
       </div>
     </div>
   );
 }
+
 
 /* ---------- Embedded AgreementForm (respects your schema) ---------- */
 function AgreementForm({ initial, onSubmit, onCancel, A }) {

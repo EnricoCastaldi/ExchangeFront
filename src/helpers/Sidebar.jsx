@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   ChevronRight,
   ChevronDown,
+  Settings as SettingsIcon, 
   BookUser,
   FileText,
 } from "lucide-react";
@@ -76,6 +77,7 @@ const MENU_REGISTRY = {
 
   PARAMETERS: { key: "PARAMETERS", icon: SlidersHorizontal, to: "/app/parameters" },
   AGREEMENTS: { key: "AGREEMENTS", icon: FileText, to: "/app/agreements" },
+  SETTINGS: { key: "SETTINGS", icon: SettingsIcon, to: "/app/settings" },
   // BUY
   BUY: { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
   BUY_MAIN: { key: "BUY_MAIN", icon: ShoppingCart, to: "/app/buy", parent: "BUY" },
@@ -152,7 +154,9 @@ const GROUPS = [
       "SALES_LINE_PARAMETERS",
     ],
   },
-  { key: "ADMIN", titleKey: "ADMIN", items: ["USERS"] },
+  
+    { key: "ADMIN", titleKey: "ADMIN", items: ["USERS", "SETTINGS"] },
+
 ];
 
 export default function Sidebar({ onLogout }) {

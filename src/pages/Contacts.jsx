@@ -11,6 +11,8 @@ import {
   ChevronRight,
   Image as ImageIcon,
   IdCard,
+  Maximize2,
+  Minimize2,
   Map,
   Phone,
   Image,
@@ -98,17 +100,26 @@ function Toast({ type = "success", children, onClose }) {
 function formatDate(s, locale, dash = "—") {
   try { return s ? new Date(s).toLocaleDateString(locale) : dash; } catch { return s || dash; }
 }
-function Field({ label, icon: Icon, error, help, children }) {
+function Field({
+  label,
+  icon: Icon,
+  error,
+  help,
+  children,
+  iconInside = true,
+  autoHeight = false,
+}) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
         className: [
           children.props.className || "",
-          Icon ? " pl-9" : "",
-          " h-10",
+          iconInside && Icon ? " pl-9" : "",
+          !autoHeight ? " h-10" : "",
           error ? " border-red-300 focus:border-red-400" : "",
         ].join(" "),
       })
     : children;
+
   return (
     <label className="text-sm block">
       <div className="mb-1 text-slate-600 flex items-center gap-2">
@@ -116,7 +127,12 @@ function Field({ label, icon: Icon, error, help, children }) {
         {label}
       </div>
       <div className="relative">
-        {Icon && <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />}
+        {iconInside && Icon && (
+          <Icon
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+          />
+        )}
         {child}
       </div>
       {help && <p className="mt-1 text-xs text-slate-500">{help}</p>}
@@ -124,6 +140,7 @@ function Field({ label, icon: Icon, error, help, children }) {
     </label>
   );
 }
+
 function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -778,22 +795,80 @@ function ContactsView(props) {
 }
 
 /* light modal container (same as Customers) */
-function Modal({ children, onClose, title }) {
+function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim" }) {
+  // backdrop: "dim" | "transparent" | "blur" | "none"
+  const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
+
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const containerCls = [
+    "relative bg-white shadow-xl border border-slate-200",
+    isFull ? "w-screen h-screen max-w-none rounded-none"
+           : "w-full max-w-4xl rounded-2xl",
+  ].join(" ");
+
+  const bodyCls = isFull
+    ? "p-4 h-[calc(100vh-52px)] sm:h-[calc(100vh-52px)] overflow-auto"
+    : "p-4 max-h-[75vh] overflow-auto";
+
+  // Choose backdrop node
+  let backdropNode = null;
+  if (backdrop === "dim") {
+    backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+  } else if (backdrop === "transparent") {
+    // click-catcher with no color (keeps outside-click-to-close)
+    backdropNode = <div className="absolute inset-0" onClick={onClose} />;
+  } else if (backdrop === "blur") {
+    backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+  } // "none" => no overlay at all
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-4xl rounded-2xl bg-white shadow-xl border border-slate-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
-          <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100">
-            <X size={18} />
-          </button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Modal"}
+    >
+      {backdropNode}
+      <div className={containerCls}>
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur"
+          onDoubleClick={() => setIsFull((v) => !v)}
+        >
+          <h3 className="font-semibold truncate pr-2">{title}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsFull((v) => !v)}
+              className="p-2 rounded hover:bg-slate-100"
+              title={isFull ? "Restore" : "Expand"}
+              aria-label={isFull ? "Restore" : "Expand"}
+            >
+              {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded hover:bg-slate-100"
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="p-4 max-h-[75vh] overflow-auto">{children}</div>
+        <div className={bodyCls}>{children}</div>
       </div>
     </div>
   );
 }
+
+
 // Contacts.jsx — PART 3/3
 function ContactForm({ initial, onSubmit, onCancel, T }) {
   const isEdit = Boolean(initial?._id);
@@ -1158,83 +1233,30 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
       </div>
 
       {/* PICTURE */}
-      <div role="tabpanel" id="panel-picture" aria-labelledby="tab-picture" hidden={tab !== "picture"} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label={T?.modal?.fields?.picture || "Picture"} icon={Image}>
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-              <div className="flex flex-col md:flex-row md:items-start gap-4">
-                <div className="shrink-0">
-                  <div className="w-24 h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-white flex items-center justify-center">
-                    {(pictureBase64 || existingPicUrl) && !removePicture ? (
-                      <img src={pictureBase64 || existingPicUrl} alt="contact" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-slate-400 text-xs">
-                        <ImageIcon size={22} />
-                      </div>
-                    )}
-                  </div>
-                  {isEdit && existingPicUrl && !pictureBase64 && !removePicture && (
-                    <button
-                      type="button"
-                      onClick={() => setRemovePicture(true)}
-                      className="mt-2 text-xs px-2 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100"
-                      title={T?.modal?.removePicture || "Remove current picture"}
-                    >
-                      {T?.modal?.removePicture || "Remove"}
-                    </button>
-                  )}
-                  {isEdit && removePicture && !pictureBase64 && (
-                    <button
-                      type="button"
-                      onClick={() => setRemovePicture(false)}
-                      className="mt-2 text-xs px-2 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100"
-                    >
-                      {T?.modal?.undoRemove || "Undo remove"}
-                    </button>
-                  )}
-                </div>
+<div role="tabpanel" id="panel-picture" aria-labelledby="tab-picture" hidden={tab !== "picture"} className="space-y-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <Field
+      label={T?.modal?.fields?.picture || "Picture"}
+      icon={Image}
+      iconInside={false}
+      autoHeight
+    >
+      <PictureDrop
+        title={T?.modal?.choosePicture || "Choose picture"}
+        replaceTitle={T?.modal?.replacePicture || "Replace picture"}
+        help={T?.modal?.pictureHelp || "PNG/JPG/WebP • up to ~2 MB • square works best"}
+        previewSrc={!removePicture ? (pictureBase64 || existingPicUrl) : null}
+        onPickFile={(file) => onPickPicture(file)}
+        canRemove={isEdit && !!existingPicUrl}
+        removing={removePicture}
+        onToggleRemove={() => setRemovePicture((v) => !v)}
+        hasNewSelection={Boolean(pictureBase64)}
+        onClearSelection={() => onPickPicture(null)}
+      />
+    </Field>
+  </div>
+</div>
 
-                <div className="flex-1">
-                  <label className="block cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="hidden"
-                      onChange={(e) => onPickPicture(e.target.files?.[0] || null)}
-                    />
-                    <div className="rounded-lg border border-dashed border-slate-300 bg-white hover:bg-slate-50 transition p-4 text-center">
-                      <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-                        <ImageIcon size={16} className="text-slate-500" />
-                        {isEdit && (existingPicUrl || pictureBase64)
-                          ? (T?.modal?.replacePicture || "Replace picture")
-                          : (T?.modal?.choosePicture || "Choose picture")}
-                      </div>
-                      <p className="mt-1 text-xs text-slate-500">
-                        PNG/JPG/WebP • up to ~2&nbsp;MB • square works best
-                      </p>
-                    </div>
-                  </label>
-
-                  {pictureBase64 && (
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                      <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        {T?.a11y?.newFileSelected || "New file selected"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onPickPicture(null)}
-                        className="px-2 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100"
-                      >
-                        {T?.a11y?.clearSelection || "Clear selection"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Field>
-        </div>
-      </div>
 
       {/* NOTES */}
       <div role="tabpanel" id="panel-notes" aria-labelledby="tab-notes" hidden={tab !== "notes"} className="space-y-2">
@@ -1258,5 +1280,87 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
         </button>
       </div>
     </form>
+  );
+}
+
+function PictureDrop({
+  title = "Choose picture",
+  replaceTitle = "Replace picture",
+  help = "PNG/JPG/WebP • up to ~2 MB • square works best",
+  previewSrc,
+  onPickFile,
+  canRemove = false,
+  removing = false,
+  onToggleRemove,
+  hasNewSelection = false,
+  onClearSelection,
+}) {
+  const inputId = React.useId();
+
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-4">
+      <div className="flex items-start gap-4">
+        {/* Thumbnail */}
+        <div className="shrink-0">
+          <div className="w-24 h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-50 flex items-center justify-center">
+            {previewSrc && !removing ? (
+              <img src={previewSrc} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-slate-400 text-xs">
+                <ImageIcon size={22} />
+              </div>
+            )}
+          </div>
+
+          {canRemove && !hasNewSelection && (
+            <button
+              type="button"
+              onClick={onToggleRemove}
+              className="mt-2 text-xs px-2 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100"
+              title={removing ? "Undo remove" : "Remove"}
+            >
+              {removing ? "Undo remove" : "Remove"}
+            </button>
+          )}
+        </div>
+
+        {/* Drop area */}
+        <div className="flex-1">
+          <label
+            htmlFor={inputId}
+            className="block cursor-pointer rounded-xl border border-dashed border-slate-300 bg-white hover:bg-slate-50 transition p-4 text-center"
+          >
+            <div className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+              <ImageIcon size={16} className="text-slate-500" />
+              {previewSrc && !removing ? replaceTitle : title}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">{help}</p>
+          </label>
+
+          <input
+            id={inputId}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={(e) => onPickFile(e.target.files?.[0] || null)}
+          />
+
+          {hasNewSelection && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                { /* i18n if you want */ } New file selected
+              </span>
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="px-2 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-100"
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

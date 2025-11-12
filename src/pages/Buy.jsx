@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronRight,
   Hash,
+  Maximize2,
+  Minimize2,
   FileText,
   Calendar as CalendarIcon,
   User as UserIcon,
@@ -1201,21 +1203,49 @@ export default function Buy() {
 /* ===================== MODAL + FORM ===================== */
 
 function Modal({ children, onClose, title }) {
+  const [isFull, setIsFull] = useState(false);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl border border-slate-200">
+      <div
+        className={[
+          "relative w-full rounded-2xl bg-white shadow-xl border border-slate-200",
+          isFull ? "max-w-[95vw] h-[95vh]" : "max-w-5xl"
+        ].join(" ")}
+      >
         <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
           <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100">
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setIsFull(v => !v)}
+              className="p-2 rounded hover:bg-slate-100"
+              title={isFull ? "Minimize" : "Maximize"}
+              aria-label={isFull ? "Minimize" : "Maximize"}
+            >
+              {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded hover:bg-slate-100"
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="p-4 max-h-[75vh] overflow-auto">{children}</div>
+
+        <div className={["p-4", isFull ? "h-[calc(95vh-56px)] overflow-auto" : "max-h-[75vh] overflow-auto"].join(" ")}>
+          {children}
+        </div>
       </div>
     </div>
   );
 }
+
 
 /** Typeahead combobox for /api/mvendors (blocked=none) */
 function VendorCombobox({

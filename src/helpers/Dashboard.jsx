@@ -14,6 +14,7 @@ import {
   Mail,
   Bell,
   FileText,
+  Settings as SettingsIcon,
   SlidersHorizontal,
   BadgeCheck,
 } from "lucide-react";
@@ -40,6 +41,7 @@ import PurchaseLineParameters from "../pages/PurchaseLineParameters";
 import PurchaseOfferLines from "../pages/PurchaseOfferLines";
 import Agreements from "../pages/Agreements";
 import { useI18n } from "./i18n";
+import Settings from "../pages/Settings";
 
 // Helper: title-case fallback labels and strip underscores
 const toTitle = (s) =>
@@ -64,6 +66,7 @@ const HEADER_ICONS = {
   SELL: Coins,
   SALES_OFFER_LINES: FileText,
   USERS: UsersIcon,
+  SETTINGS: SettingsIcon,
   LOCATIONS: MapPin,
   DEFAULT_ITEM_PARAMETERS: BadgeCheck,
   TRANSPORTS: Truck,
@@ -78,6 +81,7 @@ const PATH_TO_KEY = {
   "/app/contacts": "CONTACTS",
   "/app/buyers": "BUYERS",
   "/app/users": "USERS",
+  "/app/settings": "SETTINGS", 
   "/app/items": "ITEM",
   "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
   "/app/vendors": "VENDORS",
@@ -236,6 +240,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="contacts" element={<Contacts />} />
             <Route path="buyers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="settings" element={<Settings />} /> 
             <Route path="items" element={<Items />} />
             <Route path="default-item-parameters" element={<DefaultItemParameters />} />
             <Route path="locations" element={<Locations />} />

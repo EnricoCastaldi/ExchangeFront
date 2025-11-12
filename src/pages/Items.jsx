@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronRight,
+  Maximize2,
+  Minimize2,
   SlidersHorizontal,
   Hash,
   Tag,
@@ -17,7 +19,8 @@ import {
   Ruler,
   Boxes,
   DollarSign,
-  Calendar, 
+  Calendar,
+  Globe,              // NEW
 } from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
@@ -26,7 +29,6 @@ const API =
   (window.location.hostname === "localhost"
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
-
 
 // helper: handle id or _id from API
 const getId = (row) => row?._id || row?.id;
@@ -40,11 +42,12 @@ export default function Items() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [ipg, setIpg] = useState(""); // inventory posting group
+  const [origin, setOrigin] = useState(""); // NEW: Country of Origin filter
   const [active, setActive] = useState(""); // true/false/""
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [type, ipg, active, minPrice, maxPrice].filter(Boolean).length;
+  const activeFilterCount = [type, ipg, origin, active, minPrice, maxPrice].filter(Boolean).length; // NEW include origin
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -72,6 +75,7 @@ export default function Items() {
       addBtn: I?.controls?.addBtn || "Add item",
       allTypes: I?.controls?.allTypes || "All types",
       allStatuses: I?.controls?.allStatuses || "All statuses",
+      allOrigins: I?.controls?.allOrigins || "All origins", // NEW
       statuses: {
         active: I?.controls?.statuses?.active || "Active",
         inactive: I?.controls?.statuses?.inactive || "Inactive",
@@ -86,6 +90,7 @@ export default function Items() {
       description: I?.table?.description || "Description",
       unit: I?.table?.unit || "Base UoM",
       ipg: I?.table?.ipg || "Inventory Posting Group",
+      countryOfOrigin: I?.table?.countryOfOrigin || "Country of Origin", // NEW
       unitPrice: I?.table?.unitPrice || "Unit Price",
       status: I?.table?.status || "Status",
       created: I?.table?.created || "Created",
@@ -103,6 +108,7 @@ export default function Items() {
       description2: I?.details?.description2 || "Description 2",
       baseUnitOfMeasure: I?.details?.baseUnitOfMeasure || "Base Unit of Measure",
       inventoryPostingGroup: I?.details?.inventoryPostingGroup || "Inventory Posting Group",
+      countryOfOrigin: I?.details?.countryOfOrigin || "Country of Origin", // NEW
       unitPrice: I?.details?.unitPrice || "Unit Price",
       active: I?.details?.active || "Active",
       created: I?.details?.created || "Created",
@@ -122,6 +128,7 @@ export default function Items() {
         description2: I?.modal?.fields?.description2 || "Description 2",
         unit: I?.modal?.fields?.unit || "Base Unit of Measure",
         ipg: I?.modal?.fields?.ipg || "Inventory Posting Group",
+        countryOfOrigin: I?.modal?.fields?.countryOfOrigin || "Country of Origin", // NEW
         unitPrice: I?.modal?.fields?.unitPrice || "Unit Price",
         active: I?.modal?.fields?.active || "Active",
       },
@@ -165,6 +172,7 @@ export default function Items() {
       if (q) params.set("query", q);
       if (type) params.set("type", type);
       if (ipg) params.set("ipg", ipg);
+      if (origin) params.set("origin", origin); // NEW
       if (active !== "") params.set("active", active);
       if (minPrice !== "") params.set("minPrice", minPrice);
       if (maxPrice !== "") params.set("maxPrice", maxPrice);
@@ -182,7 +190,7 @@ export default function Items() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line
-  }, [page, limit, type, ipg, active, minPrice, maxPrice, sortBy, sortDir]);
+  }, [page, limit, type, ipg, origin, active, minPrice, maxPrice, sortBy, sortDir]); // NEW include origin
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -217,6 +225,7 @@ export default function Items() {
       description: "description",
       baseUnitOfMeasure: "baseUnitOfMeasure",
       inventoryPostingGroup: "inventoryPostingGroup",
+      countryOfOrigin: "countryOfOrigin", // NEW
       unitPrice: "unitPrice",
       active: "active",
       createdAt: "createdAt",
@@ -355,6 +364,17 @@ export default function Items() {
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           />
 
+          {/* Country of Origin (NEW) */}
+          <input
+            value={origin}
+            onChange={(e) => {
+              setOrigin(e.target.value);
+              setPage(1);
+            }}
+            placeholder={L.table.countryOfOrigin}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+          />
+
           {/* Active */}
           <select
             value={active}
@@ -362,11 +382,11 @@ export default function Items() {
               setActive(e.target.value);
               setPage(1);
             }}
-            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300 md:col-span-3"
           >
             <option value="">{L.controls.allStatuses}</option>
             <option value="true">{L.controls.statuses.active}</option>
-            <option value="false">Inactive</option>
+            <option value="false">{L.controls.statuses.inactive}</option>
           </select>
 
           {/* Price range */}
@@ -396,9 +416,16 @@ export default function Items() {
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {type && <Chip label={`${L.table.type}: ${type}`} onClear={() => setType("")} clearTitle={L.modal.cancel} />}
           {ipg && <Chip label={`${L.table.ipg}: ${ipg}`} onClear={() => setIpg("")} clearTitle={L.modal.cancel} />}
+          {origin && (
+            <Chip
+              label={`${L.table.countryOfOrigin}: ${origin}`}
+              onClear={() => setOrigin("")}
+              clearTitle={L.modal.cancel}
+            />
+          )}
           {active !== "" && (
             <Chip
-              label={`${L.table.status}: ${active === "true" ? L.controls.statuses.active : "Inactive"}`}
+              label={`${L.table.status}: ${active === "true" ? L.controls.statuses.active : L.controls.statuses.inactive}`}
               onClear={() => setActive("")}
               clearTitle={L.modal.cancel}
             />
@@ -415,122 +442,105 @@ export default function Items() {
       {/* Table */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                {[
-                  <Th key="exp" />,
-                  <SortableTh key="no" id="no" {...{ sortBy, sortDir, onSort }}>{L.table.no}</SortableTh>,
-                  <SortableTh key="no2" id="no2" {...{ sortBy, sortDir, onSort }}>{L.table.no2}</SortableTh>,
-                  <SortableTh key="type" id="type" {...{ sortBy, sortDir, onSort }}>{L.table.type}</SortableTh>,
-                  <SortableTh key="description" id="description" {...{ sortBy, sortDir, onSort }}>{L.table.description}</SortableTh>,
-                  <SortableTh key="baseUnitOfMeasure" id="baseUnitOfMeasure" {...{ sortBy, sortDir, onSort }}>{L.table.unit}</SortableTh>,
-                  <SortableTh key="inventoryPostingGroup" id="inventoryPostingGroup" {...{ sortBy, sortDir, onSort }}>{L.table.ipg}</SortableTh>,
-                  <SortableTh key="unitPrice" id="unitPrice" className="text-right" {...{ sortBy, sortDir, onSort }}>{L.table.unitPrice}</SortableTh>,
-                  <SortableTh key="active" id="active" {...{ sortBy, sortDir, onSort }}>{L.table.status}</SortableTh>,
-                  <SortableTh key="createdAt" id="createdAt" {...{ sortBy, sortDir, onSort }}>{L.table.created}</SortableTh>,
-                  <Th key="actions" className="text-right">{L.table.actions}</Th>,
-                ]}
-              </tr>
-            </thead>
+  <table className="min-w-full text-sm"><thead className="bg-slate-50 text-slate-600">
+      <tr>
+        {[
+          <Th key="exp" />,
+          <SortableTh key="no" id="no" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.no}</SortableTh>,
+          <SortableTh key="no2" id="no2" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.no2}</SortableTh>,
+          <SortableTh key="type" id="type" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.type}</SortableTh>,
+          <SortableTh key="description" id="description" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.description}</SortableTh>,
+          <SortableTh key="baseUnitOfMeasure" id="baseUnitOfMeasure" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.unit}</SortableTh>,
+          <SortableTh key="inventoryPostingGroup" id="inventoryPostingGroup" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.ipg}</SortableTh>,
+          <SortableTh key="countryOfOrigin" id="countryOfOrigin" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.countryOfOrigin}</SortableTh>,
+          <SortableTh key="unitPrice" id="unitPrice" className="text-right" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.unitPrice}</SortableTh>,
+          <SortableTh key="active" id="active" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.status}</SortableTh>,
+          <SortableTh key="createdAt" id="createdAt" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.created}</SortableTh>,
+          <Th key="actions" className="text-right">{L.table.actions}</Th>,
+        ]}
+      </tr>
+    </thead><tbody>
+      {loading ? (
+        <tr>
+          <td colSpan={13} className="p-6 text-center text-slate-500">{L.table.loading}</td>
+        </tr>
+      ) : rows.length === 0 ? (
+        <tr>
+          <td colSpan={13} className="p-6 text-center text-slate-500">{L.table.empty}</td>
+        </tr>
+      ) : (
+        rows.flatMap((r) => {
+          const id = getId(r);
+          const mainRow = (
+            <tr key={id} className="border-t">
+              <Td className="w-8">
+                <button
+                  className="p-1 rounded hover:bg-slate-100"
+                  onClick={() => setExpandedId((cur) => (cur === id ? null : id))}
+                  aria-label={L.a11y.toggleDetails}
+                  title={L.a11y.toggleDetails}
+                >
+                  {expandedId === id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                </button>
+              </Td>
+              <Td className="font-mono">{r.no}</Td>
+              <Td className="font-mono">{r.no2 || L.table.dash}</Td>
+              <Td>{typeChip(r.type)}</Td>
+              <Td className="max-w-[340px] truncate" title={r.description}>{r.description || L.table.dash}</Td>
+              <Td>{r.baseUnitOfMeasure || L.table.dash}</Td>
+              <Td>{r.inventoryPostingGroup || L.table.dash}</Td>
+              <Td className="flex items-center gap-1"><Globe size={14} className="text-slate-400" />{r.countryOfOrigin || L.table.dash}</Td>
+              <Td className="text-right">{fmtPrice(r.unitPrice)}</Td>
+              <Td>{activeChip(r.active, L)}</Td>
+              <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}</Td>
+              <Td>
+                <div className="flex justify-end gap-2 pr-3">
+                  <button className="p-2 rounded-lg hover:bg-slate-100" onClick={() => { setEditing(r); setOpen(true); }}>
+                    <Pencil size={16} />
+                  </button>
+                  <button className="p-2 rounded-lg hover:bg-slate-100 text-red-600" onClick={() => onDelete(id)}>
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </Td>
+            </tr>
+          );
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={12} className="p-6 text-center text-slate-500">
-                    {L.table.loading}
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={12} className="p-6 text-center text-slate-500">
-                    {L.table.empty}
-                  </td>
-                </tr>
-              ) : (
-                rows.flatMap((r) => {
-                  const id = getId(r);
-                  const mainRow = (
-                    <tr key={id} className="border-t">
-                      <Td className="w-8">
-                        <button
-                          className="p-1 rounded hover:bg-slate-100"
-                          onClick={() => setExpandedId((cur) => (cur === id ? null : id))}
-                          aria-label={L.a11y.toggleDetails}
-                          title={L.a11y.toggleDetails}
-                        >
-                          {expandedId === id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                        </button>
-                      </Td>
-                      <Td className="font-mono">{r.no}</Td>
-                      <Td className="font-mono">{r.no2 || L.table.dash}</Td>
-                      <Td>{typeChip(r.type)}</Td>
-                      <Td className="max-w-[340px] truncate" title={r.description}>
-                        {r.description || L.table.dash}
-                      </Td>
-                      <Td>{r.baseUnitOfMeasure || L.table.dash}</Td>
-                      <Td>{r.inventoryPostingGroup || L.table.dash}</Td>
-                      <Td className="text-right">{fmtPrice(r.unitPrice)}</Td>
-                      <Td>{activeChip(r.active)}</Td>
-                      <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}</Td>
-                      <Td>
-                        <div className="flex justify-end gap-2 pr-3">
-                          <button
-                            className="p-2 rounded-lg hover:bg-slate-100"
-                            onClick={() => {
-                              setEditing(r);
-                              setOpen(true);
-                            }}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
-                            onClick={() => onDelete(id)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </Td>
-                    </tr>
-                  );
+          const detailsRow = expandedId === id ? (
+            <tr key={`${id}-details`}>
+              <td colSpan={13} className="bg-slate-50 border-t">
+                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                  <KV label={L.details.id} icon={Hash}>{id || L.table.dash}</KV>
+                  <KV label={L.details.no} icon={Hash}>{r.no || L.table.dash}</KV>
+                  <KV label={L.details.no2} icon={Hash}>{r.no2 || L.table.dash}</KV>
+                  <KV label={L.details.type} icon={Tag}>{typeChip(r.type)}</KV>
+                  <KV label={L.details.baseUnitOfMeasure} icon={Ruler}>{r.baseUnitOfMeasure || L.table.dash}</KV>
+                  <KV label={L.details.inventoryPostingGroup} icon={Boxes}>{r.inventoryPostingGroup || L.table.dash}</KV>
+                  <KV label={L.details.countryOfOrigin} icon={Globe}>{r.countryOfOrigin || L.table.dash}</KV>
+                  <KV label={L.details.unitPrice} icon={DollarSign}>{fmtPrice(r.unitPrice)}</KV>
+                  <KV label={L.details.active} icon={CheckCircle2}>{activeChip(r.active, L)}</KV>
+                  <div className="md:col-span-3">
+                    <KV label={L.details.description} icon={FileText}>{r.description || L.table.dash}</KV>
+                  </div>
+                  <div className="md:col-span-3">
+                    <KV label={L.details.description2} icon={FileText}>{r.description2 || L.table.dash}</KV>
+                  </div>
+                  <KV label={L.details.created} icon={Calendar}>
+                    {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
+                  </KV>
+                  <KV label={L.details.updated} icon={Calendar}>
+                    {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
+                  </KV>
+                </div>
+              </td>
+            </tr>
+          ) : null;
 
-                  const detailsRow =
-                    expandedId === id ? (
-                      <tr key={`${id}-details`}>
-                        <td colSpan={12} className="bg-slate-50 border-t">
-                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                            <KV label={L.details.id} icon={Hash}>{id || L.table.dash}</KV>
-<KV label={L.details.no} icon={Hash}>{r.no || L.table.dash}</KV>
-<KV label={L.details.no2} icon={Hash}>{r.no2 || L.table.dash}</KV>
-<KV label={L.details.type} icon={Tag}>{typeChip(r.type)}</KV>
-<KV label={L.details.baseUnitOfMeasure} icon={Ruler}>{r.baseUnitOfMeasure || L.table.dash}</KV>
-<KV label={L.details.inventoryPostingGroup} icon={Boxes}>{r.inventoryPostingGroup || L.table.dash}</KV>
-<KV label={L.details.unitPrice} icon={DollarSign}>{fmtPrice(r.unitPrice)}</KV>
-<KV label={L.details.active} icon={CheckCircle2}>{activeChip(r.active)}</KV>
-<div className="md:col-span-3">
-  <KV label={L.details.description} icon={FileText}>{r.description || L.table.dash}</KV>
+          return [mainRow, detailsRow].filter(Boolean);
+        })
+      )}
+    </tbody></table>
 </div>
-<div className="md:col-span-3">
-  <KV label={L.details.description2} icon={FileText}>{r.description2 || L.table.dash}</KV>
-</div>
-<KV label={L.details.created} icon={Calendar}>
-  {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
-</KV>
-<KV label={L.details.updated} icon={Calendar}>
-  {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
-</KV>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null;
-
-                  return [mainRow, detailsRow].filter(Boolean);
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
 
         {/* Footer / Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
@@ -599,7 +609,7 @@ function Th({ children, className = "" }) {
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
 }
-// replace KV with icon-aware version
+// icon-aware KV
 function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -612,8 +622,7 @@ function KV({ label, icon: Icon, children }) {
   );
 }
 
-
-function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
+function SortableTh({ id, sortBy, sortDir, onSort, children, className = "", title }) {
   const active = sortBy === id;
   const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
   return (
@@ -622,7 +631,7 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
         type="button"
         onClick={() => onSort(id)}
         className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-50"
-        title="Sort"
+        title={title}
       >
         <span>{children}</span>
         <span className={`text-xs opacity-60 ${active ? "opacity-100" : ""}`}>
@@ -653,9 +662,8 @@ function Chip({ label, onClear, clearTitle = "Clear" }) {
 function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
-  const wrap = isSuccess
-    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-    : "bg-red-50 border-red-200 text-red-800";
+  const wrap =
+    isSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800";
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
       <Icon size={16} />
@@ -667,22 +675,80 @@ function Toast({ type = "success", children, onClose }) {
   );
 }
 
-function Modal({ children, onClose, title = "Item" }) {
+function Modal({ children, onClose, title = "Item", fullscreen = false, backdrop = "dim" }) {
+  const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
+
+  // ESC closes, "f" toggles fullscreen
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose?.();
+      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Backdrop modes: "dim" | "transparent" | "blur" | "none"
+  let backdropNode = null;
+  if (backdrop === "dim") {
+    backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+  } else if (backdrop === "transparent") {
+    backdropNode = <div className="absolute inset-0" onClick={onClose} />;
+  } else if (backdrop === "blur") {
+    backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+  }
+
+  const containerCls = [
+    "relative bg-white shadow-xl border border-slate-200",
+    isFull ? "w-screen h-screen max-w-none rounded-none"
+           : "w-full max-w-3xl rounded-2xl",
+  ].join(" ");
+
+  const bodyCls = isFull
+    ? "p-4 h-[calc(100vh-52px)] overflow-auto" // ~52px top bar
+    : "p-4 max-h-[75vh] overflow-auto";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-3xl rounded-2xl bg-white shadow-xl border border-slate-200">
-        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
-          <h3 className="font-semibold">{title}</h3>
-          <button onClick={onClose} className="p-2 rounded hover:bg-slate-100">
-            <X size={18} />
-          </button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Modal"}
+    >
+      {backdropNode}
+      <div className={containerCls}>
+        {/* Top bar with expand/close; double-click toggles fullscreen */}
+        <div
+          className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur"
+          onDoubleClick={() => setIsFull((v) => !v)}
+        >
+          <h3 className="font-semibold truncate pr-2">{title}</h3>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setIsFull((v) => !v)}
+              className="p-2 rounded hover:bg-slate-100"
+              title={isFull ? "Restore" : "Expand"}
+              aria-label={isFull ? "Restore" : "Expand"}
+            >
+              {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded hover:bg-slate-100"
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
-        <div className="p-4 max-h-[75vh] overflow-auto">{children}</div>
+
+        <div className={bodyCls}>{children}</div>
       </div>
     </div>
   );
 }
+
 
 /* ---------- Helpers ---------- */
 function typeChip(typeRaw) {
@@ -693,7 +759,7 @@ function typeChip(typeRaw) {
       : "bg-sky-50 text-sky-700 border border-sky-200";
   return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{v}</span>;
 }
-function activeChip(on) {
+function activeChip(on, L) {
   return (
     <span
       className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -702,7 +768,8 @@ function activeChip(on) {
           : "bg-slate-100 text-slate-700 border border-slate-200"
       }`}
     >
-      {on ? "ACTIVE" : "INACTIVE"}
+           {on ? (L?.controls?.statuses?.active ?? "Active")
+          : (L?.controls?.statuses?.inactive ?? "Inactive")}
     </span>
   );
 }
@@ -716,6 +783,7 @@ function fmtPrice(v) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/* ---------- Form (NEW field wired) ---------- */
 function ItemForm({ initial, onSubmit, onCancel, L }) {
   const isEdit = Boolean(initial && (initial._id || initial.id));
 
@@ -726,6 +794,7 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
   const [description2, setDescription2] = useState(initial?.description2 || "");
   const [baseUnitOfMeasure, setBaseUnitOfMeasure] = useState(initial?.baseUnitOfMeasure || "");
   const [inventoryPostingGroup, setInventoryPostingGroup] = useState(initial?.inventoryPostingGroup || "");
+  const [countryOfOrigin, setCountryOfOrigin] = useState(initial?.countryOfOrigin || ""); // NEW
   const [unitPrice, setUnitPrice] = useState(initial?.unitPrice ?? 0);
   const [active, setActive] = useState(initial?.active ?? true);
 
@@ -743,6 +812,7 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
       description2: description2.trim() || null,
       baseUnitOfMeasure: baseUnitOfMeasure.trim() || null,
       inventoryPostingGroup: inventoryPostingGroup.trim() || null,
+      countryOfOrigin: countryOfOrigin.trim() || null, // NEW
       unitPrice: Number(unitPrice) || 0,
       active: Boolean(active),
     };
@@ -797,6 +867,16 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
           />
         </Field>
 
+        {/* NEW: Country of Origin */}
+        <Field label={L.modal.fields.countryOfOrigin} icon={Globe}>
+          <input
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            value={countryOfOrigin}
+            onChange={(e) => setCountryOfOrigin(e.target.value)}
+            placeholder="e.g., PL, DE, CN"
+          />
+        </Field>
+
         <Field label={L.modal.fields.unitPrice} icon={DollarSign}>
           <div className="relative">
             <input
@@ -819,7 +899,7 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
             onChange={(e) => setActive(e.target.value === "true")}
           >
             <option value="true">{L.controls.statuses.active}</option>
-            <option value="false">Inactive</option>
+            <option value="false">{L.controls.statuses.inactive}</option>
           </select>
         </Field>
 
@@ -859,7 +939,6 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
   );
 }
 
-
 function Field({ label, icon: Icon, error, children }) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
@@ -890,4 +969,3 @@ function Field({ label, icon: Icon, error, children }) {
     </label>
   );
 }
-
