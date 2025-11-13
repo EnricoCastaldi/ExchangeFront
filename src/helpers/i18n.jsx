@@ -44,23 +44,34 @@ const T = {
         allStatuses: "Wszystkie statusy",
         clear: "Wyczyść",
         filters: "Filtry",
+        allBlocked: "Wszystkie blokady",
+        allPotential: "Wszyscy (potencjalni)",
       },
       table: {
         no: "Nr",
         name: "Nazwa / Imię i nazwisko",
         company: "Firma",
+        jobTitle: "Stanowisko",
         email: "E-mail",
         phone: "Telefon",
         country: "Kraj",
         city: "Miasto",
         contactType: "Typ",
-        status: "Status",
+        blocked: "Blokada",
         potentialClient: "Potencjalny",
+        owzSigned: "OWZ",
+        umowaRamowaSigned: "Umowa ramowa",
+        status: "Status",
         created: "Utworzono",
         actions: "",
         loading: "Ładowanie…",
         empty: "Brak kontaktów",
         dash: "—",
+        postAsBuyer: "Utwórz klienta",
+        postAsVendor: "Utwórz dostawcę",
+        postAsBoth: "Utwórz klienta i dostawcę",
+        edit: "Edytuj",
+        delete: "Usuń",
       },
       contactTypeLabels: {
         person: "Osoba",
@@ -94,6 +105,7 @@ const T = {
           contact: "Kontakt",
           extra: "Dodatkowe",
           picture: "Zdjęcie",
+          notes: "Notatki",
         },
         fields: {
           no: "Nr",
@@ -119,12 +131,35 @@ const T = {
           nip: "NIP",
           ownerUserId: "Właściciel (ID użytk.)",
           salespersonCode: "Przedstawiciel",
-          tags: "Tagi (Enter, by dodać)",
+          tags: "Tagi (oddziel przecinkiem)",
           priority: "Priorytet",
           blocked: "Blokada",
+          owzSigned: "OWZ podpisane",
+          umowaRamowaSigned: "Umowa ramowa podpisana",
           notes: "Notatki",
           picture: "Zdjęcie",
         },
+
+        // nowe modale „post as buyer/vendor/both”
+        postAsBuyerTitle: "Utwórz klienta z kontaktu",
+        postAsBuyerQuestion:
+          "Czy chcesz utworzyć klienta (BUYERS) na podstawie tego kontaktu?",
+        postAsBuyerConfirm: "Tak, utwórz klienta",
+
+        postAsVendorTitle: "Utwórz dostawcę z kontaktu",
+        postAsVendorQuestion:
+          "Czy chcesz utworzyć dostawcę (VENDORS) na podstawie tego kontaktu?",
+        postAsVendorConfirm: "Tak, utwórz dostawcę",
+
+        postAsBothTitle: "Utwórz klienta i dostawcę",
+        postAsBothQuestion:
+          "Czy chcesz jednocześnie utworzyć klienta (BUYERS) i dostawcę (VENDORS) na podstawie tego kontaktu?",
+        postAsBothConfirm: "Tak, utwórz oba rekordy",
+
+        // opcjonalnie dla PictureDrop (używane w ContactForm)
+        choosePicture: "Wybierz zdjęcie",
+        replacePicture: "Zmień zdjęcie",
+        pictureHelp: "PNG/JPG/WebP • do ~2 MB • najlepiej kwadrat",
       },
       a11y: {
         toggleDetails: "Pokaż/ukryj szczegóły",
@@ -139,6 +174,9 @@ const T = {
         created: "Utworzono kontakt.",
         updated: "Zaktualizowano kontakt.",
         fixErrors: "Popraw zaznaczone pola.",
+        postedToBuyers: "Utworzono klienta na podstawie kontaktu.",
+        postedToVendors: "Utworzono dostawcę na podstawie kontaktu.",
+        postedToBoth: "Utworzono klienta i dostawcę na podstawie kontaktu.",
       },
       details: {
         name2: "Nazwa 2",
@@ -158,19 +196,26 @@ const T = {
         tags: "Tagi",
         priority: "Priorytet",
         notes: "Notatki",
+        owzSigned: "OWZ podpisane",
+        umowaRamowaSigned: "Umowa ramowa podpisana",
         picture: "Zdjęcie",
         noPicture: "Brak zdjęcia",
       },
+      labels: {
+        yes: "Tak",
+        no: "Nie",
+      },
     },
-  settings: {
-    title: "Ustawienia ogólne",
-    transportCostPerKm: "Domyślna stawka kosztu transportu za 1 km (PLN)",
-    placeholder: "np. 1.75",
-    updated: "Zapisano ustawienia.",
-    failed: "Nie udało się zapisać.",
-    loadFail: "Błąd ładowania ustawień.",
-    validation: "Wprowadź poprawną, nieujemną kwotę."
-  },
+
+    settings: {
+      title: "Ustawienia ogólne",
+      transportCostPerKm: "Domyślna stawka kosztu transportu za 1 km (PLN)",
+      placeholder: "np. 1.75",
+      updated: "Zapisano ustawienia.",
+      failed: "Nie udało się zapisać.",
+      loadFail: "Błąd ładowania ustawień.",
+      validation: "Wprowadź poprawną, nieujemną kwotę.",
+    },
     buys: {
       locale: "pl-PL",
       title: "Dokumenty zakupu",
@@ -816,6 +861,10 @@ const T = {
         clear: "Wyczyść",
         filters: "Filtry",
       },
+      labels: {
+        yes: "Tak",
+        no: "Nie",
+      },
       table: {
         no: "Nr",
         name: "Nazwa",
@@ -831,6 +880,8 @@ const T = {
         loading: "Ładowanie…",
         empty: "Brak klientów",
         dash: "—",
+        owzSigned: "OWZ",
+        umowaRamowaSigned: "Umowa ramowa",
       },
       blockedLabels: {
         none: "OK",
@@ -897,6 +948,8 @@ const T = {
           shippingAgentCode: "Przewoźnik",
           picture: "Zdjęcie",
           customerType: "Typ klienta",
+          owzSigned: "OWZ podpisane",
+          umowaRamowaSigned: "Umowa ramowa podpisana",
         },
       },
       a11y: {
@@ -933,6 +986,8 @@ const T = {
         picture: "Zdjęcie",
         noPicture: "Brak zdjęcia",
         customerType: "Typ klienta",
+        owzSigned: "OWZ podpisane",
+        umowaRamowaSigned: "Umowa ramowa podpisana",
       },
       customerTypeLabels: {
         mlyn: "Młyn",
@@ -1465,6 +1520,9 @@ const T = {
         actions: "",
         loading: "Ładowanie…",
         empty: "Brak dostawców",
+        // NEW:
+        owzSigned: "OWZ",
+        frameworkAgreementSigned: "Umowa ramowa",
       },
       blockedLabels: {
         none: "OK",
@@ -1506,6 +1564,9 @@ const T = {
         rr: "RR",
         picture: "Zdjęcie",
         noPicture: "Brak zdjęcia",
+        // NEW:
+        owzSigned: "OWZ podpisane",
+        frameworkAgreementSigned: "Umowa ramowa podpisana",
       },
       modal: {
         title: "Dostawca",
@@ -1518,6 +1579,8 @@ const T = {
           contact: "Kontakt",
           finance: "Finanse i kody",
           picture: "Zdjęcie",
+          owzSigned: "OWZ podpisane",
+          frameworkAgreementSigned: "Umowa ramowa podpisana",
         },
         fields: {
           no: "Nr",
@@ -1549,6 +1612,8 @@ const T = {
           shipmentMethodCode: "Sposób wysyłki",
           shippingAgentCode: "Przewoźnik",
           picture: "Zdjęcie",
+          owzSigned: "OWZ podpisane",
+          frameworkAgreementSigned: "Umowa ramowa podpisana",
         },
       },
       alerts: {
@@ -1684,47 +1749,37 @@ const T = {
           broker: "Broker",
         },
         fields: {
-          documentNo: "Nr dokumentu *",
-          status: "Status",
-          externalDocumentNo: "Nr dokumentu zewn.",
-          documentInfo: "Informacje o dokumencie",
-          currencyCode: "Waluta",
-          currencyFactor: "Współczynnik waluty",
-          documentDate: "Data dokumentu",
-          serviceDate: "Data usługi/dostawy",
-          requestedDeliveryDate: "Żądana dostawa",
-          promisedDeliveryDate: "Obiecana dostawa",
-          shipmentDate: "Data wysyłki",
-          validityDate: "Ważny do",
-          dueDate: "Termin płatności",
-
-          pickSell: "Wybierz Sprzedaj-do *",
-          pickBill: "Wybierz Płatnika *",
           no: "Nr",
-          name: "Nazwa",
+          name: "Nazwa *",
           name2: "Nazwa 2",
-          email: "E-mail",
-          phone: "Telefon",
+          blocked: "Blokada",
+          rr: "RR",
           address: "Adres",
           address2: "Adres 2",
           city: "Miasto",
-          region: "Region",
           postCode: "Kod pocztowy",
-          country: "Kraj",
+          region: "Region",
+          countryRegionCode: "Kod kraju/regionu",
+          phoneNo: "Telefon",
+          email: "Email",
+          email2: "Email 2",
+          homePage: "Strona WWW",
           nip: "NIP",
-
-          shipmentMethod: "Metoda wysyłki",
-          shipmentAgent: "Agent wysyłki",
-
-          transportNo: "Nr transportu",
-          transportName: "Nazwa transportu",
-          transportId: "ID transportu",
-          driverName: "Kierowca",
-          driverId: "ID kierowcy",
-          driverEmail: "E-mail kierowcy",
-          driverPhone: "Telefon kierowcy",
-
-          brokerNo: "Nr brokera",
+          creditLimit: "Limit kredytowy",
+          currencyCode: "Waluta",
+          priority: "Priorytet",
+          paymentMethodCode: "Metoda płatności",
+          paymentTermsCode: "Warunki płatności",
+          languageCode: "Język",
+          vendorPostingGroup: "Grupa księgowa",
+          vendorPriceGroup: "Grupa cenowa",
+          vendorDiscGroup: "Grupa rabatowa",
+          purchaserCode: "Kupiec",
+          shipmentMethodCode: "Sposób wysyłki",
+          shippingAgentCode: "Przewoźnik",
+          picture: "Zdjęcie",
+          owzSigned: "OWZ podpisane",
+          frameworkAgreementSigned: "Umowa ramowa podpisana", // ← rename key
         },
       },
 
@@ -1926,23 +1981,34 @@ const T = {
         allStatuses: "All statuses",
         clear: "Clear",
         filters: "Filters",
+        allBlocked: "All blocked",
+        allPotential: "All potential",
       },
       table: {
         no: "No.",
         name: "Name",
         company: "Company",
+        jobTitle: "Job Title",
         email: "Email",
         phone: "Phone",
         country: "Country",
         city: "City",
         contactType: "Type",
-        status: "Status",
+        blocked: "Blocked",
         potentialClient: "Potential",
+        owzSigned: "OWZ",
+        umowaRamowaSigned: "Framework",
+        status: "Status",
         created: "Created",
         actions: "",
         loading: "Loading…",
         empty: "No contacts",
         dash: "—",
+        postAsBuyer: "Post as customer",
+        postAsVendor: "Post as vendor",
+        postAsBoth: "Post as customer & vendor",
+        edit: "Edit",
+        delete: "Delete",
       },
       contactTypeLabels: {
         person: "Person",
@@ -1976,6 +2042,7 @@ const T = {
           contact: "Contact",
           extra: "Extra",
           picture: "Picture",
+          notes: "Notes",
         },
         fields: {
           no: "No.",
@@ -2001,12 +2068,35 @@ const T = {
           nip: "Tax ID",
           ownerUserId: "Owner (user id)",
           salespersonCode: "Salesperson",
-          tags: "Tags (Enter to add)",
+          tags: "Tags (comma-separated)",
           priority: "Priority",
           blocked: "Blocked",
+          owzSigned: "OWZ signed",
+          umowaRamowaSigned: "Framework agreement signed",
           notes: "Notes",
           picture: "Picture",
         },
+
+        // new “post as …” modals
+        postAsBuyerTitle: "Post contact to customers",
+        postAsBuyerQuestion:
+          "Do you want to create a customer record from this contact?",
+        postAsBuyerConfirm: "Yes, create customer",
+
+        postAsVendorTitle: "Post contact to vendors",
+        postAsVendorQuestion:
+          "Do you want to create a vendor record from this contact?",
+        postAsVendorConfirm: "Yes, create vendor",
+
+        postAsBothTitle: "Post as customer & vendor",
+        postAsBothQuestion:
+          "Do you want to create both a customer and a vendor from this contact?",
+        postAsBothConfirm: "Yes, create both",
+
+        // optional: picture helper strings
+        choosePicture: "Choose picture",
+        replacePicture: "Replace picture",
+        pictureHelp: "PNG/JPG/WebP • up to ~2 MB • square works best",
       },
       a11y: {
         toggleDetails: "Toggle details",
@@ -2021,6 +2111,9 @@ const T = {
         created: "Contact created.",
         updated: "Contact updated.",
         fixErrors: "Please correct the highlighted fields.",
+        postedToBuyers: "Customer created from contact.",
+        postedToVendors: "Vendor created from contact.",
+        postedToBoth: "Customer and vendor created from contact.",
       },
       details: {
         name2: "Name 2",
@@ -2040,10 +2133,17 @@ const T = {
         tags: "Tags",
         priority: "Priority",
         notes: "Notes",
+        owzSigned: "OWZ signed",
+        umowaRamowaSigned: "Framework agreement",
         picture: "Picture",
         noPicture: "No picture",
       },
+      labels: {
+        yes: "Yes",
+        no: "No",
+      },
     },
+
     agreements: {
       title: "Agreements",
       controls: {
@@ -2446,15 +2546,15 @@ const T = {
       },
     },
 
-settings: {
-  title: "General setup",
-  transportCostPerKm: "Default transport cost per 1 km (PLN)",
-  placeholder: "e.g. 1.75",
-  updated: "Settings saved.",
-  failed: "Failed to save.",
-  loadFail: "Failed to load settings.",
-  validation: "Enter a valid, non-negative amount.",
-},
+    settings: {
+      title: "General setup",
+      transportCostPerKm: "Default transport cost per 1 km (PLN)",
+      placeholder: "e.g. 1.75",
+      updated: "Settings saved.",
+      failed: "Failed to save.",
+      loadFail: "Failed to load settings.",
+      validation: "Enter a valid, non-negative amount.",
+    },
 
     purchaseOfferLines: {
       locale: "en-US",

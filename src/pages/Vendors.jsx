@@ -45,7 +45,6 @@ const API =
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
 
-
 export default function Vendors() {
   const { t, locale } = useI18n();
   const V = t.vendors || {};
@@ -84,6 +83,8 @@ export default function Vendors() {
     homePage: "Home page",
     currencyCode: "Currency code",
     priority: "Priority",
+    owzSigned: "OWZ signed",
+    frameworkAgreementSigned: "Framework agreement",
     paymentMethodCode: "Payment method code",
     paymentTermsCode: "Payment terms code",
     languageCode: "Language code",
@@ -115,16 +116,17 @@ export default function Vendors() {
   };
 
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [blocked, country, region, rrFilter].filter(Boolean).length;
+  const activeFilterCount = [blocked, country, region, rrFilter].filter(
+    Boolean
+  ).length;
 
-
-const clearAllFilters = () => {
-  setBlocked("");
-  setCountry("");
-  setRegion("");
-  setRrFilter("");
-  setPage(1);
-};
+  const clearAllFilters = () => {
+    setBlocked("");
+    setCountry("");
+    setRegion("");
+    setRrFilter("");
+    setPage(1);
+  };
 
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDir, setSortDir] = useState("desc");
@@ -141,8 +143,6 @@ const clearAllFilters = () => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
-
-
 
   const fetchData = async () => {
     setLoading(true);
@@ -192,7 +192,9 @@ const clearAllFilters = () => {
     if (!window.confirm(V?.alerts?.deleteConfirm || "Delete this vendor?"))
       return;
     try {
-      const res = await fetch(`${API}/api/mvendors/${_id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/mvendors/${_id}`, {
+        method: "DELETE",
+      });
       if (res.status === 204) {
         if (expandedId === _id) setExpandedId(null);
         showNotice("success", V?.alerts?.deleted || "Vendor deleted.");
@@ -221,6 +223,8 @@ const clearAllFilters = () => {
       country: "countryRegionCode",
       city: "city",
       blocked: "blocked",
+      owzSigned: "owzSigned",
+      frameworkAgreementSigned: "frameworkAgreementSigned",
       creditLimit: "creditLimit",
       createdAt: "createdAt",
     };
@@ -230,6 +234,8 @@ const clearAllFilters = () => {
       const v = r?.[k];
       if (k === "creditLimit") return Number(v) || 0;
       if (k === "createdAt") return v ? new Date(v).getTime() : 0;
+      if (k === "owzSigned" || k === "frameworkAgreementSigned")
+        return v ? 1 : 0;
       return (v ?? "").toString().toLowerCase();
     };
 
@@ -265,7 +271,9 @@ const clearAllFilters = () => {
 
       showNotice(
         "success",
-        isEdit ? V?.alerts?.updated || "Vendor updated." : V?.alerts?.created || "Vendor created."
+        isEdit
+          ? V?.alerts?.updated || "Vendor updated."
+          : V?.alerts?.created || "Vendor created."
       );
       setOpen(false);
       setEditing(null);
@@ -284,153 +292,158 @@ const clearAllFilters = () => {
         </Toast>
       )}
 
-<form
-  onSubmit={onSearch}
-  className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
->
-  {/* Row 1: Search + Filters toggle + Add button */}
-  <div className="flex flex-wrap items-center gap-2">
-    {/* Search with integrated submit icon */}
-    <div className="relative flex-1 min-w-[220px]">
-      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder={F.searchPh}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
-      />
-      <button
-        type="submit"
-        title={V?.controls?.searchBtn || "Search"}
-        aria-label={V?.controls?.searchBtn || "Search"}
-        className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
       >
-        <Search size={14} />
-      </button>
-    </div>
+        {/* Row 1: Search + Filters toggle + Add button */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search with integrated submit icon */}
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={F.searchPh}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
+            />
+            <button
+              type="submit"
+              title={V?.controls?.searchBtn || "Search"}
+              aria-label={V?.controls?.searchBtn || "Search"}
+              className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+            >
+              <Search size={14} />
+            </button>
+          </div>
 
-    {/* Filters toggle (mobile only; on desktop filters are always shown) */}
-    <button
-      type="button"
-      onClick={() => setShowFilters((v) => !v)}
-      className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
-      aria-expanded={showFilters}
-      aria-controls="vendor-filters-panel"
-    >
-      <SlidersHorizontal size={16} />
-      {V?.controls?.filters || "Filters"}
-      {activeFilterCount > 0 && (
-        <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
-          {activeFilterCount}
-        </span>
-      )}
-    </button>
+          {/* Filters toggle (mobile only; on desktop filters are always shown) */}
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
+            aria-expanded={showFilters}
+            aria-controls="vendor-filters-panel"
+          >
+            <SlidersHorizontal size={16} />
+            {V?.controls?.filters || "Filters"}
+            {activeFilterCount > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
-    {/* Add vendor — emphasized primary button */}
-  <button
-    type="button"
-    onClick={onAddClick}
-    className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
-  >
-    <Plus size={16} />
-    {F.addBtn}
-  </button>
-  </div>
+          {/* Add vendor — emphasized primary button */}
+          <button
+            type="button"
+            onClick={onAddClick}
+            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+          >
+            <Plus size={16} />
+            {F.addBtn}
+          </button>
+        </div>
 
-  {/* Row 2: Filters row (always visible on md+, collapsible on mobile) */}
-  <div
-    id="vendor-filters-panel"
-    className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
-      showFilters ? "grid" : "hidden md:grid"
-    }`}
-  >
-    {/* blocked */}
-    <select
-      value={blocked}
-      onChange={(e) => {
-        setBlocked(e.target.value);
-        setPage(1);
-      }}
-      className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-    >
-      <option value="">{F.all}</option>
-      <option value="none">{F.blocked.none}</option>
-      <option value="ship">{F.blocked.ship}</option>
-      <option value="invoice">{F.blocked.invoice}</option>
-      <option value="all">{F.blocked.all}</option>
-    </select>
+        {/* Row 2: Filters row (always visible on md+, collapsible on mobile) */}
+        <div
+          id="vendor-filters-panel"
+          className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
+            showFilters ? "grid" : "hidden md:grid"
+          }`}
+        >
+          {/* blocked */}
+          <select
+            value={blocked}
+            onChange={(e) => {
+              setBlocked(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+          >
+            <option value="">{F.all}</option>
+            <option value="none">{F.blocked.none}</option>
+            <option value="ship">{F.blocked.ship}</option>
+            <option value="invoice">{F.blocked.invoice}</option>
+            <option value="all">{F.blocked.all}</option>
+          </select>
 
-    {/* country */}
-    <div className="relative">
-      <Globe className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-      <input
-        value={country}
-        onChange={(e) => setCountry(e.target.value.toUpperCase())}
-        placeholder={F.countryPh}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-      />
-    </div>
+          {/* country */}
+          <div className="relative">
+            <Globe className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={country}
+              onChange={(e) => setCountry(e.target.value.toUpperCase())}
+              placeholder={F.countryPh}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
+            />
+          </div>
 
-    {/* region */}
-    <div className="relative">
-      <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-      <input
-        value={region}
-        onChange={(e) => setRegion(e.target.value)}
-        placeholder={F.regionPh}
-        className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
-      />
-    </div>
+          {/* region */}
+          <div className="relative">
+            <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder={F.regionPh}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-slate-300"
+            />
+          </div>
 
-    {/* RR filter */}
-    <select
-      value={rrFilter}
-      onChange={(e) => {
-        setRrFilter(e.target.value);
-        setPage(1);
-      }}
-      className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-      title="RR filter"
-    >
-      <option value="">{F.rrAll}</option>
-      <option value="true">{F.rrOnly}</option>
-      <option value="false">{F.rrExclude}</option>
-    </select>
-  </div>
+          {/* RR filter */}
+          <select
+            value={rrFilter}
+            onChange={(e) => {
+              setRrFilter(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+            title="RR filter"
+          >
+            <option value="">{F.rrAll}</option>
+            <option value="true">{F.rrOnly}</option>
+            <option value="false">{F.rrExclude}</option>
+          </select>
+        </div>
 
-  {/* Active filter chips (optional) */}
-  <div className="mt-2 flex flex-wrap items-center gap-1">
-    {blocked && (
-      <Chip
-        clearTitle={V?.modal?.cancel || "Clear"}
-        onClear={() => setBlocked("")}
-        label={`${V?.table?.blocked || "Blocked"}: ${F.blocked[blocked] || blocked}`}
-      />
-    )}
-    {country && (
-      <Chip
-        clearTitle={V?.modal?.cancel || "Clear"}
-        onClear={() => setCountry("")}
-        label={`${V?.table?.country || "Country"}: ${country}`}
-      />
-    )}
-    {region && (
-      <Chip
-        clearTitle={V?.modal?.cancel || "Clear"}
-        onClear={() => setRegion("")}
-        label={`${V?.table?.city || "City/Region"}: ${region}`}
-      />
-    )}
-    {rrFilter && (
-      <Chip
-        clearTitle={V?.modal?.cancel || "Clear"}
-        onClear={() => setRrFilter("")}
-        label={rrFilter === "true" ? V?.chips?.rrOnly || "RR only" : V?.chips?.rrExclude || "Without RR"}
-      />
-    )}
-  </div>
-</form>
-
+        {/* Active filter chips (optional) */}
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {blocked && (
+            <Chip
+              clearTitle={V?.modal?.cancel || "Clear"}
+              onClear={() => setBlocked("")}
+              label={`${V?.table?.blocked || "Blocked"}: ${
+                F.blocked[blocked] || blocked
+              }`}
+            />
+          )}
+          {country && (
+            <Chip
+              clearTitle={V?.modal?.cancel || "Clear"}
+              onClear={() => setCountry("")}
+              label={`${V?.table?.country || "Country"}: ${country}`}
+            />
+          )}
+          {region && (
+            <Chip
+              clearTitle={V?.modal?.cancel || "Clear"}
+              onClear={() => setRegion("")}
+              label={`${V?.table?.city || "City/Region"}: ${region}`}
+            />
+          )}
+          {rrFilter && (
+            <Chip
+              clearTitle={V?.modal?.cancel || "Clear"}
+              onClear={() => setRrFilter("")}
+              label={
+                rrFilter === "true"
+                  ? V?.chips?.rrOnly || "RR only"
+                  : V?.chips?.rrExclude || "Without RR"
+              }
+            />
+          )}
+        </div>
+      </form>
 
       {/* Table */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
@@ -438,7 +451,8 @@ const clearAllFilters = () => {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <Th />{/* expand toggle */}
+                <Th />
+                {/* expand toggle */}
                 <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>
                   {V?.table?.no || "No."}
                 </SortableTh>
@@ -460,6 +474,15 @@ const clearAllFilters = () => {
                 <SortableTh id="blocked" {...{ sortBy, sortDir, onSort }}>
                   {V?.table?.blocked || "Blocked"}
                 </SortableTh>
+                <SortableTh id="owzSigned" {...{ sortBy, sortDir, onSort }}>
+                  {V?.table?.owzSigned || "OWZ"}
+                </SortableTh>
+                <SortableTh
+                  id="frameworkAgreementSigned"
+                  {...{ sortBy, sortDir, onSort }}
+                >
+                  {V?.table?.frameworkAgreementSigned || "Framework"}
+                </SortableTh>
                 <SortableTh
                   id="creditLimit"
                   className="text-right pr-4"
@@ -477,13 +500,13 @@ const clearAllFilters = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                  <td colSpan={13} className="p-6 text-center text-slate-500">
                     {V?.table?.loading || "Loading…"}
                   </td>
                 </tr>
               ) : (data.data?.length || 0) === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                  <td colSpan={13} className="p-6 text-center text-slate-500">
                     {V?.table?.empty || "No vendors"}
                   </td>
                 </tr>
@@ -508,8 +531,8 @@ const clearAllFilters = () => {
                         </button>
                       </Td>
                       <Td>
-  <NoBadge value={displayVendorKey(v)} />
-</Td>
+                        <NoBadge value={displayVendorKey(v)} />
+                      </Td>
 
                       <Td className="font-medium">{v.name}</Td>
                       <Td className="text-slate-600">{v.email || "—"}</Td>
@@ -517,6 +540,15 @@ const clearAllFilters = () => {
                       <Td>{v.countryRegionCode || "—"}</Td>
                       <Td>{v.city || "—"}</Td>
                       <Td>{blockedChip(v.blocked, V)}</Td>
+                      <Td className="text-center">
+                        <BoolIcon value={!!v.owzSigned} variant="danger" />
+                      </Td>
+                      <Td className="text-center">
+                        <BoolIcon
+                          value={!!v.frameworkAgreementSigned}
+                          variant="danger"
+                        />
+                      </Td>
                       <Td className="text-right pr-4 font-medium">
                         {fmtMoney(
                           Number(v.creditLimit || 0),
@@ -525,6 +557,7 @@ const clearAllFilters = () => {
                         )}
                       </Td>
                       <Td>{formatDate(v.createdAt, locale, "—")}</Td>
+
                       <Td>
                         <div className="flex justify-end gap-2 pr-3">
                           <button
@@ -545,36 +578,93 @@ const clearAllFilters = () => {
 
                     {expandedId === v._id && (
                       <tr key={`${v._id}-details`}>
-                        <td colSpan={11} className="bg-slate-50 border-t">
+                        <td colSpan={13} className="bg-slate-50 border-t">
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                        <KV label={L.name2} icon={FileText}>{v.name2 || "—"}</KV>
-<KV label={L.address} icon={Building}>{v.address || "—"}</KV>
-<KV label={L.address2} icon={Building}>{v.address2 || "—"}</KV>
-<KV label={L.postCode} icon={Hash}>{v.postCode || "—"}</KV>
-<KV label={L.region} icon={MapPin}>{v.region || "—"}</KV>
-<KV label={L.nip} icon={Hash}>{v.nip || "—"}</KV>
-<KV label={L.email2} icon={Mail}>{v.email2 || "—"}</KV>
-<KV label={L.homePage} icon={Globe}>{v.homePage || "—"}</KV>
+                            <KV label={L.name2} icon={FileText}>
+                              {v.name2 || "—"}
+                            </KV>
+                            <KV label={L.address} icon={Building}>
+                              {v.address || "—"}
+                            </KV>
+                            <KV label={L.address2} icon={Building}>
+                              {v.address2 || "—"}
+                            </KV>
+                            <KV label={L.postCode} icon={Hash}>
+                              {v.postCode || "—"}
+                            </KV>
+                            <KV label={L.region} icon={MapPin}>
+                              {v.region || "—"}
+                            </KV>
+                            <KV label={L.nip} icon={Hash}>
+                              {v.nip || "—"}
+                            </KV>
+                            <KV label={L.email2} icon={Mail}>
+                              {v.email2 || "—"}
+                            </KV>
+                            <KV label={L.homePage} icon={Globe}>
+                              {v.homePage || "—"}
+                            </KV>
 
-<KV label={L.currencyCode} icon={DollarSign}>{v.currencyCode || "—"}</KV>
-<KV label={L.priority} icon={BadgePercent}>{v.priority ?? "—"}</KV>
-<KV label={L.paymentMethodCode} icon={CreditCard}>{v.paymentMethodCode || "—"}</KV>
-<KV label={L.paymentTermsCode} icon={CreditCard}>{v.paymentTermsCode || "—"}</KV>
-<KV label={L.languageCode} icon={Languages}>{v.languageCode || "—"}</KV>
+                            <KV label={L.currencyCode} icon={DollarSign}>
+                              {v.currencyCode || "—"}
+                            </KV>
+                            <KV label={L.priority} icon={BadgePercent}>
+                              {v.priority ?? "—"}
+                            </KV>
+                            <KV label={L.owzSigned} icon={CheckCircle2}>
+                              <BoolIcon
+                                value={!!v.owzSigned}
+                                variant="danger"
+                              />
+                            </KV>
+                            <KV
+                              label={L.frameworkAgreementSigned}
+                              icon={CheckCircle2}
+                            >
+                              <BoolIcon
+                                value={!!v.frameworkAgreementSigned}
+                                variant="danger"
+                              />
+                            </KV>
 
-<KV label={L.vendorPostingGroup} icon={Tag}>{v.vendorPostingGroup || "—"}</KV>
-<KV label={L.vendorPriceGroup} icon={Tag}>{v.vendorPriceGroup || "—"}</KV>
-<KV label={L.vendorDiscGroup} icon={Tag}>{v.vendorDiscGroup || "—"}</KV>
-<KV label={L.purchaserCode} icon={UserRound}>{v.purchaserCode || "—"}</KV>
+                            <KV label={L.paymentMethodCode} icon={CreditCard}>
+                              {v.paymentMethodCode || "—"}
+                            </KV>
+                            <KV label={L.paymentTermsCode} icon={CreditCard}>
+                              {v.paymentTermsCode || "—"}
+                            </KV>
 
-<KV label={L.shipmentMethodCode} icon={Truck}>{v.shipmentMethodCode || "—"}</KV>
-<KV label={L.shippingAgentCode} icon={Ship}>{v.shippingAgentCode || "—"}</KV>
-<KV label={L.rr} icon={BadgePercent}>{v.rr ? (V?.labels?.yes || "Yes") : (V?.labels?.no || "No")}</KV>
+                            <KV label={L.vendorPostingGroup} icon={Tag}>
+                              {v.vendorPostingGroup || "—"}
+                            </KV>
+                            <KV label={L.vendorPriceGroup} icon={Tag}>
+                              {v.vendorPriceGroup || "—"}
+                            </KV>
+                            <KV label={L.vendorDiscGroup} icon={Tag}>
+                              {v.vendorDiscGroup || "—"}
+                            </KV>
+                            <KV label={L.purchaserCode} icon={UserRound}>
+                              {v.purchaserCode || "—"}
+                            </KV>
+
+                            <KV label={L.shipmentMethodCode} icon={Truck}>
+                              {v.shipmentMethodCode || "—"}
+                            </KV>
+                            <KV label={L.shippingAgentCode} icon={Ship}>
+                              {v.shippingAgentCode || "—"}
+                            </KV>
+                            <KV label={L.rr} icon={BadgePercent}>
+                              {v.rr
+                                ? V?.labels?.yes || "Yes"
+                                : V?.labels?.no || "No"}
+                            </KV>
 
                             {v.hasPicture ? (
                               <div className="col-span-1 md:col-span-3 flex items-center gap-3">
                                 <ImageIcon size={14} />
-                                <span className="font-medium">{L.picture}:</span>
+                                <span className="font-medium">
+                                  {L.picture}:
+                                </span>
                                 <img
                                   src={`${API}/api/mvendors/${v._id}/picture`}
                                   alt="vendor"
@@ -601,7 +691,8 @@ const clearAllFilters = () => {
         {/* Footer / Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
           <div className="text-xs text-slate-500">
-            {(V?.footer?.meta && V.footer.meta(data.total, data.page, data.pages)) ||
+            {(V?.footer?.meta &&
+              V.footer.meta(data.total, data.page, data.pages)) ||
               `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
           </div>
           <div className="flex items-center gap-2">
@@ -665,7 +756,11 @@ const clearAllFilters = () => {
 /* ---------- small helpers ---------- */
 
 function Th({ children, className = "" }) {
-  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+  return (
+    <th className={`text-left px-4 py-3 font-medium ${className}`}>
+      {children}
+    </th>
+  );
 }
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
@@ -700,7 +795,9 @@ function Toast({ type = "success", children, onClose }) {
     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
     : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
       <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
@@ -731,9 +828,19 @@ function blockedChip(v, V) {
 
   const label =
     (V?.blockedLabels && V.blockedLabels[val]) ||
-    (val === "none" ? "OK" : val === "ship" ? "SHIP" : val === "invoice" ? "INVOICE" : "ALL");
+    (val === "none"
+      ? "OK"
+      : val === "ship"
+      ? "SHIP"
+      : val === "invoice"
+      ? "INVOICE"
+      : "ALL");
 
-  return <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>{label}</span>;
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>
+      {label}
+    </span>
+  );
 }
 
 // replace KV with icon-aware version
@@ -751,9 +858,16 @@ function KV({ label, icon: Icon, children }) {
 
 function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
   const active = sortBy === id;
-  const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+  const ariaSort = active
+    ? sortDir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
   return (
-    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
+    <th
+      aria-sort={ariaSort}
+      className={`text-left px-4 py-3 font-medium ${className}`}
+    >
       <button
         type="button"
         onClick={() => onSort(id)}
@@ -772,20 +886,29 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
 function Modal({ children, onClose, title, fullscreen = false }) {
   const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
 
-  // ESC closes, "f" toggles fullscreen
   React.useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
-      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+      const key = (e.key || "").toString().toLowerCase();
+
+      if (key === "escape" || key === "esc") {
+        onClose?.();
+        return;
+      }
+
+      if (key === "f") {
+        setIsFull((v) => !v);
+      }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
-    isFull ? "w-screen h-screen max-w-none rounded-none"
-           : "w-full max-w-4xl rounded-2xl",
+    isFull
+      ? "w-screen h-screen max-w-none rounded-none"
+      : "w-full max-w-4xl rounded-2xl",
   ].join(" ");
 
   const bodyCls = isFull
@@ -793,7 +916,12 @@ function Modal({ children, onClose, title, fullscreen = false }) {
     : "p-4 max-h-[75vh] overflow-auto";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || "Modal"}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Modal"}
+    >
       {/* keep black backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className={containerCls}>
@@ -829,17 +957,20 @@ function Modal({ children, onClose, title, fullscreen = false }) {
   );
 }
 
-
 function VendorForm({ initial, onSubmit, onCancel, V }) {
   const isEdit = Boolean(initial?._id);
 
   // ----- tabs -----
   const TABS = [
-    { id: "basics", label: (V?.modal?.tabs?.basics || "Basics"), Icon: IdCard },
-    { id: "address", label: (V?.modal?.tabs?.address || "Address"), Icon: Map },
-    { id: "contact", label: (V?.modal?.tabs?.contact || "Contact"), Icon: Phone },
-    { id: "finance", label: (V?.modal?.tabs?.finance || "Finance & Codes"), Icon: Wallet },
-    { id: "picture", label: (V?.modal?.tabs?.picture || "Picture"), Icon: Image },
+    { id: "basics", label: V?.modal?.tabs?.basics || "Basics", Icon: IdCard },
+    { id: "address", label: V?.modal?.tabs?.address || "Address", Icon: Map },
+    { id: "contact", label: V?.modal?.tabs?.contact || "Contact", Icon: Phone },
+    {
+      id: "finance",
+      label: V?.modal?.tabs?.finance || "Finance & Codes",
+      Icon: Wallet,
+    },
+    { id: "picture", label: V?.modal?.tabs?.picture || "Picture", Icon: Image },
   ];
   const [errors, setErrors] = useState({});
   const [tab, setTab] = useState(TABS[0].id);
@@ -848,7 +979,10 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
     const idx = TABS.findIndex((t) => t.id === tab);
-    const next = e.key === "ArrowRight" ? (idx + 1) % TABS.length : (idx - 1 + TABS.length) % TABS.length;
+    const next =
+      e.key === "ArrowRight"
+        ? (idx + 1) % TABS.length
+        : (idx - 1 + TABS.length) % TABS.length;
     setTab(TABS[next].id);
   };
 
@@ -862,7 +996,9 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
   const [city, setCity] = useState(initial?.city || "");
   const [postCode, setPostCode] = useState(initial?.postCode || "");
   const [region, setRegion] = useState(initial?.region || "");
-  const [countryRegionCode, setCountryRegionCode] = useState(initial?.countryRegionCode || "");
+  const [countryRegionCode, setCountryRegionCode] = useState(
+    initial?.countryRegionCode || ""
+  );
 
   const [phoneNo, setPhoneNo] = useState(initial?.phoneNo || "");
   const [email, setEmail] = useState(initial?.email || "");
@@ -871,18 +1007,44 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
 
   const [nip, setNip] = useState(initial?.nip || "");
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit ?? 0);
-  const [currencyCode, setCurrencyCode] = useState(initial?.currencyCode || "USD");
-  const [vendorPostingGroup, setVendorPostingGroup] = useState(initial?.vendorPostingGroup || "");
-  const [vendorPriceGroup, setVendorPriceGroup] = useState(initial?.vendorPriceGroup || "");
+  const [currencyCode, setCurrencyCode] = useState(
+    initial?.currencyCode || "USD"
+  );
+  const [vendorPostingGroup, setVendorPostingGroup] = useState(
+    initial?.vendorPostingGroup || ""
+  );
+  const [vendorPriceGroup, setVendorPriceGroup] = useState(
+    initial?.vendorPriceGroup || ""
+  );
   const [languageCode, setLanguageCode] = useState(initial?.languageCode || "");
-  const [paymentTermsCode, setPaymentTermsCode] = useState(initial?.paymentTermsCode || "");
-  const [paymentMethodCode, setPaymentMethodCode] = useState(initial?.paymentMethodCode || "");
-  const [vendorDiscGroup, setVendorDiscGroup] = useState(initial?.vendorDiscGroup || "");
-  const [purchaserCode, setPurchaserCode] = useState(initial?.purchaserCode || "");
-  const [shipmentMethodCode, setShipmentMethodCode] = useState(initial?.shipmentMethodCode || "");
-  const [shippingAgentCode, setShippingAgentCode] = useState(initial?.shippingAgentCode || "");
+  const [paymentTermsCode, setPaymentTermsCode] = useState(
+    initial?.paymentTermsCode || ""
+  );
+  const [paymentMethodCode, setPaymentMethodCode] = useState(
+    initial?.paymentMethodCode || ""
+  );
+  const [vendorDiscGroup, setVendorDiscGroup] = useState(
+    initial?.vendorDiscGroup || ""
+  );
+  const [purchaserCode, setPurchaserCode] = useState(
+    initial?.purchaserCode || ""
+  );
+  const [shipmentMethodCode, setShipmentMethodCode] = useState(
+    initial?.shipmentMethodCode || ""
+  );
+  const [shippingAgentCode, setShippingAgentCode] = useState(
+    initial?.shippingAgentCode || ""
+  );
   const [blocked, setBlocked] = useState(initial?.blocked || "none");
   const [priority, setPriority] = useState(initial?.priority ?? 0);
+  const [owzSigned, setOwzSigned] = useState(
+    typeof initial?.owzSigned === "boolean" ? initial.owzSigned : false
+  );
+  const [frameworkAgreementSigned, setFrameworkAgreementSigned] = useState(
+    typeof initial?.frameworkAgreementSigned === "boolean"
+      ? initial.frameworkAgreementSigned
+      : false
+  );
   const [rr, setRr] = useState(Boolean(initial?.rr));
 
   // picture state
@@ -962,7 +1124,11 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
       shippingAgentCode: shippingAgentCode.trim() || null,
 
       blocked,
-      priority: Number.isNaN(parseInt(priority, 10)) ? 0 : parseInt(priority, 10),
+      priority: Number.isNaN(parseInt(priority, 10))
+        ? 0
+        : parseInt(priority, 10),
+      owzSigned: Boolean(owzSigned),
+      frameworkAgreementSigned: Boolean(frameworkAgreementSigned),
       rr: Boolean(rr),
     };
 
@@ -972,28 +1138,30 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
     onSubmit(payload);
   };
 
-
   // Auto-assign next D0000001... when creating a new vendor
-useEffect(() => {
-  if (isEdit) return;            // only when adding
-  let stop = false;
+  useEffect(() => {
+    if (isEdit) return; // only when adding
+    let stop = false;
 
-  (async () => {
-    try {
-      // zero-padded -> lexicographic sort works
-      const res = await fetch(`${API}/api/mvendors?limit=1&sortBy=no&sortDir=desc`);
-      const json = await res.json();
-      const last = json?.data?.[0]?.no || null;
-      const next = nextVendorNoFrom(last);
-      if (!stop) setNo(next);
-    } catch {
-      if (!stop) setNo(nextVendorNoFrom(null)); // fallback to D0000001
-    }
-  })();
+    (async () => {
+      try {
+        // zero-padded -> lexicographic sort works
+        const res = await fetch(
+          `${API}/api/mvendors?limit=1&sortBy=no&sortDir=desc`
+        );
+        const json = await res.json();
+        const last = json?.data?.[0]?.no || null;
+        const next = nextVendorNoFrom(last);
+        if (!stop) setNo(next);
+      } catch {
+        if (!stop) setNo(nextVendorNoFrom(null)); // fallback to D0000001
+      }
+    })();
 
-  return () => { stop = true; };
-}, [isEdit, setNo]);
-
+    return () => {
+      stop = true;
+    };
+  }, [isEdit, setNo]);
 
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -1026,7 +1194,10 @@ useEffect(() => {
                       : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                   ].join(" ")}
                 >
-                  <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
+                  <t.Icon
+                    size={16}
+                    className={active ? "opacity-80" : "opacity-60"}
+                  />
                   {t.label}
                   {active && (
                     <span className="pointer-events-none absolute inset-x-2 bottom-0 h-0.5 bg-gradient-to-r from-slate-300 via-slate-400 to-slate-300 rounded-full" />
@@ -1037,39 +1208,55 @@ useEffect(() => {
           </div>
 
           <div className="ml-auto text-xs text-slate-500">
-            {isEdit ? V?.modal?.save || "Save changes" : V?.modal?.add || "Create vendor"}
+            {isEdit
+              ? V?.modal?.save || "Save changes"
+              : V?.modal?.add || "Create vendor"}
           </div>
         </div>
       </div>
 
       {/* Error banner */}
       {Object.keys(errors).length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert" aria-live="polite">
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          role="alert"
+          aria-live="polite"
+        >
           {V?.alerts?.fixErrors || "Please correct the highlighted fields."}
         </div>
       )}
 
       {/* BASICS */}
-      <div role="tabpanel" id="panel-basics" aria-labelledby="tab-basics" hidden={tab !== "basics"} className="space-y-4">
+      <div
+        role="tabpanel"
+        id="panel-basics"
+        aria-labelledby="tab-basics"
+        hidden={tab !== "basics"}
+        className="space-y-4"
+      >
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-<Field
-  label={V?.modal?.fields?.no || "No."}
-  icon={Hash}
-  error={errors.no}
-  help={V?.modal?.autoNumberHelp || ""}
->
-  <input
-    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 text-slate-700"
-    value={no}
-    readOnly
-    aria-readonly="true"
-    placeholder="Auto"
-    title="Automatically assigned"
-    required
-  />
-</Field>
+          <Field
+            label={V?.modal?.fields?.no || "No."}
+            icon={Hash}
+            error={errors.no}
+            help={V?.modal?.autoNumberHelp || ""}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 text-slate-700"
+              value={no}
+              readOnly
+              aria-readonly="true"
+              placeholder="Auto"
+              title="Automatically assigned"
+              required
+            />
+          </Field>
 
-          <Field label={V?.modal?.fields?.name || "Name *"} icon={User} error={errors.name}>
+          <Field
+            label={V?.modal?.fields?.name || "Name *"}
+            icon={User}
+            error={errors.name}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={name}
@@ -1078,7 +1265,11 @@ useEffect(() => {
             />
           </Field>
           <Field label={V?.modal?.fields?.name2 || "Name 2"} icon={FileText}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={name2} onChange={(e) => setName2(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={name2}
+              onChange={(e) => setName2(e.target.value)}
+            />
           </Field>
           <Field label={V?.modal?.fields?.blocked || "Blocked"} icon={Tag}>
             <select
@@ -1101,8 +1292,11 @@ useEffect(() => {
                 checked={rr}
                 onChange={(e) => setRr(e.target.checked)}
               />
-              <label htmlFor="rr" className="text-sm text-slate-700 select-none">
-                {rr ? (V?.labels?.yes || "Yes") : (V?.labels?.no || "No")}
+              <label
+                htmlFor="rr"
+                className="text-sm text-slate-700 select-none"
+              >
+                {rr ? V?.labels?.yes || "Yes" : V?.labels?.no || "No"}
               </label>
             </div>
           </Field>
@@ -1110,28 +1304,62 @@ useEffect(() => {
       </div>
 
       {/* ADDRESS */}
-      <div role="tabpanel" id="panel-address" aria-labelledby="tab-address" hidden={tab !== "address"} className="space-y-4">
+      <div
+        role="tabpanel"
+        id="panel-address"
+        aria-labelledby="tab-address"
+        hidden={tab !== "address"}
+        className="space-y-4"
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={V?.modal?.fields?.address || "Address"} icon={Building}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
           </Field>
-          <Field label={V?.modal?.fields?.address2 || "Address 2"} icon={Building}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={address2} onChange={(e) => setAddress2(e.target.value)} />
+          <Field
+            label={V?.modal?.fields?.address2 || "Address 2"}
+            icon={Building}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={address2}
+              onChange={(e) => setAddress2(e.target.value)}
+            />
           </Field>
           <Field label={V?.modal?.fields?.city || "City"} icon={MapPin}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={city} onChange={(e) => setCity(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
           </Field>
           <Field label={V?.modal?.fields?.postCode || "Post code"} icon={Hash}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={postCode} onChange={(e) => setPostCode(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={postCode}
+              onChange={(e) => setPostCode(e.target.value)}
+            />
           </Field>
           <Field label={V?.modal?.fields?.region || "Region"} icon={MapPin}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={region} onChange={(e) => setRegion(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            />
           </Field>
-          <Field label={V?.modal?.fields?.countryRegionCode || "Country/Region code"} icon={Globe}>
+          <Field
+            label={V?.modal?.fields?.countryRegionCode || "Country/Region code"}
+            icon={Globe}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={countryRegionCode}
-              onChange={(e) => setCountryRegionCode(e.target.value.toUpperCase())}
+              onChange={(e) =>
+                setCountryRegionCode(e.target.value.toUpperCase())
+              }
             />
           </Field>
         </div>
@@ -1146,14 +1374,21 @@ useEffect(() => {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={V?.modal?.fields?.phoneNo || "Phone No."} icon={PhoneCall}>
+          <Field
+            label={V?.modal?.fields?.phoneNo || "Phone No."}
+            icon={PhoneCall}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={phoneNo}
               onChange={(e) => setPhoneNo(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.email || "Email"} icon={Mail} error={errors.email}>
+          <Field
+            label={V?.modal?.fields?.email || "Email"}
+            icon={Mail}
+            error={errors.email}
+          >
             <input
               type="email"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1161,7 +1396,11 @@ useEffect(() => {
               onChange={(e) => setEmail(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.email2 || "Email 2"} icon={Mail} error={errors.email2}>
+          <Field
+            label={V?.modal?.fields?.email2 || "Email 2"}
+            icon={Mail}
+            error={errors.email2}
+          >
             <input
               type="email"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1195,7 +1434,10 @@ useEffect(() => {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <Field label={V?.modal?.fields?.creditLimit || "Credit limit"} icon={CreditCard}>
+          <Field
+            label={V?.modal?.fields?.creditLimit || "Credit limit"}
+            icon={CreditCard}
+          >
             <input
               type="number"
               step="0.01"
@@ -1204,14 +1446,20 @@ useEffect(() => {
               onChange={(e) => setCreditLimit(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.currencyCode || "Currency code"} icon={DollarSign}>
+          <Field
+            label={V?.modal?.fields?.currencyCode || "Currency code"}
+            icon={DollarSign}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={currencyCode}
               onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
             />
           </Field>
-          <Field label={V?.modal?.fields?.priority || "Priority"} icon={BadgePercent}>
+          <Field
+            label={V?.modal?.fields?.priority || "Priority"}
+            icon={BadgePercent}
+          >
             <input
               type="number"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1219,7 +1467,42 @@ useEffect(() => {
               onChange={(e) => setPriority(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.paymentMethodCode || "Payment method code"} icon={CreditCard}>
+          <Field
+            label={V?.modal?.fields?.owzSigned || "OWZ signed"}
+            icon={CheckCircle2}
+          >
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={owzSigned ? "yes" : "no"}
+              onChange={(e) => setOwzSigned(e.target.value === "yes")}
+            >
+              <option value="yes">{V?.labels?.yes || "Yes"}</option>
+              <option value="no">{V?.labels?.no || "No"}</option>
+            </select>
+          </Field>
+
+          <Field
+            label={
+              V?.modal?.fields?.frameworkAgreementSigned ||
+              "Framework agreement signed"
+            }
+            icon={CheckCircle2}
+          >
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={frameworkAgreementSigned ? "yes" : "no"}
+              onChange={(e) =>
+                setFrameworkAgreementSigned(e.target.value === "yes")
+              }
+            >
+              <option value="yes">{V?.labels?.yes || "Yes"}</option>
+              <option value="no">{V?.labels?.no || "No"}</option>
+            </select>
+          </Field>
+          <Field
+            label={V?.modal?.fields?.paymentMethodCode || "Payment method code"}
+            icon={CreditCard}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={paymentMethodCode}
@@ -1227,28 +1510,42 @@ useEffect(() => {
             />
           </Field>
 
-          <Field label={V?.modal?.fields?.vendorPostingGroup || "Vendor posting group"} icon={Tag}>
+          <Field
+            label={
+              V?.modal?.fields?.vendorPostingGroup || "Vendor posting group"
+            }
+            icon={Tag}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={vendorPostingGroup}
               onChange={(e) => setVendorPostingGroup(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.vendorPriceGroup || "Vendor price group"} icon={Tag}>
+          <Field
+            label={V?.modal?.fields?.vendorPriceGroup || "Vendor price group"}
+            icon={Tag}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={vendorPriceGroup}
               onChange={(e) => setVendorPriceGroup(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.languageCode || "Language code"} icon={Languages}>
+          <Field
+            label={V?.modal?.fields?.languageCode || "Language code"}
+            icon={Languages}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={languageCode}
               onChange={(e) => setLanguageCode(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.paymentTermsCode || "Payment terms code"} icon={CreditCard}>
+          <Field
+            label={V?.modal?.fields?.paymentTermsCode || "Payment terms code"}
+            icon={CreditCard}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={paymentTermsCode}
@@ -1256,28 +1553,42 @@ useEffect(() => {
             />
           </Field>
 
-          <Field label={V?.modal?.fields?.purchaserCode || "Purchaser code"} icon={UserRound}>
+          <Field
+            label={V?.modal?.fields?.purchaserCode || "Purchaser code"}
+            icon={UserRound}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={purchaserCode}
               onChange={(e) => setPurchaserCode(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.shipmentMethodCode || "Shipment method code"} icon={Truck}>
+          <Field
+            label={
+              V?.modal?.fields?.shipmentMethodCode || "Shipment method code"
+            }
+            icon={Truck}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={shipmentMethodCode}
               onChange={(e) => setShipmentMethodCode(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.shippingAgentCode || "Shipping agent code"} icon={Ship}>
+          <Field
+            label={V?.modal?.fields?.shippingAgentCode || "Shipping agent code"}
+            icon={Ship}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={shippingAgentCode}
               onChange={(e) => setShippingAgentCode(e.target.value)}
             />
           </Field>
-          <Field label={V?.modal?.fields?.vendorDiscGroup || "Vendor disc. group"} icon={BadgePercent}>
+          <Field
+            label={V?.modal?.fields?.vendorDiscGroup || "Vendor disc. group"}
+            icon={BadgePercent}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={vendorDiscGroup}
@@ -1296,26 +1607,30 @@ useEffect(() => {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-<Field
-  label={V?.modal?.fields?.picture || "Picture"}  // or C/T accordingly
-  icon={Image}
-  iconInside={false}   // <- hide the tiny inside icon
-  autoHeight={true}    // <- keep dropzone natural height
->
-  <PictureDrop
-    title={V?.modal?.choosePicture || "Choose picture"}
-    replaceTitle={V?.modal?.replacePicture || "Replace picture"}
-    help={V?.modal?.pictureHelp || "PNG/JPG/WebP • up to ~2 MB • square works best"}
-    previewSrc={!removePicture ? (pictureBase64 || existingPicUrl) : null}
-    onPickFile={(file) => onPickPicture(file)}
-    canRemove={isEdit && !!existingPicUrl}
-    removing={removePicture}
-    onToggleRemove={() => setRemovePicture((v) => !v)}
-    hasNewSelection={Boolean(pictureBase64)}
-    onClearSelection={() => onPickPicture(null)}
-  />
-</Field>
-
+          <Field
+            label={V?.modal?.fields?.picture || "Picture"} // or C/T accordingly
+            icon={Image}
+            iconInside={false} // <- hide the tiny inside icon
+            autoHeight={true} // <- keep dropzone natural height
+          >
+            <PictureDrop
+              title={V?.modal?.choosePicture || "Choose picture"}
+              replaceTitle={V?.modal?.replacePicture || "Replace picture"}
+              help={
+                V?.modal?.pictureHelp ||
+                "PNG/JPG/WebP • up to ~2 MB • square works best"
+              }
+              previewSrc={
+                !removePicture ? pictureBase64 || existingPicUrl : null
+              }
+              onPickFile={(file) => onPickPicture(file)}
+              canRemove={isEdit && !!existingPicUrl}
+              removing={removePicture}
+              onToggleRemove={() => setRemovePicture((v) => !v)}
+              hasNewSelection={Boolean(pictureBase64)}
+              onClearSelection={() => onPickPicture(null)}
+            />
+          </Field>
         </div>
       </div>
 
@@ -1332,13 +1647,14 @@ useEffect(() => {
           type="submit"
           className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
         >
-          {isEdit ? V?.modal?.save || "Save changes" : V?.modal?.add || "Create vendor"}
+          {isEdit
+            ? V?.modal?.save || "Save changes"
+            : V?.modal?.add || "Create vendor"}
         </button>
       </div>
     </form>
   );
 }
-
 
 // --- AUTO "No." helpers (Vendors use D + 7 digits) ---
 function nextVendorNoFrom(lastNo) {
@@ -1366,18 +1682,44 @@ function NoBadge({ value }) {
   );
 }
 
+function BoolIcon({ value, variant = "default" }) {
+  const base =
+    "inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs";
+
+  if (value) {
+    return (
+      <span
+        className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"}
+        title="Yes"
+      >
+        ✓
+      </span>
+    );
+  }
+
+  const falseClass =
+    variant === "danger"
+      ? " border-red-200 bg-red-50 text-red-500" // light red ✕
+      : " border-slate-200 bg-slate-50 text-slate-400"; // default grey ✕
+
+  return (
+    <span className={base + falseClass} title="No">
+      ✕
+    </span>
+  );
+}
 
 function PictureDrop({
   title = "Choose picture",
   replaceTitle = "Replace picture",
   help = "PNG/JPG/WebP • up to ~2 MB • square works best",
-  previewSrc,             // string | null  (existingPicUrl or pictureBase64)
-  onPickFile,             // (File|null) => void
-  canRemove = false,      // show remove/undo for existing server image
-  removing = false,       // toggle "remove" state
-  onToggleRemove,         // () => void
-  hasNewSelection = false,// pictureBase64 present
-  onClearSelection,       // () => void
+  previewSrc, // string | null  (existingPicUrl or pictureBase64)
+  onPickFile, // (File|null) => void
+  canRemove = false, // show remove/undo for existing server image
+  removing = false, // toggle "remove" state
+  onToggleRemove, // () => void
+  hasNewSelection = false, // pictureBase64 present
+  onClearSelection, // () => void
 }) {
   // make file input accessible & trigger-able
   const inputId = React.useId();
@@ -1389,7 +1731,11 @@ function PictureDrop({
         <div className="shrink-0">
           <div className="w-24 h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-50 flex items-center justify-center">
             {previewSrc && !removing ? (
-              <img src={previewSrc} alt="" className="w-full h-full object-cover" />
+              <img
+                src={previewSrc}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-400 text-xs">
                 <ImageIcon size={22} />
@@ -1452,8 +1798,6 @@ function PictureDrop({
   );
 }
 
-
-
 /** Small Field helper (icon on the left + error styles) */
 function Field({
   label,
@@ -1461,15 +1805,15 @@ function Field({
   error,
   help,
   children,
-  iconInside = true,   // NEW: draw icon inside the input? (default true)
-  autoHeight = false,  // NEW: skip the fixed h-10 height? (default false)
+  iconInside = true, // NEW: draw icon inside the input? (default true)
+  autoHeight = false, // NEW: skip the fixed h-10 height? (default false)
 }) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
         className: [
           children.props.className || "",
           iconInside && Icon ? " pl-9" : "",
-          !autoHeight ? " h-10" : "",       // only force height for real inputs
+          !autoHeight ? " h-10" : "", // only force height for real inputs
           error ? " border-red-300 focus:border-red-400" : "",
         ].join(" "),
       })
@@ -1499,7 +1843,3 @@ function Field({
     </label>
   );
 }
-
-
-
-

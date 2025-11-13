@@ -43,16 +43,27 @@ const API =
 
 // --- tiny UI helpers (same look as Customers) ---
 function Th({ children, className = "" }) {
-  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+  return (
+    <th className={`text-left px-4 py-3 font-medium ${className}`}>
+      {children}
+    </th>
+  );
 }
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
 }
 function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
   const active = sortBy === id;
-  const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+  const ariaSort = active
+    ? sortDir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
   return (
-    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
+    <th
+      aria-sort={ariaSort}
+      className={`text-left px-4 py-3 font-medium ${className}`}
+    >
       <button
         type="button"
         onClick={() => onSort(id)}
@@ -90,15 +101,23 @@ function Toast({ type = "success", children, onClose }) {
     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
     : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
+        ✕
+      </button>
     </div>
   );
 }
 function formatDate(s, locale, dash = "—") {
-  try { return s ? new Date(s).toLocaleDateString(locale) : dash; } catch { return s || dash; }
+  try {
+    return s ? new Date(s).toLocaleDateString(locale) : dash;
+  } catch {
+    return s || dash;
+  }
 }
 function Field({
   label,
@@ -169,6 +188,34 @@ function NoBadge({ value, emptyLabel = "—" }) {
     </span>
   );
 }
+
+function BoolIcon({ value, variant = "default" }) {
+  const base =
+    "inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs";
+
+  if (value) {
+    return (
+      <span
+        className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"}
+        title="Yes"
+      >
+        ✓
+      </span>
+    );
+  }
+
+  const falseClass =
+    variant === "danger"
+      ? " border-red-200 bg-red-50 text-red-500"
+      : " border-slate-200 bg-slate-50 text-slate-400";
+
+  return (
+    <span className={base + falseClass} title="No">
+      ✕
+    </span>
+  );
+}
+
 function displayContactKey(c) {
   if (c?.no) return c.no;
   return c?._id ? `…${String(c._id).slice(-6)}` : "—";
@@ -184,7 +231,7 @@ function nextContactNoFrom(lastNo) {
 export default function Contacts() {
   const { t, locale } = useI18n();
   const T = t.contacts || {};
-  const COL_COUNT = 15; // expanded columns (added Type/Blocked/Potential)
+  const COL_COUNT = 17; // expanded columns (added Type/Blocked/Potential)
 
   // filters / paging / sort
   const [loading, setLoading] = useState(false);
@@ -197,7 +244,13 @@ export default function Contacts() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [status, country, region, blocked, potential].filter(Boolean).length;
+  const activeFilterCount = [
+    status,
+    country,
+    region,
+    blocked,
+    potential,
+  ].filter(Boolean).length;
 
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDir, setSortDir] = useState("desc");
@@ -220,17 +273,348 @@ export default function Contacts() {
   const [editing, setEditing] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
+  // posting contact -> buyers (mcustomers)
+  const [postContact, setPostContact] = useState(null);
+  const [postingBuyer, setPostingBuyer] = useState(false);
+
+  const onPostAsBuyerClick = (contact) => {
+    if (!contact || contact.customerId) return; // already linked, ignore just in case
+    setPostContact(contact);
+  };
+
+  const confirmPostAsBuyer = async () => {
+    if (!postContact) return;
+    setPostingBuyer(true);
+    try {
+      const c = postContact;
+
+      // map common fields Contact -> Customer
+      const buyerPayload = {
+        name: c.name, // required
+        name2: c.name2 || undefined,
+
+        address: c.address || undefined,
+        address2: c.address2 || undefined,
+        city: c.city || undefined,
+        postCode: c.postCode || undefined,
+
+        phoneNo: c.phoneNo || undefined,
+
+        email: c.email || undefined,
+        email2: c.email2 || undefined,
+        homePage: c.homePage || undefined,
+
+        nip: c.nip || undefined,
+
+        countryRegionCode: c.countryRegionCode || undefined,
+        region: c.region || undefined,
+
+        salespersonCode: c.salespersonCode || undefined,
+        priority: typeof c.priority === "number" ? c.priority : 0,
+
+        // contact.blocked is "none" / "all" → map into Customer.blocked enum
+        blocked: c.blocked === "all" ? "all" : "none",
+
+        // leave other Customer fields at defaults (creditLimit, customerType, etc.)
+      };
+
+      const res = await fetch(`${API}/api/mcustomers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buyerPayload),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // backend already returns "Customer No. already exists" for duplicates
+        showNotice(
+          "error",
+          json?.message || T?.alerts?.requestFail || "Failed to create buyer."
+        );
+        return;
+      }
+
+      // link contact -> buyer so the button disappears next time
+      try {
+        await fetch(`${API}/api/contacts/${c._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ customerId: json._id }),
+        });
+      } catch (err) {
+        console.error("Failed to update contact with customerId", err);
+        // non-fatal: user will still get a buyer; button may reappear until reload
+      }
+
+      showNotice(
+        "success",
+        T?.alerts?.postedToBuyers || "Contact posted as buyer."
+      );
+      setPostContact(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showNotice("error", T?.alerts?.requestFail || "Failed to create buyer.");
+    } finally {
+      setPostingBuyer(false);
+    }
+  };
+
+  // posting contact -> sellers (mvendors)
+  const [postVendorContact, setPostVendorContact] = useState(null);
+  const [postingVendor, setPostingVendor] = useState(false);
+
+  const onPostAsVendorClick = (contact) => {
+    if (!contact || contact.vendorId) return; // already linked
+    setPostVendorContact(contact);
+  };
+
+  const confirmPostAsVendor = async () => {
+    if (!postVendorContact) return;
+    setPostingVendor(true);
+
+    try {
+      const c = postVendorContact;
+
+      // map common fields Contact -> Vendor
+      const vendorPayload = {
+        // no: omitted → backend will auto-generate D000000x
+        name: c.name,
+        name2: c.name2 || undefined,
+
+        address: c.address || undefined,
+        address2: c.address2 || undefined,
+        city: c.city || undefined,
+        postCode: c.postCode || undefined,
+        region: c.region || undefined,
+        countryRegionCode: c.countryRegionCode || undefined,
+
+        phoneNo: c.phoneNo || undefined,
+        email: c.email || undefined,
+        email2: c.email2 || undefined,
+        homePage: c.homePage || undefined,
+
+        nip: c.nip || undefined,
+
+        // use contact priority & blocked flags
+        priority: typeof c.priority === "number" ? c.priority : 0,
+        blocked: c.blocked === "all" ? "all" : "none",
+
+        // optional mapping: salespersonCode -> purchaserCode
+        purchaserCode: c.salespersonCode || undefined,
+      };
+
+      const res = await fetch(`${API}/api/mvendors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(vendorPayload),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        showNotice(
+          "error",
+          json?.message || T?.alerts?.requestFail || "Failed to create vendor."
+        );
+        return;
+      }
+
+      // link contact -> vendor so the button disappears next time
+      try {
+        await fetch(`${API}/api/contacts/${c._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ vendorId: json._id }),
+        });
+      } catch (err) {
+        console.error("Failed to update contact with vendorId", err);
+      }
+
+      showNotice(
+        "success",
+        T?.alerts?.postedToVendors || "Contact posted as vendor."
+      );
+      setPostVendorContact(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showNotice("error", T?.alerts?.requestFail || "Failed to create vendor.");
+    } finally {
+      setPostingVendor(false);
+    }
+  };
+
+  // posting contact -> both (buyer + vendor)
+  const [postBothContact, setPostBothContact] = useState(null);
+  const [postingBoth, setPostingBoth] = useState(false);
+
+  const onPostAsBuyerAndVendorClick = (contact) => {
+    // only if at least one side is missing
+    if (!contact || (contact.customerId && contact.vendorId)) return;
+    setPostBothContact(contact);
+  };
+
+  const confirmPostAsBuyerAndVendor = async () => {
+    if (!postBothContact) return;
+    setPostingBoth(true);
+
+    try {
+      const c = postBothContact;
+
+      // ---- map Contact -> Customer (same as in confirmPostAsBuyer) ----
+      const buyerPayload = {
+        name: c.name,
+        name2: c.name2 || undefined,
+        address: c.address || undefined,
+        address2: c.address2 || undefined,
+        city: c.city || undefined,
+        postCode: c.postCode || undefined,
+        phoneNo: c.phoneNo || undefined,
+        email: c.email || undefined,
+        email2: c.email2 || undefined,
+        homePage: c.homePage || undefined,
+        nip: c.nip || undefined,
+        countryRegionCode: c.countryRegionCode || undefined,
+        region: c.region || undefined,
+        salespersonCode: c.salespersonCode || undefined,
+        priority: typeof c.priority === "number" ? c.priority : 0,
+        blocked: c.blocked === "all" ? "all" : "none",
+      };
+
+      // ---- map Contact -> Vendor (same as in confirmPostAsVendor) ----
+      const vendorPayload = {
+        name: c.name,
+        name2: c.name2 || undefined,
+        address: c.address || undefined,
+        address2: c.address2 || undefined,
+        city: c.city || undefined,
+        postCode: c.postCode || undefined,
+        region: c.region || undefined,
+        countryRegionCode: c.countryRegionCode || undefined,
+        phoneNo: c.phoneNo || undefined,
+        email: c.email || undefined,
+        email2: c.email2 || undefined,
+        homePage: c.homePage || undefined,
+        nip: c.nip || undefined,
+        priority: typeof c.priority === "number" ? c.priority : 0,
+        blocked: c.blocked === "all" ? "all" : "none",
+        purchaserCode: c.salespersonCode || undefined,
+      };
+
+      let customerId = c.customerId || null;
+      let vendorId = c.vendorId || null;
+      let buyerError = null;
+      let vendorError = null;
+
+      // create buyer if missing
+      if (!customerId) {
+        const resB = await fetch(`${API}/api/mcustomers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buyerPayload),
+        });
+        const jsonB = await resB.json().catch(() => ({}));
+        if (resB.ok) {
+          customerId = jsonB._id;
+        } else {
+          buyerError =
+            jsonB?.message ||
+            T?.alerts?.requestFail ||
+            "Failed to create buyer.";
+        }
+      }
+
+      // create vendor if missing
+      if (!vendorId) {
+        const resV = await fetch(`${API}/api/mvendors`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(vendorPayload),
+        });
+        const jsonV = await resV.json().catch(() => ({}));
+        if (resV.ok) {
+          vendorId = jsonV._id;
+        } else {
+          vendorError =
+            jsonV?.message ||
+            T?.alerts?.requestFail ||
+            "Failed to create vendor.";
+        }
+      }
+
+      // if both failed – nothing to link
+      if (!customerId && !vendorId) {
+        showNotice(
+          "error",
+          buyerError || vendorError || "Failed to create buyer and vendor."
+        );
+        return;
+      }
+
+      // link whatever we managed to create back to contact
+      const updateBody = {};
+      if (customerId) updateBody.customerId = customerId;
+      if (vendorId) updateBody.vendorId = vendorId;
+
+      try {
+        await fetch(`${API}/api/contacts/${c._id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateBody),
+        });
+      } catch (err) {
+        console.error("Failed to update contact with customerId/vendorId", err);
+      }
+
+      if (customerId && vendorId && !buyerError && !vendorError) {
+        showNotice(
+          "success",
+          T?.alerts?.postedToBoth || "Contact posted as buyer and vendor."
+        );
+      } else if (customerId && !vendorId) {
+        showNotice(
+          "error",
+          vendorError ||
+            "Buyer created, but vendor creation failed. Check vendor list."
+        );
+      } else if (!customerId && vendorId) {
+        showNotice(
+          "error",
+          buyerError ||
+            "Vendor created, but buyer creation failed. Check buyers list."
+        );
+      }
+
+      setPostBothContact(null);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      showNotice(
+        "error",
+        T?.alerts?.requestFail || "Failed to create buyer and vendor."
+      );
+    } finally {
+      setPostingBoth(false);
+    }
+  };
+
   // fetch list
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
       if (q) params.set("q", q);
       if (status) params.set("status", status);
       if (country) params.set("country", country);
       if (region) params.set("region", region);
       if (blocked) params.set("blocked", blocked);
-      if (potential) params.set("potentialClient", potential === "yes" ? "true" : "false");
+      if (potential)
+        params.set("potentialClient", potential === "yes" ? "true" : "false");
       params.set("sortBy", sortBy);
       params.set("sortDir", sortDir);
       const res = await fetch(`${API}/api/contacts?${params.toString()}`);
@@ -244,22 +628,48 @@ export default function Contacts() {
   };
   useEffect(() => {
     fetchData(); // eslint-disable-next-line
-  }, [page, limit, status, country, region, blocked, potential, sortBy, sortDir]);
+  }, [
+    page,
+    limit,
+    status,
+    country,
+    region,
+    blocked,
+    potential,
+    sortBy,
+    sortDir,
+  ]);
 
-  const onSearch = (e) => { e.preventDefault(); setPage(1); fetchData(); };
-  const onAddClick = () => { setEditing(null); setOpen(true); };
-  const onEditClick = (row) => { setEditing(row); setOpen(true); };
+  const onSearch = (e) => {
+    e.preventDefault();
+    setPage(1);
+    fetchData();
+  };
+  const onAddClick = () => {
+    setEditing(null);
+    setOpen(true);
+  };
+  const onEditClick = (row) => {
+    setEditing(row);
+    setOpen(true);
+  };
   const onDelete = async (_id) => {
-    if (!window.confirm(T?.alerts?.deleteConfirm || "Delete this contact?")) return;
+    if (!window.confirm(T?.alerts?.deleteConfirm || "Delete this contact?"))
+      return;
     try {
-      const res = await fetch(`${API}/api/contacts/${_id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/contacts/${_id}`, {
+        method: "DELETE",
+      });
       if (res.status === 204) {
         if (expandedId === _id) setExpandedId(null);
         showNotice("success", T?.alerts?.deleted || "Contact deleted.");
         fetchData();
       } else {
         const json = await res.json().catch(() => ({}));
-        showNotice("error", json?.message || T?.alerts?.requestFail || "Request failed");
+        showNotice(
+          "error",
+          json?.message || T?.alerts?.requestFail || "Request failed"
+        );
       }
     } catch {
       showNotice("error", T?.alerts?.requestFail || "Request failed");
@@ -282,18 +692,27 @@ export default function Contacts() {
       contactType: "contactType",
       blocked: "blocked",
       potentialClient: "potentialClient",
+      owzSigned: "owzSigned",
+      umowaRamowaSigned: "umowaRamowaSigned",
       status: "status",
       createdAt: "createdAt",
     };
+
     const k = keyMap[sortBy] || sortBy;
     const val = (r) => {
       const v = r?.[k];
       if (k === "createdAt") return v ? new Date(v).getTime() : 0;
-      if (k === "potentialClient") return v ? 1 : 0;
+      if (
+        k === "potentialClient" ||
+        k === "owzSigned" ||
+        k === "umowaRamowaSigned"
+      )
+        return v ? 1 : 0;
       return (v ?? "").toString().toLowerCase();
     };
     arr.sort((a, b) => {
-      const av = val(a), bv = val(b);
+      const av = val(a),
+        bv = val(b);
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
       return 0;
@@ -303,7 +722,8 @@ export default function Contacts() {
 
   // labels
   const F = {
-    searchPh: T?.controls?.searchPlaceholder || "Search: name, email, company, city",
+    searchPh:
+      T?.controls?.searchPlaceholder || "Search: name, email, company, city",
     countryPh: T?.controls?.countryPlaceholder || "Country code",
     regionPh: T?.controls?.regionPlaceholder || "Region",
     allStatuses: T?.controls?.allStatuses || "All statuses",
@@ -315,75 +735,318 @@ export default function Contacts() {
   };
 
   return (
-    <ContactsView
-      {...{
-        T, F, locale,
-        loading, notice, setNotice,
-        q, setQ,
-        status, setStatus,
-        country, setCountry,
-        region, setRegion,
-        blocked, setBlocked,
-        potential, setPotential,
-        showFilters, setShowFilters, activeFilterCount,
-        onSearch, onAddClick,
-        data, rows, sortBy, sortDir, onSort, setPage, limit, setLimit,
-        expandedId, setExpandedId,
-        onEditClick, onDelete,
-        COL_COUNT,
-        open, setOpen, setEditing, editing,
-        handleSubmit: async (form) => {
-          const isEdit = Boolean(editing?._id);
-          const url = isEdit ? `${API}/api/contacts/${editing._id}` : `${API}/api/contacts`;
-          const method = isEdit ? "PUT" : "POST";
-          try {
-            const res = await fetch(url, {
-              method,
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(form),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              showNotice("error", json?.message || T?.alerts?.requestFail || "Request failed");
-              return;
+    <>
+      <ContactsView
+        {...{
+          T,
+          F,
+          locale,
+          loading,
+          notice,
+          setNotice,
+          q,
+          setQ,
+          status,
+          setStatus,
+          country,
+          setCountry,
+          region,
+          setRegion,
+          blocked,
+          setBlocked,
+          potential,
+          setPotential,
+          showFilters,
+          setShowFilters,
+          activeFilterCount,
+          onSearch,
+          onAddClick,
+          data,
+          rows,
+          sortBy,
+          sortDir,
+          onSort,
+          setPage,
+          limit,
+          setLimit,
+          expandedId,
+          setExpandedId,
+          onEditClick,
+          onDelete,
+          onPostAsBuyerClick,
+          onPostAsVendorClick,
+          onPostAsBuyerAndVendorClick,
+          COL_COUNT,
+          open,
+          setOpen,
+          setEditing,
+          editing,
+          handleSubmit: async (form) => {
+            const isEdit = Boolean(editing?._id);
+            const url = isEdit
+              ? `${API}/api/contacts/${editing._id}`
+              : `${API}/api/contacts`;
+            const method = isEdit ? "PUT" : "POST";
+            try {
+              const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(form),
+              });
+              const json = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                showNotice(
+                  "error",
+                  json?.message || T?.alerts?.requestFail || "Request failed"
+                );
+                return;
+              }
+              showNotice(
+                "success",
+                isEdit
+                  ? T?.alerts?.updated || "Contact updated."
+                  : T?.alerts?.created || "Contact created."
+              );
+              setOpen(false);
+              setEditing(null);
+              setPage(1);
+              fetchData();
+            } catch {
+              showNotice("error", T?.alerts?.requestFail || "Request failed");
             }
-            showNotice("success", isEdit ? (T?.alerts?.updated || "Contact updated.") : (T?.alerts?.created || "Contact created."));
-            setOpen(false);
-            setEditing(null);
-            setPage(1);
-            fetchData();
-          } catch {
-            showNotice("error", T?.alerts?.requestFail || "Request failed");
+          },
+        }}
+      />
+
+      {/* NEW: Confirm POST → buyers modal */}
+      {postContact && (
+        <Modal
+          onClose={() => (!postingBuyer ? setPostContact(null) : null)}
+          title={T?.modal?.postAsBuyerTitle || "Post contact to buyers"}
+          fullscreen={false}
+          backdrop="dim"
+        >
+          <div className="space-y-4 text-sm text-slate-700">
+            <p>
+              {T?.modal?.postAsBuyerQuestion ||
+                "Do you want to create a buyer (customer) record from this contact?"}
+            </p>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+              <div>
+                <span className="font-semibold">No.:</span>{" "}
+                {postContact.no || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">Name:</span> {postContact.name}
+              </div>
+              <div>
+                <span className="font-semibold">City:</span>{" "}
+                {postContact.city || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">NIP:</span>{" "}
+                {postContact.nip || "—"}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPostContact(null)}
+                disabled={postingBuyer}
+                className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
+              >
+                {T?.modal?.cancel || "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={confirmPostAsBuyer}
+                disabled={postingBuyer}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {postingBuyer && (
+                  <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-transparent" />
+                )}
+                {T?.modal?.postAsBuyerConfirm || "Yes, create buyer"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {postVendorContact && (
+        <Modal
+          onClose={() => (!postingVendor ? setPostVendorContact(null) : null)}
+          title={T?.modal?.postAsVendorTitle || "Post contact to vendors"}
+          fullscreen={false}
+          backdrop="dim"
+        >
+          <div className="space-y-4 text-sm text-slate-700">
+            <p>
+              {T?.modal?.postAsVendorQuestion ||
+                "Do you want to create a vendor (seller) record from this contact?"}
+            </p>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs space-y-1">
+              <div>
+                <span className="font-semibold">No.:</span>{" "}
+                {postVendorContact.no || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">Name:</span>{" "}
+                {postVendorContact.name}
+              </div>
+              <div>
+                <span className="font-semibold">City:</span>{" "}
+                {postVendorContact.city || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">NIP:</span>{" "}
+                {postVendorContact.nip || "—"}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPostVendorContact(null)}
+                disabled={postingVendor}
+                className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
+              >
+                {T?.modal?.cancel || "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={confirmPostAsVendor}
+                disabled={postingVendor}
+                className="px-4 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {postingVendor && (
+                  <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-transparent" />
+                )}
+                {T?.modal?.postAsVendorConfirm || "Yes, create vendor"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {postBothContact && (
+        <Modal
+          onClose={() => (!postingBoth ? setPostBothContact(null) : null)}
+          title={
+            T?.modal?.postAsBothTitle || "Post contact to buyers & vendors"
           }
-        },
-      }}
-    />
+          fullscreen={false}
+          backdrop="dim"
+        >
+          <div className="space-y-4 text-sm text-slate-700">
+            <p>
+              {T?.modal?.postAsBothQuestion ||
+                "Do you want to create both a buyer (customer) and a vendor (seller) record from this contact?"}
+            </p>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs space-y-1">
+              <div>
+                <span className="font-semibold">No.:</span>{" "}
+                {postBothContact.no || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">Name:</span>{" "}
+                {postBothContact.name}
+              </div>
+              <div>
+                <span className="font-semibold">City:</span>{" "}
+                {postBothContact.city || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">NIP:</span>{" "}
+                {postBothContact.nip || "—"}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setPostBothContact(null)}
+                disabled={postingBoth}
+                className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
+              >
+                {T?.modal?.cancel || "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={confirmPostAsBuyerAndVendor}
+                disabled={postingBoth}
+                className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {postingBoth && (
+                  <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-transparent" />
+                )}
+                {T?.modal?.postAsBothConfirm || "Yes, create both"}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
-// Contacts.jsx — PART 2/3
+
 function ContactsView(props) {
   const {
-    T, F, locale,
-    loading, notice, setNotice,
-    q, setQ,
-    status, setStatus,
-    country, setCountry,
-    region, setRegion,
-    blocked, setBlocked,
-    potential, setPotential,
-    showFilters, setShowFilters, activeFilterCount,
-    onSearch, onAddClick,
-    data, rows, sortBy, sortDir, onSort, setPage, limit, setLimit,
-    expandedId, setExpandedId,
-    onEditClick, onDelete,
+    T,
+    F,
+    locale,
+    loading,
+    notice,
+    setNotice,
+    q,
+    setQ,
+    status,
+    setStatus,
+    country,
+    setCountry,
+    region,
+    setRegion,
+    blocked,
+    setBlocked,
+    potential,
+    setPotential,
+    showFilters,
+    setShowFilters,
+    activeFilterCount,
+    onSearch,
+    onAddClick,
+    data,
+    rows,
+    sortBy,
+    sortDir,
+    onSort,
+    setPage,
+    limit,
+    setLimit,
+    expandedId,
+    setExpandedId,
+    onEditClick,
+    onDelete,
+    onPostAsBuyerClick,
+    onPostAsVendorClick,
+    onPostAsBuyerAndVendorClick,
     COL_COUNT,
-    open, setOpen, setEditing, editing,
+    open,
+    setOpen,
+    setEditing,
+    editing,
     handleSubmit,
   } = props;
 
   const statusLabel = (s) =>
     (T?.statusLabels && T.statusLabels[s]) ||
-    (s === "aktywny" ? "Active" : s === "archiwalny" ? "Archived" : "New contact");
+    (s === "aktywny"
+      ? "Active"
+      : s === "archiwalny"
+      ? "Archived"
+      : "New contact");
 
   return (
     <div className="space-y-4">
@@ -394,7 +1057,10 @@ function ContactsView(props) {
       )}
 
       {/* Controls */}
-      <form onSubmit={onSearch} className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm">
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -450,7 +1116,10 @@ function ContactsView(props) {
           {/* Status (schema: nowy_kontakt, aktywny, archiwalny) */}
           <select
             value={status}
-            onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
             <option value="">{F.allStatuses}</option>
@@ -462,18 +1131,28 @@ function ContactsView(props) {
           {/* Blocked */}
           <select
             value={blocked}
-            onChange={(e) => { setBlocked(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setBlocked(e.target.value);
+              setPage(1);
+            }}
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
             <option value="">{F.allBlocked}</option>
-            <option value="none">{(T?.blockedLabels && T.blockedLabels.none) || "OK"}</option>
-            <option value="all">{(T?.blockedLabels && T.blockedLabels.all) || "ALL"}</option>
+            <option value="none">
+              {(T?.blockedLabels && T.blockedLabels.none) || "OK"}
+            </option>
+            <option value="all">
+              {(T?.blockedLabels && T.blockedLabels.all) || "ALL"}
+            </option>
           </select>
 
           {/* Potential */}
           <select
             value={potential}
-            onChange={(e) => { setPotential(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setPotential(e.target.value);
+              setPage(1);
+            }}
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
             <option value="">{F.allPotential}</option>
@@ -518,7 +1197,8 @@ function ContactsView(props) {
               clearTitle={T?.modal?.cancel || "Clear"}
               onClear={() => setBlocked("")}
               label={`${T?.table?.blocked || "Blocked"}: ${
-                (T?.blockedLabels && T.blockedLabels[blocked]) || blocked.toUpperCase()
+                (T?.blockedLabels && T.blockedLabels[blocked]) ||
+                blocked.toUpperCase()
               }`}
             />
           )}
@@ -527,7 +1207,9 @@ function ContactsView(props) {
               clearTitle={T?.modal?.cancel || "Clear"}
               onClear={() => setPotential("")}
               label={`${T?.table?.potentialClient || "Potential"}: ${
-                potential === "yes" ? (T?.labels?.yes || "Yes") : (T?.labels?.no || "No")
+                potential === "yes"
+                  ? T?.labels?.yes || "Yes"
+                  : T?.labels?.no || "No"
               }`}
             />
           )}
@@ -555,32 +1237,81 @@ function ContactsView(props) {
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <Th />
-                <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>{T?.table?.no || "No."}</SortableTh>
-                <SortableTh id="name" {...{ sortBy, sortDir, onSort }}>{T?.table?.name || "Name"}</SortableTh>
-                <SortableTh id="company" {...{ sortBy, sortDir, onSort }}>{T?.table?.company || "Company"}</SortableTh>
-                <SortableTh id="jobTitle" {...{ sortBy, sortDir, onSort }}>{T?.table?.jobTitle || "Job Title"}</SortableTh>
-                <SortableTh id="email" {...{ sortBy, sortDir, onSort }}>{T?.table?.email || "Email"}</SortableTh>
-                <SortableTh id="phone" {...{ sortBy, sortDir, onSort }}>{T?.table?.phone || "Phone"}</SortableTh>
-                <SortableTh id="country" {...{ sortBy, sortDir, onSort }}>{T?.table?.country || "Country"}</SortableTh>
-                <SortableTh id="city" {...{ sortBy, sortDir, onSort }}>{T?.table?.city || "City"}</SortableTh>
-                <SortableTh id="contactType" {...{ sortBy, sortDir, onSort }}>{T?.table?.contactType || "Type"}</SortableTh>
-                <SortableTh id="blocked" {...{ sortBy, sortDir, onSort }}>{T?.table?.blocked || "Blocked"}</SortableTh>
-                <SortableTh id="potentialClient" {...{ sortBy, sortDir, onSort }}>{T?.table?.potentialClient || "Potential"}</SortableTh>
-                <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>{T?.table?.status || "Status"}</SortableTh>
-                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>{T?.table?.created || "Created"}</SortableTh>
+                <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.no || "No."}
+                </SortableTh>
+                <SortableTh id="name" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.name || "Name"}
+                </SortableTh>
+                <SortableTh id="company" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.company || "Company"}
+                </SortableTh>
+                <SortableTh id="jobTitle" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.jobTitle || "Job Title"}
+                </SortableTh>
+                <SortableTh id="email" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.email || "Email"}
+                </SortableTh>
+                <SortableTh id="phone" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.phone || "Phone"}
+                </SortableTh>
+                <SortableTh id="country" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.country || "Country"}
+                </SortableTh>
+                <SortableTh id="city" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.city || "City"}
+                </SortableTh>
+                <SortableTh id="contactType" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.contactType || "Type"}
+                </SortableTh>
+                <SortableTh id="blocked" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.blocked || "Blocked"}
+                </SortableTh>
+                <SortableTh
+                  id="potentialClient"
+                  {...{ sortBy, sortDir, onSort }}
+                >
+                  {T?.table?.potentialClient || "Potential"}
+                </SortableTh>
+
+                {/* NEW: OWZ signed */}
+                <SortableTh id="owzSigned" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.owzSigned || "OWZ"}
+                </SortableTh>
+
+                {/* NEW: Umowa ramowa signed */}
+                <SortableTh
+                  id="umowaRamowaSigned"
+                  {...{ sortBy, sortDir, onSort }}
+                >
+                  {T?.table?.umowaRamowaSigned || "Framework"}
+                </SortableTh>
+
+                <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.status || "Status"}
+                </SortableTh>
+                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
+                  {T?.table?.created || "Created"}
+                </SortableTh>
                 <Th>{T?.table?.actions || ""}</Th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {T?.table?.loading || "Loading…"}
                   </td>
                 </tr>
               ) : (data.data?.length || 0) === 0 ? (
                 <tr>
-                  <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {T?.table?.empty || "No contacts"}
                   </td>
                 </tr>
@@ -591,14 +1322,24 @@ function ContactsView(props) {
                       <Td className="w-8">
                         <button
                           className="p-1 rounded hover:bg-slate-100"
-                          onClick={() => setExpandedId((id) => (id === c._id ? null : c._id))}
-                          aria-label={T?.a11y?.toggleDetails || "Toggle details"}
+                          onClick={() =>
+                            setExpandedId((id) => (id === c._id ? null : c._id))
+                          }
+                          aria-label={
+                            T?.a11y?.toggleDetails || "Toggle details"
+                          }
                           title={T?.a11y?.toggleDetails || "Toggle details"}
                         >
-                          {expandedId === c._id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          {expandedId === c._id ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
                         </button>
                       </Td>
-                      <Td><NoBadge value={displayContactKey(c)} /></Td>
+                      <Td>
+                        <NoBadge value={displayContactKey(c)} />
+                      </Td>
                       <Td className="font-medium">{c.name}</Td>
                       <Td className="text-slate-600">{c.company || "—"}</Td>
                       <Td className="text-slate-600">{c.jobTitle || "—"}</Td>
@@ -606,53 +1347,151 @@ function ContactsView(props) {
                       <Td className="text-slate-600">{c.phoneNo || "—"}</Td>
                       <Td>{c.countryRegionCode || "—"}</Td>
                       <Td>{c.city || "—"}</Td>
-                      <Td>{(T?.contactTypeLabels && T.contactTypeLabels[c.contactType]) || c.contactType || "—"}</Td>
                       <Td>
-                        <span className={
-                          "px-2 py-1 rounded text-xs font-semibold border " +
-                          (String(c.blocked || "none") === "none"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-red-50 text-red-700 border-red-200")
-                        }>
-                          {(T?.blockedLabels && T.blockedLabels[String(c.blocked || "none")]) ||
+                        {(T?.contactTypeLabels &&
+                          T.contactTypeLabels[c.contactType]) ||
+                          c.contactType ||
+                          "—"}
+                      </Td>
+                      <Td>
+                        <span
+                          className={
+                            "px-2 py-1 rounded text-xs font-semibold border " +
+                            (String(c.blocked || "none") === "none"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                              : "bg-red-50 text-red-700 border-red-200")
+                          }
+                        >
+                          {(T?.blockedLabels &&
+                            T.blockedLabels[String(c.blocked || "none")]) ||
                             String(c.blocked || "none").toUpperCase()}
                         </span>
                       </Td>
+
                       <Td>
-                        <span className={
-                          "px-2 py-1 rounded text-xs font-semibold border " +
-                          (c.potentialClient
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-slate-100 text-slate-700 border-slate-300")
-                        }>
-                          {c.potentialClient ? (T?.labels?.yes || "Yes") : (T?.labels?.no || "No")}
+                        <span
+                          className={
+                            "px-2 py-1 rounded text-xs font-semibold border " +
+                            (c.potentialClient
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-slate-100 text-slate-700 border-slate-300")
+                          }
+                        >
+                          {c.potentialClient
+                            ? T?.labels?.yes || "Yes"
+                            : T?.labels?.no || "No"}
                         </span>
                       </Td>
+
+                      {/* NEW: OWZ signed icon */}
+                      <Td className="text-center">
+                        <BoolIcon value={!!c.owzSigned} variant="danger" />
+                      </Td>
+
+                      {/* NEW: Umowa ramowa signed icon */}
+                      <Td className="text-center">
+                        <BoolIcon
+                          value={!!c.umowaRamowaSigned}
+                          variant="danger"
+                        />
+                      </Td>
+
                       <Td>
                         {(() => {
-                          const s = String(c.status || "nowy_kontakt").toLowerCase();
+                          const s = String(
+                            c.status || "nowy_kontakt"
+                          ).toLowerCase();
+                          const label =
+                            (T?.statusLabels && T.statusLabels[s]) ||
+                            (s === "aktywny"
+                              ? "Active"
+                              : s === "archiwalny"
+                              ? "Archived"
+                              : "New contact");
+
                           const cls =
                             s === "aktywny"
                               ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                               : s === "archiwalny"
-                              ? "bg-slate-100 text-slate-700 border-slate-300"
-                              : "bg-amber-50 text-amber-700 border-amber-200"; // nowy_kontakt
+                              ? "bg-slate-100 text-slate-600 border-slate-300"
+                              : "bg-amber-50 text-amber-700 border-amber-200";
+
                           return (
-                            <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
-                              {statusLabel(s)}
+                            <span
+                              className={
+                                "inline-flex items-center rounded px-2 py-1 text-xs font-semibold border " +
+                                cls
+                              }
+                            >
+                              {label}
                             </span>
                           );
                         })()}
                       </Td>
+
                       <Td>{formatDate(c.createdAt, locale, "—")}</Td>
                       <Td>
                         <div className="flex justify-end gap-2 pr-3">
-                          <button className="p-2 rounded-lg hover:bg-slate-100" onClick={() => onEditClick(c)}>
+                          {/* Post as buyer (customer) */}
+                          {!c.customerId && (
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-slate-100 text-emerald-600"
+                              onClick={() => onPostAsBuyerClick?.(c)}
+                              title={T?.table?.postAsBuyer || "Post as buyer"}
+                              aria-label={
+                                T?.table?.postAsBuyer || "Post as buyer"
+                              }
+                            >
+                              <Briefcase size={16} />
+                            </button>
+                          )}
+
+                          {/* Post as vendor (seller) */}
+                          {!c.vendorId && (
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-slate-100 text-sky-600"
+                              onClick={() => onPostAsVendorClick?.(c)}
+                              title={T?.table?.postAsVendor || "Post as vendor"}
+                              aria-label={
+                                T?.table?.postAsVendor || "Post as vendor"
+                              }
+                            >
+                              <Building size={16} />
+                            </button>
+                          )}
+
+                          {/* NEW: post as BOTH buyer + vendor */}
+                          {!c.customerId && !c.vendorId && (
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-slate-100 text-purple-600"
+                              onClick={() => onPostAsBuyerAndVendorClick?.(c)}
+                              title={
+                                T?.table?.postAsBoth || "Post as buyer & vendor"
+                              }
+                              aria-label={
+                                T?.table?.postAsBoth || "Post as buyer & vendor"
+                              }
+                            >
+                              <UserRound size={16} />
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            className="p-2 rounded-lg hover:bg-slate-100"
+                            onClick={() => onEditClick(c)}
+                            title={T?.table?.edit || "Edit"}
+                          >
                             <Pencil size={16} />
                           </button>
                           <button
+                            type="button"
                             className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
                             onClick={() => onDelete(c._id)}
+                            title={T?.table?.delete || "Delete"}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -662,53 +1501,196 @@ function ContactsView(props) {
 
                     {expandedId === c._id && (
                       <tr key={`${c._id}-details`}>
-                        <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+                        <td
+                          colSpan={COL_COUNT}
+                          className="bg-slate-50 border-t"
+                        >
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
                             {/* identity */}
-                            <KV label={T?.details?.name2 || "Name 2"} icon={FileText}>{c.name2 || "—"}</KV>
-                            <KV label={T?.details?.company || "Company"} icon={Building2}>{c.company || "—"}</KV>
-                            <KV label={T?.details?.jobTitle || "Job Title"} icon={Briefcase}>{c.jobTitle || "—"}</KV>
-                            <KV label={T?.table?.contactType || "Type"} icon={IdCard}>
-                              {(T?.contactTypeLabels && T.contactTypeLabels[c.contactType]) || c.contactType || "—"}
+                            <KV
+                              label={T?.details?.name2 || "Name 2"}
+                              icon={FileText}
+                            >
+                              {c.name2 || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.company || "Company"}
+                              icon={Building2}
+                            >
+                              {c.company || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.jobTitle || "Job Title"}
+                              icon={Briefcase}
+                            >
+                              {c.jobTitle || "—"}
+                            </KV>
+                            <KV
+                              label={T?.table?.contactType || "Type"}
+                              icon={IdCard}
+                            >
+                              {(T?.contactTypeLabels &&
+                                T.contactTypeLabels[c.contactType]) ||
+                                c.contactType ||
+                                "—"}
                             </KV>
 
                             {/* address */}
-                            <KV label={T?.details?.address || "Address"} icon={Building}>{c.address || "—"}</KV>
-                            <KV label={T?.details?.address2 || "Address 2"} icon={Building}>{c.address2 || "—"}</KV>
-                            <KV label={T?.details?.postCode || "Post code"} icon={Hash}>{c.postCode || "—"}</KV>
-                            <KV label={T?.details?.city || "City"} icon={MapPin}>{c.city || "—"}</KV>
-                            <KV label={T?.details?.region || "Region"} icon={MapPin}>{c.region || "—"}</KV>
-                            <KV label={T?.details?.country || "Country"} icon={Globe}>{c.countryRegionCode || "—"}</KV>
+                            <KV
+                              label={T?.details?.address || "Address"}
+                              icon={Building}
+                            >
+                              {c.address || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.address2 || "Address 2"}
+                              icon={Building}
+                            >
+                              {c.address2 || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.postCode || "Post code"}
+                              icon={Hash}
+                            >
+                              {c.postCode || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.city || "City"}
+                              icon={MapPin}
+                            >
+                              {c.city || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.region || "Region"}
+                              icon={MapPin}
+                            >
+                              {c.region || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.country || "Country"}
+                              icon={Globe}
+                            >
+                              {c.countryRegionCode || "—"}
+                            </KV>
 
                             {/* comms */}
-                            <KV label={T?.modal?.fields?.phoneNo || "Phone No."} icon={PhoneCall}>{c.phoneNo || "—"}</KV>
-                            <KV label={T?.modal?.fields?.phoneNo2 || "Phone No. 2"} icon={PhoneCall}>{c.phoneNo2 || "—"}</KV>
-                            <KV label={T?.details?.email2 || "Email 2"} icon={Mail}>{c.email2 || "—"}</KV>
-                            <KV label={T?.details?.homePage || "Home page"} icon={Globe}>{c.homePage || "—"}</KV>
-                            <KV label={T?.details?.linkedinUrl || "LinkedIn"} icon={UserRound}>{c.linkedinUrl || "—"}</KV>
+                            <KV
+                              label={T?.modal?.fields?.phoneNo || "Phone No."}
+                              icon={PhoneCall}
+                            >
+                              {c.phoneNo || "—"}
+                            </KV>
+                            <KV
+                              label={
+                                T?.modal?.fields?.phoneNo2 || "Phone No. 2"
+                              }
+                              icon={PhoneCall}
+                            >
+                              {c.phoneNo2 || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.email2 || "Email 2"}
+                              icon={Mail}
+                            >
+                              {c.email2 || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.homePage || "Home page"}
+                              icon={Globe}
+                            >
+                              {c.homePage || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.linkedinUrl || "LinkedIn"}
+                              icon={UserRound}
+                            >
+                              {c.linkedinUrl || "—"}
+                            </KV>
 
                             {/* business/ownership */}
-                            <KV label={T?.details?.nip || "Tax ID"} icon={Hash}>{c.nip || "—"}</KV>
-                            <KV label={T?.details?.ownerUserId || "Owner"} icon={UserRound}>{c.ownerUserId || "—"}</KV>
-                            <KV label={T?.details?.salespersonCode || "Salesperson"} icon={UserRound}>{c.salespersonCode || "—"}</KV>
+                            <KV label={T?.details?.nip || "Tax ID"} icon={Hash}>
+                              {c.nip || "—"}
+                            </KV>
+                            <KV
+                              label={T?.details?.ownerUserId || "Owner"}
+                              icon={UserRound}
+                            >
+                              {c.ownerUserId || "—"}
+                            </KV>
+                            <KV
+                              label={
+                                T?.details?.salespersonCode || "Salesperson"
+                              }
+                              icon={UserRound}
+                            >
+                              {c.salespersonCode || "—"}
+                            </KV>
 
                             {/* flags */}
-                            <KV label={T?.table?.status || "Status"} icon={Tag}>{statusLabel(String(c.status || "nowy_kontakt"))}</KV>
-                            <KV label={T?.table?.blocked || "Blocked"} icon={Tag}>
-                              {(T?.blockedLabels && T.blockedLabels[String(c.blocked || "none")]) || String(c.blocked || "none").toUpperCase()}
+                            {/* flags */}
+                            <KV label={T?.table?.status || "Status"} icon={Tag}>
+                              {statusLabel(String(c.status || "nowy_kontakt"))}
                             </KV>
-                            <KV label={T?.details?.priority || "Priority"} icon={BadgePercent}>{c.priority ?? "—"}</KV>
-                            <KV label={T?.table?.potentialClient || "Potential"} icon={Tag}>
-                              {c.potentialClient ? (T?.labels?.yes || "Yes") : (T?.labels?.no || "No")}
+                            <KV
+                              label={T?.table?.blocked || "Blocked"}
+                              icon={Tag}
+                            >
+                              {(T?.blockedLabels &&
+                                T.blockedLabels[String(c.blocked || "none")]) ||
+                                String(c.blocked || "none").toUpperCase()}
+                            </KV>
+                            <KV
+                              label={T?.details?.priority || "Priority"}
+                              icon={BadgePercent}
+                            >
+                              {c.priority ?? "—"}
+                            </KV>
+                            <KV
+                              label={T?.table?.potentialClient || "Potential"}
+                              icon={Tag}
+                            >
+                              {c.potentialClient
+                                ? T?.labels?.yes || "Yes"
+                                : T?.labels?.no || "No"}
+                            </KV>
+
+                            {/* NEW: OWZ signed */}
+                            <KV
+                              label={T?.details?.owzSigned || "OWZ signed"}
+                              icon={CheckCircle2}
+                            >
+                              <BoolIcon
+                                value={!!c.owzSigned}
+                                variant="danger"
+                              />
+                            </KV>
+
+                            {/* NEW: Framework agreement signed */}
+                            <KV
+                              label={
+                                T?.details?.umowaRamowaSigned ||
+                                "Framework agreement"
+                              }
+                              icon={CheckCircle2}
+                            >
+                              <BoolIcon
+                                value={!!c.umowaRamowaSigned}
+                                variant="danger"
+                              />
                             </KV>
 
                             {/* tags */}
                             <KV label={T?.details?.tags || "Tags"} icon={Tag}>
-                              {(Array.isArray(c.tags) && c.tags.length > 0) ? c.tags.join(", ") : "—"}
+                              {Array.isArray(c.tags) && c.tags.length > 0
+                                ? c.tags.join(", ")
+                                : "—"}
                             </KV>
 
                             {/* notes */}
-                            <KV label={T?.details?.notes || "Notes"} icon={NotebookPen}>
+                            <KV
+                              label={T?.details?.notes || "Notes"}
+                              icon={NotebookPen}
+                            >
                               {c.notes || "—"}
                             </KV>
 
@@ -716,7 +1698,9 @@ function ContactsView(props) {
                             {c.hasPicture ? (
                               <div className="col-span-1 md:col-span-3 flex items-center gap-3">
                                 <ImageIcon size={14} />
-                                <span className="font-medium">{T?.details?.picture || "Picture"}:</span>
+                                <span className="font-medium">
+                                  {T?.details?.picture || "Picture"}:
+                                </span>
                                 <img
                                   src={`${API}/api/contacts/${c._id}/picture`}
                                   alt="contact"
@@ -726,7 +1710,9 @@ function ContactsView(props) {
                             ) : (
                               <div className="col-span-1 md:col-span-3 flex items-center gap-2 text-slate-500">
                                 <ImageIcon size={14} />
-                                <span>{T?.details?.noPicture || "No picture"}</span>
+                                <span>
+                                  {T?.details?.noPicture || "No picture"}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -743,14 +1729,18 @@ function ContactsView(props) {
         {/* footer / paging */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
           <div className="text-xs text-slate-500">
-            {(T?.footer?.meta && T.footer.meta(data.total, data.page, data.pages)) ||
+            {(T?.footer?.meta &&
+              T.footer.meta(data.total, data.page, data.pages)) ||
               `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
           </div>
           <div className="flex items-center gap-2">
             <select
               className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
               value={limit}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
             >
               {[10, 20, 50, 100].map((n) => (
                 <option key={n} value={n}>
@@ -779,12 +1769,18 @@ function ContactsView(props) {
       {/* Modal */}
       {open && (
         <Modal
-          onClose={() => { setOpen(false); setEditing(null); }}
+          onClose={() => {
+            setOpen(false);
+            setEditing(null);
+          }}
           title={T?.modal?.title || "Contact"}
         >
           <ContactForm
             initial={editing}
-            onCancel={() => { setOpen(false); setEditing(null); }}
+            onCancel={() => {
+              setOpen(false);
+              setEditing(null);
+            }}
             onSubmit={handleSubmit}
             T={T}
           />
@@ -795,23 +1791,39 @@ function ContactsView(props) {
 }
 
 /* light modal container (same as Customers) */
-function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim" }) {
+function Modal({
+  children,
+  onClose,
+  title,
+  fullscreen = false,
+  backdrop = "dim",
+}) {
   // backdrop: "dim" | "transparent" | "blur" | "none"
   const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
 
   React.useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
-      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+      const key = (e.key || "").toString().toLowerCase();
+
+      if (key === "escape" || key === "esc") {
+        onClose?.();
+        return;
+      }
+
+      if (key === "f") {
+        setIsFull((v) => !v);
+      }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
-    isFull ? "w-screen h-screen max-w-none rounded-none"
-           : "w-full max-w-4xl rounded-2xl",
+    isFull
+      ? "w-screen h-screen max-w-none rounded-none"
+      : "w-full max-w-4xl rounded-2xl",
   ].join(" ");
 
   const bodyCls = isFull
@@ -821,12 +1833,16 @@ function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim" 
   // Choose backdrop node
   let backdropNode = null;
   if (backdrop === "dim") {
-    backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+    backdropNode = (
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+    );
   } else if (backdrop === "transparent") {
     // click-catcher with no color (keeps outside-click-to-close)
     backdropNode = <div className="absolute inset-0" onClick={onClose} />;
   } else if (backdrop === "blur") {
-    backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+    backdropNode = (
+      <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />
+    );
   } // "none" => no overlay at all
 
   return (
@@ -868,7 +1884,6 @@ function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim" 
   );
 }
 
-
 // Contacts.jsx — PART 3/3
 function ContactForm({ initial, onSubmit, onCancel, T }) {
   const isEdit = Boolean(initial?._id);
@@ -886,7 +1901,10 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
     const idx = TABS.findIndex((t) => t.id === tab);
-    const next = e.key === "ArrowRight" ? (idx + 1) % TABS.length : (idx - 1 + TABS.length) % TABS.length;
+    const next =
+      e.key === "ArrowRight"
+        ? (idx + 1) % TABS.length
+        : (idx - 1 + TABS.length) % TABS.length;
     setTab(TABS[next].id);
   };
 
@@ -894,12 +1912,25 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
   const [no, setNo] = useState(initial?.no || "");
   const [name, setName] = useState(initial?.name || "");
   const [name2, setName2] = useState(initial?.name2 || "");
-  const [contactType, setContactType] = useState(initial?.contactType || "person");
+  const [contactType, setContactType] = useState(
+    initial?.contactType || "person"
+  );
   const [company, setCompany] = useState(initial?.company || "");
   const [jobTitle, setJobTitle] = useState(initial?.jobTitle || "");
   const [status, setStatus] = useState(initial?.status || "nowy_kontakt");
   const [potentialClient, setPotentialClient] = useState(
-    typeof initial?.potentialClient === "boolean" ? initial.potentialClient : true
+    typeof initial?.potentialClient === "boolean"
+      ? initial.potentialClient
+      : true
+  );
+
+  const [owzSigned, setOwzSigned] = useState(
+    typeof initial?.owzSigned === "boolean" ? initial.owzSigned : false
+  );
+  const [umowaRamowaSigned, setUmowaRamowaSigned] = useState(
+    typeof initial?.umowaRamowaSigned === "boolean"
+      ? initial.umowaRamowaSigned
+      : false
   );
 
   const [address, setAddress] = useState(initial?.address || "");
@@ -907,7 +1938,9 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
   const [city, setCity] = useState(initial?.city || "");
   const [postCode, setPostCode] = useState(initial?.postCode || "");
   const [region, setRegion] = useState(initial?.region || "");
-  const [countryRegionCode, setCountryRegionCode] = useState(initial?.countryRegionCode || "");
+  const [countryRegionCode, setCountryRegionCode] = useState(
+    initial?.countryRegionCode || ""
+  );
 
   const [phoneNo, setPhoneNo] = useState(initial?.phoneNo || "");
   const [phoneNo2, setPhoneNo2] = useState(initial?.phoneNo2 || "");
@@ -918,10 +1951,16 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
 
   const [nip, setNip] = useState(initial?.nip || "");
   const [ownerUserId, setOwnerUserId] = useState(initial?.ownerUserId || "");
-  const [salespersonCode, setSalespersonCode] = useState(initial?.salespersonCode || "");
-  const [priority, setPriority] = useState(Number.isFinite(initial?.priority) ? initial.priority : 0);
+  const [salespersonCode, setSalespersonCode] = useState(
+    initial?.salespersonCode || ""
+  );
+  const [priority, setPriority] = useState(
+    Number.isFinite(initial?.priority) ? initial.priority : 0
+  );
   const [blocked, setBlocked] = useState(initial?.blocked || "none");
-  const [tagsInput, setTagsInput] = useState(Array.isArray(initial?.tags) ? initial.tags.join(", ") : "");
+  const [tagsInput, setTagsInput] = useState(
+    Array.isArray(initial?.tags) ? initial.tags.join(", ") : ""
+  );
 
   const [notes, setNotes] = useState(initial?.notes || "");
 
@@ -951,7 +1990,9 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
     let stop = false;
     (async () => {
       try {
-        const res = await fetch(`${API}/api/contacts?limit=1&sortBy=no&sortDir=desc`);
+        const res = await fetch(
+          `${API}/api/contacts?limit=1&sortBy=no&sortDir=desc`
+        );
         const json = await res.json();
         const last = json?.data?.[0]?.no || null;
         const next = nextContactNoFrom(last);
@@ -960,7 +2001,9 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
         if (!stop) setNo(nextContactNoFrom(null));
       }
     })();
-    return () => { stop = true; };
+    return () => {
+      stop = true;
+    };
   }, [isEdit]);
 
   const submit = (e) => {
@@ -1017,7 +2060,8 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean),
-
+      owzSigned,
+      umowaRamowaSigned,
       notes: notes.trim() || null,
     };
 
@@ -1058,7 +2102,10 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
                       : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                   ].join(" ")}
                 >
-                  <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
+                  <t.Icon
+                    size={16}
+                    className={active ? "opacity-80" : "opacity-60"}
+                  />
                   {t.label}
                   {active && (
                     <span className="pointer-events-none absolute inset-x-2 bottom-0 h-0.5 bg-gradient-to-r from-slate-300 via-slate-400 to-slate-300 rounded-full" />
@@ -1068,65 +2115,131 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
             })}
           </div>
           <div className="ml-auto text-xs text-slate-500">
-            {isEdit ? (T?.modal?.save || "Save changes") : (T?.modal?.add || "Create contact")}
+            {isEdit
+              ? T?.modal?.save || "Save changes"
+              : T?.modal?.add || "Create contact"}
           </div>
         </div>
       </div>
 
       {/* errors banner */}
       {Object.keys(errors).length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+        <div
+          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          role="alert"
+        >
           {T?.alerts?.fixErrors || "Please correct the highlighted fields."}
         </div>
       )}
 
       {/* BASICS */}
-      <div role="tabpanel" id="panel-basics" aria-labelledby="tab-basics" hidden={tab !== "basics"} className="space-y-4">
+      <div
+        role="tabpanel"
+        id="panel-basics"
+        aria-labelledby="tab-basics"
+        hidden={tab !== "basics"}
+        className="space-y-4"
+      >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <Field
             label={T?.modal?.fields?.no || "No."}
             icon={Hash}
             help={T?.modal?.autoNumberHelp || ""}
           >
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 text-slate-700" value={no} readOnly placeholder="Auto" />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 text-slate-700"
+              value={no}
+              readOnly
+              placeholder="Auto"
+            />
           </Field>
 
-          <Field label={T?.modal?.fields?.contactType || "Contact type"} icon={IdCard}>
+          <Field
+            label={T?.modal?.fields?.contactType || "Contact type"}
+            icon={IdCard}
+          >
             <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={contactType}
               onChange={(e) => setContactType(e.target.value)}
             >
-              <option value="person">{(T?.contactTypeLabels && T.contactTypeLabels.person) || "Person"}</option>
-              <option value="company">{(T?.contactTypeLabels && T.contactTypeLabels.company) || "Company"}</option>
+              <option value="person">
+                {(T?.contactTypeLabels && T.contactTypeLabels.person) ||
+                  "Person"}
+              </option>
+              <option value="company">
+                {(T?.contactTypeLabels && T.contactTypeLabels.company) ||
+                  "Company"}
+              </option>
             </select>
           </Field>
 
-          <Field label={T?.modal?.fields?.name || "Name *"} icon={User} error={errors.name}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Field
+            label={T?.modal?.fields?.name || "Name *"}
+            icon={User}
+            error={errors.name}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
           </Field>
 
           <Field label={T?.modal?.fields?.name2 || "Name 2"} icon={FileText}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={name2} onChange={(e) => setName2(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={name2}
+              onChange={(e) => setName2(e.target.value)}
+            />
           </Field>
 
-          <Field label={T?.modal?.fields?.company || "Company"} icon={Building2}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={company} onChange={(e) => setCompany(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.company || "Company"}
+            icon={Building2}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            />
           </Field>
 
-          <Field label={T?.modal?.fields?.jobTitle || "Job Title"} icon={Briefcase}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.jobTitle || "Job Title"}
+            icon={Briefcase}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+            />
           </Field>
 
           <Field label={T?.modal?.fields?.status || "Status"} icon={Tag}>
-            <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="nowy_kontakt">{(T?.statusLabels && T.statusLabels.nowy_kontakt) || "New contact"}</option>
-              <option value="aktywny">{(T?.statusLabels && T.statusLabels.aktywny) || "Active"}</option>
-              <option value="archiwalny">{(T?.statusLabels && T.statusLabels.archiwalny) || "Archived"}</option>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="nowy_kontakt">
+                {(T?.statusLabels && T.statusLabels.nowy_kontakt) ||
+                  "New contact"}
+              </option>
+              <option value="aktywny">
+                {(T?.statusLabels && T.statusLabels.aktywny) || "Active"}
+              </option>
+              <option value="archiwalny">
+                {(T?.statusLabels && T.statusLabels.archiwalny) || "Archived"}
+              </option>
             </select>
           </Field>
 
-          <Field label={T?.modal?.fields?.potentialClient || "Potential client"} icon={Tag}>
+          <Field
+            label={T?.modal?.fields?.potentialClient || "Potential client"}
+            icon={Tag}
+          >
             <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={potentialClient ? "yes" : "no"}
@@ -1139,73 +2252,182 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
         </div>
       </div>
 
-{/* ADDRESS */}
-<div role="tabpanel" id="panel-address" aria-labelledby="tab-address" hidden={tab !== "address"} className="space-y-4">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-    <Field label={T?.modal?.fields?.address || "Address"} icon={Building}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={address} onChange={(e) => setAddress(e.target.value)} />
-    </Field>
-    <Field label={T?.modal?.fields?.address2 || "Address 2"} icon={Building}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={address2} onChange={(e) => setAddress2(e.target.value)} />
-    </Field>
-    <Field label={T?.modal?.fields?.city || "City"} icon={MapPin}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={city} onChange={(e) => setCity(e.target.value)} />
-    </Field>
-    <Field label={T?.modal?.fields?.postCode || "Post code"} icon={Hash}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={postCode} onChange={(e) => setPostCode(e.target.value)} />
-    </Field>
-    <Field label={T?.modal?.fields?.region || "Region"} icon={MapPin}>
-      <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={region} onChange={(e) => setRegion(e.target.value)} />
-    </Field>
-    <Field label={T?.modal?.fields?.countryRegionCode || "Country/Region code"} icon={Globe}>
-      <input
-        className="w-full rounded-lg border border-slate-300 px-3 py-2"
-        value={countryRegionCode}
-        onChange={(e) => setCountryRegionCode(e.target.value.toUpperCase())}
-      />
-    </Field>
-  </div>
-</div>
-
+      {/* ADDRESS */}
+      <div
+        role="tabpanel"
+        id="panel-address"
+        aria-labelledby="tab-address"
+        hidden={tab !== "address"}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={T?.modal?.fields?.address || "Address"} icon={Building}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </Field>
+          <Field
+            label={T?.modal?.fields?.address2 || "Address 2"}
+            icon={Building}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={address2}
+              onChange={(e) => setAddress2(e.target.value)}
+            />
+          </Field>
+          <Field label={T?.modal?.fields?.city || "City"} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+          </Field>
+          <Field label={T?.modal?.fields?.postCode || "Post code"} icon={Hash}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={postCode}
+              onChange={(e) => setPostCode(e.target.value)}
+            />
+          </Field>
+          <Field label={T?.modal?.fields?.region || "Region"} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            />
+          </Field>
+          <Field
+            label={T?.modal?.fields?.countryRegionCode || "Country/Region code"}
+            icon={Globe}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={countryRegionCode}
+              onChange={(e) =>
+                setCountryRegionCode(e.target.value.toUpperCase())
+              }
+            />
+          </Field>
+        </div>
+      </div>
 
       {/* CONTACT */}
-      <div role="tabpanel" id="panel-contact" aria-labelledby="tab-contact" hidden={tab !== "contact"} className="space-y-4">
+      <div
+        role="tabpanel"
+        id="panel-contact"
+        aria-labelledby="tab-contact"
+        hidden={tab !== "contact"}
+        className="space-y-4"
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={T?.modal?.fields?.phoneNo || "Phone No."} icon={PhoneCall}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={phoneNo} onChange={(e) => setPhoneNo(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.phoneNo || "Phone No."}
+            icon={PhoneCall}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={phoneNo}
+              onChange={(e) => setPhoneNo(e.target.value)}
+            />
           </Field>
-          <Field label={T?.modal?.fields?.phoneNo2 || "Phone No. 2"} icon={PhoneCall}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={phoneNo2} onChange={(e) => setPhoneNo2(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.phoneNo2 || "Phone No. 2"}
+            icon={PhoneCall}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={phoneNo2}
+              onChange={(e) => setPhoneNo2(e.target.value)}
+            />
           </Field>
-          <Field label={T?.modal?.fields?.email || "Email"} icon={Mail} error={errors.email}>
-            <input type="email" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.email || "Email"}
+            icon={Mail}
+            error={errors.email}
+          >
+            <input
+              type="email"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
           </Field>
-          <Field label={T?.modal?.fields?.email2 || "Email 2"} icon={Mail} error={errors.email2}>
-            <input type="email" className="w-full rounded-lg border border-slate-300 px-3 py-2" value={email2} onChange={(e) => setEmail2(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.email2 || "Email 2"}
+            icon={Mail}
+            error={errors.email2}
+          >
+            <input
+              type="email"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={email2}
+              onChange={(e) => setEmail2(e.target.value)}
+            />
           </Field>
           <Field label={T?.modal?.fields?.homePage || "Home page"} icon={Globe}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={homePage} onChange={(e) => setHomePage(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={homePage}
+              onChange={(e) => setHomePage(e.target.value)}
+            />
           </Field>
-          <Field label={T?.modal?.fields?.linkedinUrl || "LinkedIn URL"} icon={UserRound}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.linkedinUrl || "LinkedIn URL"}
+            icon={UserRound}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={linkedinUrl}
+              onChange={(e) => setLinkedinUrl(e.target.value)}
+            />
           </Field>
         </div>
       </div>
 
       {/* EXTRA */}
-      <div role="tabpanel" id="panel-extra" aria-labelledby="tab-extra" hidden={tab !== "extra"} className="space-y-4">
+      <div
+        role="tabpanel"
+        id="panel-extra"
+        aria-labelledby="tab-extra"
+        hidden={tab !== "extra"}
+        className="space-y-4"
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={T?.modal?.fields?.nip || "Tax ID"} icon={Hash}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={nip} onChange={(e) => setNip(e.target.value)} />
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={nip}
+              onChange={(e) => setNip(e.target.value)}
+            />
           </Field>
-          <Field label={T?.modal?.fields?.ownerUserId || "Owner (user id)"} icon={UserRound}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={ownerUserId} onChange={(e) => setOwnerUserId(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.ownerUserId || "Owner (user id)"}
+            icon={UserRound}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={ownerUserId}
+              onChange={(e) => setOwnerUserId(e.target.value)}
+            />
           </Field>
-          <Field label={T?.modal?.fields?.salespersonCode || "Salesperson"} icon={UserRound}>
-            <input className="w-full rounded-lg border border-slate-300 px-3 py-2" value={salespersonCode} onChange={(e) => setSalespersonCode(e.target.value)} />
+          <Field
+            label={T?.modal?.fields?.salespersonCode || "Salesperson"}
+            icon={UserRound}
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={salespersonCode}
+              onChange={(e) => setSalespersonCode(e.target.value)}
+            />
           </Field>
 
-          <Field label={T?.modal?.fields?.priority || "Priority"} icon={BadgePercent}>
+          <Field
+            label={T?.modal?.fields?.priority || "Priority"}
+            icon={BadgePercent}
+          >
             <input
               type="number"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1215,13 +2437,56 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
           </Field>
 
           <Field label={T?.modal?.fields?.blocked || "Blocked"} icon={Tag}>
-            <select className="w-full rounded-lg border border-slate-300 px-3 py-2" value={blocked} onChange={(e) => setBlocked(e.target.value)}>
-              <option value="none">{(T?.blockedLabels && T.blockedLabels.none) || "OK"}</option>
-              <option value="all">{(T?.blockedLabels && T.blockedLabels.all) || "ALL"}</option>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={blocked}
+              onChange={(e) => setBlocked(e.target.value)}
+            >
+              <option value="none">
+                {(T?.blockedLabels && T.blockedLabels.none) || "OK"}
+              </option>
+              <option value="all">
+                {(T?.blockedLabels && T.blockedLabels.all) || "ALL"}
+              </option>
             </select>
           </Field>
 
-          <Field label={T?.modal?.fields?.tags || "Tags (comma-separated)"} icon={Tag}>
+          <Field
+            label={T?.modal?.fields?.owzSigned || "OWZ signed"}
+            icon={CheckCircle2}
+          >
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={owzSigned ? "yes" : "no"}
+              onChange={(e) => setOwzSigned(e.target.value === "yes")}
+            >
+              <option value="yes">{T?.labels?.yes || "Yes"}</option>
+              <option value="no">{T?.labels?.no || "No"}</option>
+            </select>
+          </Field>
+
+          {/* NEW: Framework agreement signed */}
+          <Field
+            label={
+              T?.modal?.fields?.umowaRamowaSigned ||
+              "Framework agreement signed"
+            }
+            icon={CheckCircle2}
+          >
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={umowaRamowaSigned ? "yes" : "no"}
+              onChange={(e) => setUmowaRamowaSigned(e.target.value === "yes")}
+            >
+              <option value="yes">{T?.labels?.yes || "Yes"}</option>
+              <option value="no">{T?.labels?.no || "No"}</option>
+            </select>
+          </Field>
+
+          <Field
+            label={T?.modal?.fields?.tags || "Tags (comma-separated)"}
+            icon={Tag}
+          >
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={tagsInput}
@@ -1233,33 +2498,49 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
       </div>
 
       {/* PICTURE */}
-<div role="tabpanel" id="panel-picture" aria-labelledby="tab-picture" hidden={tab !== "picture"} className="space-y-4">
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field
-      label={T?.modal?.fields?.picture || "Picture"}
-      icon={Image}
-      iconInside={false}
-      autoHeight
-    >
-      <PictureDrop
-        title={T?.modal?.choosePicture || "Choose picture"}
-        replaceTitle={T?.modal?.replacePicture || "Replace picture"}
-        help={T?.modal?.pictureHelp || "PNG/JPG/WebP • up to ~2 MB • square works best"}
-        previewSrc={!removePicture ? (pictureBase64 || existingPicUrl) : null}
-        onPickFile={(file) => onPickPicture(file)}
-        canRemove={isEdit && !!existingPicUrl}
-        removing={removePicture}
-        onToggleRemove={() => setRemovePicture((v) => !v)}
-        hasNewSelection={Boolean(pictureBase64)}
-        onClearSelection={() => onPickPicture(null)}
-      />
-    </Field>
-  </div>
-</div>
-
+      <div
+        role="tabpanel"
+        id="panel-picture"
+        aria-labelledby="tab-picture"
+        hidden={tab !== "picture"}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field
+            label={T?.modal?.fields?.picture || "Picture"}
+            icon={Image}
+            iconInside={false}
+            autoHeight
+          >
+            <PictureDrop
+              title={T?.modal?.choosePicture || "Choose picture"}
+              replaceTitle={T?.modal?.replacePicture || "Replace picture"}
+              help={
+                T?.modal?.pictureHelp ||
+                "PNG/JPG/WebP • up to ~2 MB • square works best"
+              }
+              previewSrc={
+                !removePicture ? pictureBase64 || existingPicUrl : null
+              }
+              onPickFile={(file) => onPickPicture(file)}
+              canRemove={isEdit && !!existingPicUrl}
+              removing={removePicture}
+              onToggleRemove={() => setRemovePicture((v) => !v)}
+              hasNewSelection={Boolean(pictureBase64)}
+              onClearSelection={() => onPickPicture(null)}
+            />
+          </Field>
+        </div>
+      </div>
 
       {/* NOTES */}
-      <div role="tabpanel" id="panel-notes" aria-labelledby="tab-notes" hidden={tab !== "notes"} className="space-y-2">
+      <div
+        role="tabpanel"
+        id="panel-notes"
+        aria-labelledby="tab-notes"
+        hidden={tab !== "notes"}
+        className="space-y-2"
+      >
         <Field label={T?.modal?.fields?.notes || "Notes"} icon={NotebookPen}>
           <textarea
             rows={6}
@@ -1272,11 +2553,20 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
 
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
-        <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+        >
           {T?.modal?.cancel || "Cancel"}
         </button>
-        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-          {isEdit ? (T?.modal?.save || "Save changes") : (T?.modal?.add || "Create contact")}
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
+          {isEdit
+            ? T?.modal?.save || "Save changes"
+            : T?.modal?.add || "Create contact"}
         </button>
       </div>
     </form>
@@ -1304,7 +2594,11 @@ function PictureDrop({
         <div className="shrink-0">
           <div className="w-24 h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-50 flex items-center justify-center">
             {previewSrc && !removing ? (
-              <img src={previewSrc} alt="" className="w-full h-full object-cover" />
+              <img
+                src={previewSrc}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-400 text-xs">
                 <ImageIcon size={22} />
@@ -1348,7 +2642,7 @@ function PictureDrop({
           {hasNewSelection && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                { /* i18n if you want */ } New file selected
+                {/* i18n if you want */} New file selected
               </span>
               <button
                 type="button"

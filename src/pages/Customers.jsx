@@ -43,12 +43,11 @@ const API =
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
 
-
-
 export default function Customers() {
   const { t, locale } = useI18n();
-  const COL_COUNT = 12;
-  const C = t.customers || {};
+  const COL_COUNT = 14;
+  const C = t.BUYERS || t.customers || {};
+
   // localized helpers for filters (with safe fallbacks)
   const F = {
     searchPh:
@@ -71,40 +70,39 @@ export default function Customers() {
   };
 
   // Customer type labels (from i18n with safe fallbacks)
-const TYPE_ORDER = ["mlyn", "skup", "trader", "wytwornia_pasz"];
-const CT = C.customerTypeLabels || {
-  mlyn: "Mill",
-  skup: "Procurement",
-  trader: "Trader",
-  wytwornia_pasz: "Feed Mill",
-};
-const typeLabel = (v) => {
-  const key = String(v || "").toLowerCase();
-  return CT[key] || (v || "—");
-};
+  const TYPE_ORDER = ["mlyn", "skup", "trader", "wytwornia_pasz"];
+  const CT = C.customerTypeLabels || {
+    mlyn: "Mill",
+    skup: "Procurement",
+    trader: "Trader",
+    wytwornia_pasz: "Feed Mill",
+  };
+  const typeLabel = (v) => {
+    const key = String(v || "").toLowerCase();
+    return CT[key] || v || "—";
+  };
 
-// inside Customers(), after typeLabel(...)
-function customerTypeChip(v) {
-  const key = String(v || "").toLowerCase();
+  // inside Customers(), after typeLabel(...)
+  function customerTypeChip(v) {
+    const key = String(v || "").toLowerCase();
 
-  const cls =
-    key === "mlyn"
-      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-      : key === "skup"
-      ? "bg-amber-50 text-amber-700 border border-amber-200"
-      : key === "trader"
-      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
-      : key === "wytwornia_pasz"
-      ? "bg-purple-50 text-blu-700 border border-purple-200"
-      : "bg-slate-50 text-slate-700 border border-slate-200";
+    const cls =
+      key === "mlyn"
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : key === "skup"
+        ? "bg-amber-50 text-amber-700 border border-amber-200"
+        : key === "trader"
+        ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+        : key === "wytwornia_pasz"
+        ? "bg-purple-50 text-blu-700 border border-purple-200"
+        : "bg-slate-50 text-slate-700 border border-slate-200";
 
-  return (
-    <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>
-      {typeLabel(key)}
-    </span>
-  );
-}
-
+    return (
+      <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>
+        {typeLabel(key)}
+      </span>
+    );
+  }
 
   const DEFAULT_DETAILS = {
     name2: "Name 2",
@@ -119,6 +117,8 @@ function customerTypeChip(v) {
     billToCustomerNo: "Bill-to Customer No.",
     currencyCode: "Currency code",
     priority: "Priority",
+    owzSigned: "OWZ signed",
+    umowaRamowaSigned: "Framework agreement",
     paymentMethodCode: "Payment method code",
     paymentTermsCode: "Payment terms code",
     languageCode: "Language code",
@@ -131,6 +131,7 @@ function customerTypeChip(v) {
     picture: "Picture",
     noPicture: "No picture",
   };
+
   const L = { ...DEFAULT_DETAILS, ...(C?.details || {}) };
 
   // filters / paging
@@ -245,6 +246,8 @@ function customerTypeChip(v) {
       customerType: "customerType",
       city: "city",
       blocked: "blocked",
+      owzSigned: "owzSigned",
+      umowaRamowaSigned: "umowaRamowaSigned",
       creditLimit: "creditLimit",
       createdAt: "createdAt",
     };
@@ -255,6 +258,7 @@ function customerTypeChip(v) {
       if (k === "creditLimit") return Number(v) || 0;
       if (k === "createdAt") return v ? new Date(v).getTime() : 0;
       if (k === "customerType") return typeLabel(v).toLowerCase();
+      if (k === "owzSigned" || k === "umowaRamowaSigned") return v ? 1 : 0;
       return (v ?? "").toString().toLowerCase();
     };
 
@@ -485,7 +489,6 @@ function customerTypeChip(v) {
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <Th />
-                {/* expand toggle column (not sortable) */}
                 <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>
                   {C?.table?.no || "No."}
                 </SortableTh>
@@ -510,6 +513,15 @@ function customerTypeChip(v) {
                 <SortableTh id="blocked" {...{ sortBy, sortDir, onSort }}>
                   {C?.table?.blocked || "Blocked"}
                 </SortableTh>
+                <SortableTh id="owzSigned" {...{ sortBy, sortDir, onSort }}>
+                  {C?.table?.owzSigned || "OWZ"}
+                </SortableTh>
+                <SortableTh
+                  id="umowaRamowaSigned"
+                  {...{ sortBy, sortDir, onSort }}
+                >
+                  {C?.table?.umowaRamowaSigned || "Framework"}
+                </SortableTh>
                 <SortableTh
                   id="creditLimit"
                   className="text-right pr-4"
@@ -527,13 +539,19 @@ function customerTypeChip(v) {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {C?.table?.loading || "Loading…"}
                   </td>
                 </tr>
               ) : (data.data?.length || 0) === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-6 text-center text-slate-500">
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
                     {C?.table?.empty || "No customers"}
                   </td>
                 </tr>
@@ -558,8 +576,8 @@ function customerTypeChip(v) {
                         </button>
                       </Td>
                       <Td>
-  <NoBadge value={displayCustomerKey(c)} />
-</Td>
+                        <NoBadge value={displayCustomerKey(c)} />
+                      </Td>
                       <Td className="font-medium">{c.name}</Td>
                       <Td className="text-slate-600">{c.email || "—"}</Td>
                       <Td className="text-slate-600">{c.phoneNo || "—"}</Td>
@@ -568,6 +586,16 @@ function customerTypeChip(v) {
                       <Td>{customerTypeChip(c.customerType)}</Td>
 
                       <Td>{blockedChip(c.blocked, C)}</Td>
+                      <Td className="text-center">
+                        <BoolIcon value={!!c.owzSigned} variant="danger" />
+                      </Td>
+                      <Td className="text-center">
+                        <BoolIcon
+                          value={!!c.umowaRamowaSigned}
+                          variant="danger"
+                        />
+                      </Td>
+
                       <Td className="text-right pr-4 font-medium">
                         {fmtMoney(
                           Number(c.creditLimit || 0),
@@ -596,14 +624,17 @@ function customerTypeChip(v) {
 
                     {expandedId === c._id && (
                       <tr key={`${c._id}-details`}>
-                           <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+                        <td
+                          colSpan={COL_COUNT}
+                          className="bg-slate-50 border-t"
+                        >
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
                             <KV label={L.name2} icon={FileText}>
                               {c.name2 || "—"}
                             </KV>
                             <KV label={L.customerType} icon={Tag}>
-  {customerTypeChip(c.customerType)}
-</KV>
+                              {customerTypeChip(c.customerType)}
+                            </KV>
                             <KV label={L.address} icon={Building}>
                               {c.address || "—"}
                             </KV>
@@ -634,6 +665,19 @@ function customerTypeChip(v) {
                             <KV label={L.priority} icon={BadgePercent}>
                               {c.priority ?? "—"}
                             </KV>
+                            <KV label={L.owzSigned} icon={CheckCircle2}>
+                              <BoolIcon
+                                value={!!c.owzSigned}
+                                variant="danger"
+                              />
+                            </KV>
+                            <KV label={L.umowaRamowaSigned} icon={CheckCircle2}>
+                              <BoolIcon
+                                value={!!c.umowaRamowaSigned}
+                                variant="danger"
+                              />
+                            </KV>
+
                             <KV label={L.paymentMethodCode} icon={CreditCard}>
                               {c.paymentMethodCode || "—"}
                             </KV>
@@ -741,18 +785,17 @@ function customerTypeChip(v) {
           }}
           title={C?.modal?.title || "Customer"}
         >
-        <CustomerForm
-  initial={editing}
-  onCancel={() => {
-    setOpen(false);
-    setEditing(null);
-  }}
-  onSubmit={handleSubmit}
-  C={C}
-  typeOptions={TYPE_ORDER}
-  typeLabels={CT}
-/>
-
+          <CustomerForm
+            initial={editing}
+            onCancel={() => {
+              setOpen(false);
+              setEditing(null);
+            }}
+            onSubmit={handleSubmit}
+            C={C}
+            typeOptions={TYPE_ORDER}
+            typeLabels={CT}
+          />
         </Modal>
       )}
     </div>
@@ -849,8 +892,6 @@ function blockedChip(v, C) {
   );
 }
 
-
-
 // replace KV with icon-aware version
 function KV({ label, icon: Icon, children }) {
   return (
@@ -872,17 +913,27 @@ function Modal({ children, onClose, title, fullscreen = false }) {
   // ESC to close, "f" to toggle fullscreen
   React.useEffect(() => {
     const onKey = (e) => {
-      if (e.key === "Escape") onClose?.();
-      if (e.key.toLowerCase() === "f") setIsFull((v) => !v);
+      const key = (e.key || "").toString().toLowerCase();
+
+      if (key === "escape" || key === "esc") {
+        onClose?.();
+        return;
+      }
+
+      if (key === "f") {
+        setIsFull((v) => !v);
+      }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
-    isFull ? "w-screen h-screen max-w-none rounded-none"
-           : "w-full max-w-4xl rounded-2xl",
+    isFull
+      ? "w-screen h-screen max-w-none rounded-none"
+      : "w-full max-w-4xl rounded-2xl",
   ].join(" ");
 
   const bodyCls = isFull
@@ -890,14 +941,19 @@ function Modal({ children, onClose, title, fullscreen = false }) {
     : "p-4 max-h-[75vh] overflow-auto";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title || "Modal"}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Modal"}
+    >
       {/* keep black backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className={containerCls}>
         {/* Top bar with title + Expand/Close */}
         <div
           className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur"
-          onDoubleClick={() => setIsFull((v) => !v)}  // double-click header to toggle
+          onDoubleClick={() => setIsFull((v) => !v)} // double-click header to toggle
         >
           <h3 className="font-semibold truncate pr-2">{title}</h3>
           <div className="flex items-center gap-1">
@@ -927,9 +983,14 @@ function Modal({ children, onClose, title, fullscreen = false }) {
   );
 }
 
-
-function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels }) {
-
+function CustomerForm({
+  initial,
+  onSubmit,
+  onCancel,
+  C,
+  typeOptions,
+  typeLabels,
+}) {
   const isEdit = Boolean(initial?._id);
 
   // ----- tabs -----
@@ -1013,6 +1074,15 @@ function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels 
   const [blocked, setBlocked] = useState(initial?.blocked || "none");
   const [priority, setPriority] = useState(initial?.priority ?? 0);
 
+  const [owzSigned, setOwzSigned] = useState(
+    typeof initial?.owzSigned === "boolean" ? initial.owzSigned : false
+  );
+  const [umowaRamowaSigned, setUmowaRamowaSigned] = useState(
+    typeof initial?.umowaRamowaSigned === "boolean"
+      ? initial.umowaRamowaSigned
+      : false
+  );
+
   // picture state
   const [, setPictureFile] = useState(null);
   const [pictureBase64, setPictureBase64] = useState(null);
@@ -1090,6 +1160,8 @@ function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels 
       priority: Number.isNaN(parseInt(priority, 10))
         ? 0
         : parseInt(priority, 10),
+      owzSigned,
+      umowaRamowaSigned,
     };
 
     if (pictureBase64) payload.picture = pictureBase64;
@@ -1097,56 +1169,62 @@ function CustomerForm({ initial, onSubmit, onCancel, C, typeOptions, typeLabels 
 
     onSubmit(payload);
   };
-// Bill-to combobox state
-const [billToInput, setBillToInput] = useState(
-  initial?.billToCustomerNo ? `${initial.billToCustomerNo}` : ""
-);
-const [billToOpts, setBillToOpts] = useState([]); // [{_id,no,name}]
-const [billToOpen, setBillToOpen] = useState(false);
-const [billToHover, setBillToHover] = useState(-1);
+  // Bill-to combobox state
+  const [billToInput, setBillToInput] = useState(
+    initial?.billToCustomerNo ? `${initial.billToCustomerNo}` : ""
+  );
+  const [billToOpts, setBillToOpts] = useState([]); // [{_id,no,name}]
+  const [billToOpen, setBillToOpen] = useState(false);
+  const [billToHover, setBillToHover] = useState(-1);
 
-// fetch options when typing
-useEffect(() => {
-  let stop = false;
-  const params = new URLSearchParams({ blocked: "none", limit: "50" });
-  if (billToInput) params.set("q", billToInput);
+  // fetch options when typing
+  useEffect(() => {
+    let stop = false;
+    const params = new URLSearchParams({ blocked: "none", limit: "50" });
+    if (billToInput) params.set("q", billToInput);
 
-  fetch(`${API}/api/mcustomers?${params.toString()}`)
-    .then(r => r.json())
-    .then(json => {
-      if (stop) return;
-      const rows = Array.isArray(json?.data) ? json.data : [];
-      const filtered = rows.filter(r => r._id !== (initial?._id || ""));
-      setBillToOpts(filtered.map(r => ({ _id: r._id, no: r.no, name: r.name })));
-    })
-    .catch(() => setBillToOpts([]));
+    fetch(`${API}/api/mcustomers?${params.toString()}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (stop) return;
+        const rows = Array.isArray(json?.data) ? json.data : [];
+        const filtered = rows.filter((r) => r._id !== (initial?._id || ""));
+        setBillToOpts(
+          filtered.map((r) => ({ _id: r._id, no: r.no, name: r.name }))
+        );
+      })
+      .catch(() => setBillToOpts([]));
 
-  return () => { stop = true; };
-}, [billToInput, initial?._id]);
+    return () => {
+      stop = true;
+    };
+  }, [billToInput, initial?._id]);
 
-useEffect(() => {
-  if (isEdit) return;
+  useEffect(() => {
+    if (isEdit) return;
 
-  let stop = false;
-  (async () => {
-    try {
-      // Get the lexicographically last "no" (safe because it’s padded)
-      const res = await fetch(`${API}/api/mcustomers?limit=1&sortBy=no&sortDir=desc`);
-      const json = await res.json();
-      const last = json?.data?.[0]?.no || null;
-      const next = nextCustomerNoFrom(last);
-      if (!stop) setNo(next);
-    } catch {
-      // Fallback to first number if anything fails
-      if (!stop) setNo(nextCustomerNoFrom(null));
-    }
-  })();
+    let stop = false;
+    (async () => {
+      try {
+        // Get the lexicographically last "no" (safe because it’s padded)
+        const res = await fetch(
+          `${API}/api/mcustomers?limit=1&sortBy=no&sortDir=desc`
+        );
+        const json = await res.json();
+        const last = json?.data?.[0]?.no || null;
+        const next = nextCustomerNoFrom(last);
+        if (!stop) setNo(next);
+      } catch {
+        // Fallback to first number if anything fails
+        if (!stop) setNo(nextCustomerNoFrom(null));
+      }
+    })();
 
-  return () => { stop = true; };
-}, [isEdit]);
+    return () => {
+      stop = true;
+    };
+  }, [isEdit]);
 
-
-  
   return (
     <form onSubmit={submit} className="space-y-4">
       {/* Tabs nav (sticky inside modal content) */}
@@ -1224,39 +1302,39 @@ useEffect(() => {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-<Field
-  label={C?.modal?.fields?.no || "No. "}
-  icon={Hash}
-  help={C?.modal?.autoNumberHelp || "Assigned automatically (N + 7 digits)."}
->
-  <input
-    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 text-slate-700"
-    value={no}
-    readOnly
-    aria-readonly="true"
-    placeholder="Auto"
-    title="Automatically assigned"
-  />
-</Field>
-
+          <Field
+            label={C?.modal?.fields?.no || "No. "}
+            icon={Hash}
+            help={
+              C?.modal?.autoNumberHelp ||
+              "Assigned automatically (N + 7 digits)."
+            }
+          >
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-slate-50 text-slate-700"
+              value={no}
+              readOnly
+              aria-readonly="true"
+              placeholder="Auto"
+              title="Automatically assigned"
+            />
+          </Field>
 
           <Field
             label={C?.modal?.fields?.customerType || "Customer type"}
             icon={Tag}
           >
-<select
-  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-  value={customerType}
-  onChange={(e) => setCustomerType(e.target.value)}
->
-  {typeOptions.map((key) => (
-    <option key={key} value={key}>
-      {typeLabels[key] || key}
-    </option>
-  ))}
-</select>
-
-
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={customerType}
+              onChange={(e) => setCustomerType(e.target.value)}
+            >
+              {typeOptions.map((key) => (
+                <option key={key} value={key}>
+                  {typeLabels[key] || key}
+                </option>
+              ))}
+            </select>
           </Field>
 
           <Field label={C?.modal?.fields?.name || "Name *"} icon={User}>
@@ -1393,108 +1471,115 @@ useEffect(() => {
               onChange={(e) => setHomePage(e.target.value)}
             />
           </Field>
-<Field
-  label={C?.modal?.fields?.billToCustomerNo || "Bill-to Customer No."}
-  icon={IdCard}
->
-  <div className="relative">
-    <input
-      className="w-full rounded-lg border border-slate-300 px-3 py-2"
-      value={billToInput}
-      onChange={(e) => {
-        setBillToInput(e.target.value);
-        setBillToOpen(true);
-      }}
-      onFocus={() => setBillToOpen(true)}
-      onKeyDown={(e) => {
-        if (!billToOpen && (e.key === "ArrowDown" || e.key === "Enter")) {
-          setBillToOpen(true);
-          return;
-        }
-        if (e.key === "Escape") {
-          setBillToOpen(false);
-          return;
-        }
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setBillToHover((i) => Math.min(i + 1, billToOpts.length - 1));
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setBillToHover((i) => Math.max(i - 1, 0));
-        }
-        if (e.key === "Enter" && billToOpen) {
-          e.preventDefault();
-          const pick =
-            billToHover >= 0 ? billToOpts[billToHover] : billToOpts[0];
-          if (pick) {
-            setBillToCustomerNo(pick.no);
-            setBillToInput(`${pick.no} — ${pick.name}`);
-            setBillToOpen(false);
-          }
-        }
-      }}
-      placeholder="Type to search no./name…"
-      aria-autocomplete="list"
-      aria-expanded={billToOpen}
-      aria-controls="billto-listbox"
-      role="combobox"
-    />
+          <Field
+            label={C?.modal?.fields?.billToCustomerNo || "Bill-to Customer No."}
+            icon={IdCard}
+          >
+            <div className="relative">
+              <input
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                value={billToInput}
+                onChange={(e) => {
+                  setBillToInput(e.target.value);
+                  setBillToOpen(true);
+                }}
+                onFocus={() => setBillToOpen(true)}
+                onKeyDown={(e) => {
+                  if (
+                    !billToOpen &&
+                    (e.key === "ArrowDown" || e.key === "Enter")
+                  ) {
+                    setBillToOpen(true);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    setBillToOpen(false);
+                    return;
+                  }
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setBillToHover((i) =>
+                      Math.min(i + 1, billToOpts.length - 1)
+                    );
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setBillToHover((i) => Math.max(i - 1, 0));
+                  }
+                  if (e.key === "Enter" && billToOpen) {
+                    e.preventDefault();
+                    const pick =
+                      billToHover >= 0
+                        ? billToOpts[billToHover]
+                        : billToOpts[0];
+                    if (pick) {
+                      setBillToCustomerNo(pick.no);
+                      setBillToInput(`${pick.no} — ${pick.name}`);
+                      setBillToOpen(false);
+                    }
+                  }
+                }}
+                placeholder="Type to search no./name…"
+                aria-autocomplete="list"
+                aria-expanded={billToOpen}
+                aria-controls="billto-listbox"
+                role="combobox"
+              />
 
-    {/* Clear current selection */}
-    {billToCustomerNo && (
-      <button
-        type="button"
-        onClick={() => {
-          setBillToCustomerNo("");
-          setBillToInput("");
-          setBillToHover(-1);
-          setBillToOpen(false);
-        }}
-        className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-700"
-      >
-        Clear
-      </button>
-    )}
+              {/* Clear current selection */}
+              {billToCustomerNo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBillToCustomerNo("");
+                    setBillToInput("");
+                    setBillToHover(-1);
+                    setBillToOpen(false);
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-500 hover:text-slate-700"
+                >
+                  Clear
+                </button>
+              )}
 
-    {billToOpen && billToOpts.length > 0 && (
-      <ul
-        id="billto-listbox"
-        role="listbox"
-        className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
-      >
-        {billToOpts.map((o, idx) => {
-          const active = idx === billToHover;
-          return (
-            <li
-              key={o._id}
-              role="option"
-              aria-selected={active}
-              className={
-                "cursor-pointer px-3 py-2 text-sm " +
-                (active ? "bg-slate-100" : "hover:bg-slate-50")
-              }
-              onMouseEnter={() => setBillToHover(idx)}
-              onMouseDown={(e) => {
-                // prevent input blur before click handler
-                e.preventDefault();
-              }}
-              onClick={() => {
-                setBillToCustomerNo(o.no);
-                setBillToInput(`${o.no} — ${o.name}`);
-                setBillToOpen(false);
-              }}
-              title={`${o.no} — ${o.name}`}
-            >
-              <div className="font-medium">{o.no}</div>
-              <div className="text-slate-500 text-xs">{o.name}</div>
-            </li>
-          );
-        })}
-      </ul>
-    )}
-  </div>
-</Field>
+              {billToOpen && billToOpts.length > 0 && (
+                <ul
+                  id="billto-listbox"
+                  role="listbox"
+                  className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+                >
+                  {billToOpts.map((o, idx) => {
+                    const active = idx === billToHover;
+                    return (
+                      <li
+                        key={o._id}
+                        role="option"
+                        aria-selected={active}
+                        className={
+                          "cursor-pointer px-3 py-2 text-sm " +
+                          (active ? "bg-slate-100" : "hover:bg-slate-50")
+                        }
+                        onMouseEnter={() => setBillToHover(idx)}
+                        onMouseDown={(e) => {
+                          // prevent input blur before click handler
+                          e.preventDefault();
+                        }}
+                        onClick={() => {
+                          setBillToCustomerNo(o.no);
+                          setBillToInput(`${o.no} — ${o.name}`);
+                          setBillToOpen(false);
+                        }}
+                        title={`${o.no} — ${o.name}`}
+                      >
+                        <div className="font-medium">{o.no}</div>
+                        <div className="text-slate-500 text-xs">{o.name}</div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </Field>
 
           <Field label={C?.modal?.fields?.nip || "NIP"} icon={Hash}>
             <input
@@ -1548,6 +1633,37 @@ useEffect(() => {
               onChange={(e) => setPriority(e.target.value)}
             />
           </Field>
+          <Field
+            label={C?.modal?.fields?.owzSigned || "OWZ signed"}
+            icon={CheckCircle2}
+          >
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={owzSigned ? "yes" : "no"}
+              onChange={(e) => setOwzSigned(e.target.value === "yes")}
+            >
+              <option value="yes">{C?.labels?.yes || "Yes"}</option>
+              <option value="no">{C?.labels?.no || "No"}</option>
+            </select>
+          </Field>
+
+          <Field
+            label={
+              C?.modal?.fields?.umowaRamowaSigned ||
+              "Framework agreement signed"
+            }
+            icon={CheckCircle2}
+          >
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={umowaRamowaSigned ? "yes" : "no"}
+              onChange={(e) => setUmowaRamowaSigned(e.target.value === "yes")}
+            >
+              <option value="yes">{C?.labels?.yes || "Yes"}</option>
+              <option value="no">{C?.labels?.no || "No"}</option>
+            </select>
+          </Field>
+
           <Field
             label={C?.modal?.fields?.paymentMethodCode || "Payment method code"}
             icon={CreditCard}
@@ -1651,37 +1767,41 @@ useEffect(() => {
         </div>
       </div>
 
-{/* PICTURE */}
-<div
-  role="tabpanel"
-  id="panel-picture"
-  aria-labelledby="tab-picture"
-  hidden={tab !== "picture"}
-  className="space-y-4"
->
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-    <Field
-      label={C?.modal?.fields?.picture || "Picture"}
-      icon={Image}
-      iconInside={false}
-      autoHeight
-    >
-      <PictureDrop
-        title={C?.modal?.choosePicture || "Choose picture"}
-        replaceTitle={C?.modal?.replacePicture || "Replace picture"}
-        help={C?.modal?.pictureHelp || "PNG/JPG/WebP • up to ~2 MB • square works best"}
-        previewSrc={!removePicture ? (pictureBase64 || existingPicUrl) : null}
-        onPickFile={(file) => onPickPicture(file)}
-        canRemove={isEdit && !!existingPicUrl}
-        removing={removePicture}
-        onToggleRemove={() => setRemovePicture((v) => !v)}
-        hasNewSelection={Boolean(pictureBase64)}
-        onClearSelection={() => onPickPicture(null)}
-      />
-    </Field>
-  </div>
-</div>
-
+      {/* PICTURE */}
+      <div
+        role="tabpanel"
+        id="panel-picture"
+        aria-labelledby="tab-picture"
+        hidden={tab !== "picture"}
+        className="space-y-4"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field
+            label={C?.modal?.fields?.picture || "Picture"}
+            icon={Image}
+            iconInside={false}
+            autoHeight
+          >
+            <PictureDrop
+              title={C?.modal?.choosePicture || "Choose picture"}
+              replaceTitle={C?.modal?.replacePicture || "Replace picture"}
+              help={
+                C?.modal?.pictureHelp ||
+                "PNG/JPG/WebP • up to ~2 MB • square works best"
+              }
+              previewSrc={
+                !removePicture ? pictureBase64 || existingPicUrl : null
+              }
+              onPickFile={(file) => onPickPicture(file)}
+              canRemove={isEdit && !!existingPicUrl}
+              removing={removePicture}
+              onToggleRemove={() => setRemovePicture((v) => !v)}
+              hasNewSelection={Boolean(pictureBase64)}
+              onClearSelection={() => onPickPicture(null)}
+            />
+          </Field>
+        </div>
+      </div>
 
       {/* Actions */}
       <div className="flex justify-end gap-2 pt-2">
@@ -1702,6 +1822,33 @@ useEffect(() => {
         </button>
       </div>
     </form>
+  );
+}
+
+function BoolIcon({ value, variant = "default" }) {
+  const base =
+    "inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs";
+
+  if (value) {
+    return (
+      <span
+        className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"}
+        title="Yes"
+      >
+        ✓
+      </span>
+    );
+  }
+
+  const falseClass =
+    variant === "danger"
+      ? " border-red-200 bg-red-50 text-red-500" // light red ✕
+      : " border-slate-200 bg-slate-50 text-slate-400"; // default grey ✕
+
+  return (
+    <span className={base + falseClass} title="No">
+      ✕
+    </span>
   );
 }
 
@@ -1753,7 +1900,11 @@ function PictureDrop({
         <div className="shrink-0">
           <div className="w-24 h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-50 flex items-center justify-center">
             {previewSrc && !removing ? (
-              <img src={previewSrc} alt="" className="w-full h-full object-cover" />
+              <img
+                src={previewSrc}
+                alt=""
+                className="w-full h-full object-cover"
+              />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-400 text-xs">
                 <ImageIcon size={22} />
@@ -1814,8 +1965,6 @@ function PictureDrop({
   );
 }
 
-
-
 function Field({
   label,
   icon: Icon,
@@ -1858,4 +2007,3 @@ function Field({
     </label>
   );
 }
-
