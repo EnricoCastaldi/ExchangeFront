@@ -36,7 +36,46 @@ const MENU_REGISTRY = {
 
   ITEM: { key: "ITEM", icon: Sprout, to: "/app/items" },
   LOCATIONS: { key: "LOCATIONS", icon: MapPin, to: "/app/locations" },
-  TRANSPORTS: { key: "TRANSPORTS", icon: Truck, to: "/app/transports" },
+    TRANSPORTS: { key: "TRANSPORTS", icon: Truck, to: "/app/transports" },
+
+  // Transports submenu
+  TRANSPORTS_MAIN: {
+    key: "TRANSPORTS_MAIN",
+    icon: Truck,
+    to: "/app/transports",
+    parent: "TRANSPORTS",
+  },
+  DEFAULT_TRANSPORTS: {
+    key: "DEFAULT_TRANSPORTS",
+    icon: BadgeCheck,
+    to: "/app/default-transports",
+    parent: "TRANSPORTS",
+  },
+
+  // NEW: Transport Units submenu item (Środek transportu)
+  TRANSPORT_UNITS: {
+    key: "TRANSPORT_UNITS",
+    icon: Truck,
+    to: "/app/transport-units",
+    parent: "TRANSPORTS",
+  },
+
+  // NEW: Drivers submenu item
+  DRIVERS: {
+    key: "DRIVERS",
+    icon: Users,
+    to: "/app/drivers",
+    parent: "TRANSPORTS",
+  },
+
+  // NEW: Speditors submenu item
+  SPEDITORS: {
+    key: "SPEDITORS",
+    icon: Truck,
+    to: "/app/speditors",
+    parent: "TRANSPORTS",
+  },
+
 
   // Items submenu
   ITEM_MAIN: { key: "ITEM_MAIN", icon: Sprout, to: "/app/items", parent: "ITEM" },
@@ -134,6 +173,9 @@ const GROUPS = [
       "TRANSPORTS",
       "TRANSPORTS_MAIN",
       "DEFAULT_TRANSPORTS",
+      "TRANSPORT_UNITS",
+      "DRIVERS",
+      "SPEDITORS",
 
       "PARAMETERS",
     ],
@@ -294,14 +336,9 @@ export default function Sidebar({ onLogout }) {
                       compact ? "justify-center" : "justify-start",
                     ].join(" ")}
                     onClick={() => {
-                      if (!isOpen) {
-                        toggleExclusive(key);
-                      } else {
-                        const main =
-                          kids.find((m) => m.key?.endsWith?.("_MAIN")) || kids[0];
-                        if (main?.to) navigate(main.to);
-                      }
-                    }}
+  // Toggle this parent exclusively: if open -> close all, if closed -> open this one
+  toggleExclusive(key);
+}}
                     title={compact ? parentLabel : undefined}
                     aria-expanded={isOpen}
                   >

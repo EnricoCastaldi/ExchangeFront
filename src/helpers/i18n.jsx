@@ -20,6 +20,9 @@ const T = {
       LOCATIONS: "LOKALIZACJE",
       TRANSPORTS: "TRANSPORT",
       DEFAULT_TRANSPORTS: "DOMYŚLNE TRANSPORTY",
+      DRIVERS: "KIEROWCY",
+      TRANSPORT_UNITS: "ŚRODKI TRANSPORTU",
+      SPEDITORS: "SPEDYTORZY",
       DEFAULT_ITEM_PARAMETERS: "DOMYŚLNE PARAMETRY PRODUKTU",
       SALES_LINE_PARAMETERS: "PARAM.WIERSZA SPRZEDAŻY",
       PURCHASE_OFFER_LINES: "WIER. OFERT ZAKUPU",
@@ -206,6 +209,130 @@ const T = {
         no: "Nie",
       },
     },
+    speditors: {
+  title: "Spedytorzy / kontrahenci",
+  controls: {
+    searchPlaceholder: "Szukaj: numer PRZ, typ",
+    searchBtn: "Szukaj",
+    addBtn: "Dodaj spedytora",
+    allTypes: "Wszystkie typy",
+    typeLabel: "Typ",
+  },
+  table: {
+    no: "Nr",
+    type: "Typ",
+    created: "Utworzono",
+    actions: "",
+    loading: "Ładowanie…",
+    empty: "Brak spedytorów",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    no: "Nr",
+    type: "Typ",
+    created: "Utworzono",
+    updated: "Zaktualizowano",
+  },
+  modal: {
+    titleNew: "Dodaj spedytora",
+    titleEdit: "Edytuj spedytora",
+    add: "Dodaj",
+    save: "Zapisz",
+    cancel: "Anuluj",
+    fields: {
+      no: "Nr",
+      type: "Typ *",
+    },
+    required: "Uzupełnij wymagane pola.",
+    noHelp:
+      "Numer jest nadawany automatycznie i nie może być zmieniony.",
+  },
+  alerts: {
+    loadFail: "Nie udało się wczytać spedytorów.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć tego spedytora?",
+    deleted: "Usunięto.",
+    created: "Utworzono.",
+    updated: "Zaktualizowano.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz",
+    next: "Dalej",
+  },
+  a11y: {
+    toggleDetails: "Pokaż/ukryj szczegóły",
+  },
+},
+
+transportUnits: {
+  title: "Środki transportu",
+  controls: {
+    searchPlaceholder:
+      "Szukaj: Nr, nr rejestracyjny, typ",
+    searchBtn: "Szukaj",
+    addBtn: "Dodaj środek transportu",
+    allTypes: "Wszystkie typy",
+    typeLabel: "Typ",
+  },
+  table: {
+    no: "Nr",
+    registrationNo: "Nr rejestracyjny",
+    type: "Typ",
+    created: "Utworzono",
+    actions: "",
+    loading: "Ładowanie…",
+    empty: "Brak środków transportu",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    no: "Nr",
+    registrationNo: "Nr rejestracyjny",
+    type: "Typ",
+    created: "Utworzono",
+    updated: "Zaktualizowano",
+  },
+  modal: {
+    titleNew: "Dodaj środek transportu",
+    titleEdit: "Edytuj środek transportu",
+    add: "Dodaj",
+    save: "Zapisz",
+    cancel: "Anuluj",
+    fields: {
+      no: "Nr (auto)",
+      registrationNo:
+        "Nr rejestracyjny (6–8 znaków, bez spacji) *",
+      type: "Typ *",
+    },
+    required: "Uzupełnij wymagane pola.",
+    invalidReg:
+      "Numer rejestracyjny musi mieć 6–8 znaków i nie może zawierać spacji.",
+    noHelp:
+      "Numer jest nadawany automatycznie przy zapisie.",
+  },
+  alerts: {
+    loadFail: "Nie udało się wczytać środków transportu.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć ten środek transportu?",
+    deleted: "Usunięto.",
+    created: "Utworzono.",
+    updated: "Zaktualizowano.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz",
+    next: "Dalej",
+  },
+  a11y: {
+    toggleDetails: "Pokaż/ukryj szczegóły",
+  },
+},
 
     settings: {
       title: "Ustawienia ogólne",
@@ -216,6 +343,80 @@ const T = {
       loadFail: "Błąd ładowania ustawień.",
       validation: "Wprowadź poprawną, nieujemną kwotę.",
     },
+
+    drivers: {
+  title: "Kierowcy",
+  controls: {
+    searchPlaceholder:
+      "Szukaj: nr KIE, nr dowodu, telefon, email",
+    searchBtn: "Szukaj",
+    addBtn: "Dodaj kierowcę",
+  },
+  table: {
+    no: "Nr",
+    idCardNumber: "Numer dowodu",
+    validFrom: "Ważny od",
+    validTo: "Ważny do",
+    phoneNo: "Telefon",
+    email: "Email",
+    created: "Utworzono",
+    actions: "",
+    loading: "Ładowanie…",
+    empty: "Brak kierowców",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    no: "Nr",
+    idCardNumber: "Numer dowodu",
+    validFrom: "Ważny od",
+    validTo: "Ważny do",
+    phoneNo: "Telefon",
+    email: "Email",
+    created: "Utworzono",
+    updated: "Zaktualizowano",
+  },
+  modal: {
+    titleNew: "Dodaj kierowcę",
+    titleEdit: "Edytuj kierowcę",
+    add: "Dodaj",
+    save: "Zapisz",
+    cancel: "Anuluj",
+    fields: {
+      no: "Nr",
+      idCardNumber: "Numer dowodu *",
+      validFrom: "Ważny od *",
+      validTo: "Ważny do *",
+      phoneNo: "Telefon",
+      email: "Email",
+    },
+    required: "Uzupełnij wymagane pola.",
+    invalidDates:
+      '"Ważny od" musi być wcześniejsza lub równa polu "Ważny do".',
+    invalidEmail: "Nieprawidłowy adres e-mail.",
+    noHelp:
+      "Numer jest nadawany automatycznie i nie może być zmieniony.",
+  },
+  alerts: {
+    loadFail: "Nie udało się wczytać kierowców.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć tego kierowcę?",
+    deleted: "Usunięto.",
+    created: "Utworzono.",
+    updated: "Zaktualizowano.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+    prev: "Wstecz",
+    next: "Dalej",
+  },
+  a11y: {
+    toggleDetails: "Pokaż/ukryj szczegóły",
+  },
+},
+
     buys: {
       locale: "pl-PL",
       title: "Dokumenty zakupu",
@@ -1958,6 +2159,9 @@ const T = {
       LOCATIONS: "LOCATIONS",
       TRANSPORTS: "TRANSPORTS",
       DEFAULT_TRANSPORTS: "DEFAULT TRANSPORTS",
+      DRIVERS: "DRIVERS",
+      TRANSPORT_UNITS: "TRANSPORT UNITS",
+      SPEDITORS: "SPEDITORS",
       PURCHASE_LINE_PARAMETERS: "PURCHASE LINE PARAM.",
       PURCHASE_OFFER_LINES: "PURCHASE OFFER LINES",
       DEFAULT_ITEM_PARAMETERS: "DEFAULT ITEM PARAMETERS",
@@ -2230,6 +2434,145 @@ const T = {
         sort: "Sort",
       },
     },
+
+    drivers: {
+  title: "Drivers",
+  controls: {
+    searchPlaceholder:
+      "Search: KIE no, ID card, phone, email",
+    searchBtn: "Search",
+    addBtn: "Add driver",
+  },
+  table: {
+    no: "No.",
+    idCardNumber: "ID card number",
+    validFrom: "Valid from",
+    validTo: "Valid to",
+    phoneNo: "Phone",
+    email: "Email",
+    created: "Created",
+    actions: "",
+    loading: "Loading…",
+    empty: "No drivers",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    no: "No.",
+    idCardNumber: "ID card number",
+    validFrom: "Valid from",
+    validTo: "Valid to",
+    phoneNo: "Phone",
+    email: "Email",
+    created: "Created",
+    updated: "Updated",
+  },
+  modal: {
+    titleNew: "Add driver",
+    titleEdit: "Edit driver",
+    add: "Add",
+    save: "Save",
+    cancel: "Cancel",
+    fields: {
+      no: "No.",
+      idCardNumber: "ID card number *",
+      validFrom: "Valid from *",
+      validTo: "Valid to *",
+      phoneNo: "Phone",
+      email: "Email",
+    },
+    required: "Please fill required fields.",
+    invalidDates:
+      '"Valid from" must be earlier than or equal to "Valid to".',
+    invalidEmail: "Invalid email address.",
+    noHelp:
+      "Number is assigned automatically and cannot be changed.",
+  },
+  alerts: {
+    loadFail: "Failed to load drivers.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this driver?",
+    deleted: "Deleted.",
+    created: "Created.",
+    updated: "Updated.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev",
+    next: "Next",
+  },
+  a11y: {
+    toggleDetails: "Toggle details",
+  },
+},
+
+transportUnits: {
+  title: "Transport units",
+  controls: {
+    searchPlaceholder:
+      "Search: No., registration no, type",
+    searchBtn: "Search",
+    addBtn: "Add transport unit",
+    allTypes: "All types",
+    typeLabel: "Type",
+  },
+  table: {
+    no: "No.",
+    registrationNo: "Registration No.",
+    type: "Type",
+    created: "Created",
+    actions: "",
+    loading: "Loading…",
+    empty: "No transport units",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    no: "No.",
+    registrationNo: "Registration No.",
+    type: "Type",
+    created: "Created",
+    updated: "Updated",
+  },
+  modal: {
+    titleNew: "Add transport unit",
+    titleEdit: "Edit transport unit",
+    add: "Add",
+    save: "Save",
+    cancel: "Cancel",
+    fields: {
+      no: "No. (auto)",
+      registrationNo:
+        "Registration No. (6–8 chars, no spaces) *",
+      type: "Type *",
+    },
+    required: "Please fill required fields.",
+    invalidReg:
+      "Registration number must be 6–8 characters with no spaces.",
+    noHelp:
+      "Number is assigned automatically when saving.",
+  },
+  alerts: {
+    loadFail: "Failed to load transport units.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this transport unit?",
+    deleted: "Deleted.",
+    created: "Created.",
+    updated: "Updated.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev",
+    next: "Next",
+  },
+  a11y: {
+    toggleDetails: "Toggle details",
+  },
+},
 
     buys: {
       locale: "en-US",
@@ -3000,6 +3343,65 @@ const T = {
         form: { fixErrors: "Please correct the highlighted fields." },
       },
     },
+speditors: {
+  title: "Speditors (forwarders / parties)",
+  controls: {
+    searchPlaceholder: "Search: PRZ no., type",
+    searchBtn: "Search",
+    addBtn: "Add speditor",
+    allTypes: "All types",
+    typeLabel: "Type",
+  },
+  table: {
+    no: "No.",
+    type: "Type",
+    created: "Created",
+    actions: "",
+    loading: "Loading…",
+    empty: "No speditors",
+    dash: "—",
+  },
+  details: {
+    id: "ID",
+    no: "No.",
+    type: "Type",
+    created: "Created",
+    updated: "Updated",
+  },
+  modal: {
+    titleNew: "Add speditor",
+    titleEdit: "Edit speditor",
+    add: "Add",
+    save: "Save",
+    cancel: "Cancel",
+    fields: {
+      no: "No.",
+      type: "Type *",
+    },
+    required: "Please fill required fields.",
+    noHelp:
+      "Number is assigned automatically and cannot be changed.",
+  },
+  alerts: {
+    loadFail: "Failed to load speditors.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this speditor?",
+    deleted: "Deleted.",
+    created: "Created.",
+    updated: "Updated.",
+  },
+  footer: {
+    meta: (total, page, pages) =>
+      `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+    prev: "Prev",
+    next: "Next",
+  },
+  a11y: {
+    toggleDetails: "Toggle details",
+  },
+},
+
 
     BUYERS: {
       controls: {

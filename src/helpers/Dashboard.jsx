@@ -33,6 +33,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import Locations from "../pages/Locations";
 import Transports from "../pages/Transports";
 import DefaultTransports from "../pages/DefaultTransports";
+
 import DefaultLocations from "../pages/DefaultLocations"; 
 import DefaultItemParameters from "../pages/DefaultItemParameters";
 import SalesLineParameters from "../pages/SalesLineParameters";
@@ -42,6 +43,9 @@ import PurchaseOfferLines from "../pages/PurchaseOfferLines";
 import Agreements from "../pages/Agreements";
 import { useI18n } from "./i18n";
 import Settings from "../pages/Settings";
+import TransportUnits from "../pages/TransportUnits";
+import Drivers from "../pages/Drivers";
+import Speditors from "../pages/Speditors";
 
 // Helper: title-case fallback labels and strip underscores
 const toTitle = (s) =>
@@ -70,6 +74,9 @@ const HEADER_ICONS = {
   LOCATIONS: MapPin,
   DEFAULT_ITEM_PARAMETERS: BadgeCheck,
   TRANSPORTS: Truck,
+  TRANSPORT_UNITS: Truck,
+  DRIVERS: UsersIcon,
+  SPEDITORS: Truck,
   PARAMETERS: SlidersHorizontal,
   DEFAULT_TRANSPORTS: BadgeCheck,
   DEFAULT_LOCATIONS: BadgeCheck, 
@@ -93,7 +100,10 @@ const PATH_TO_KEY = {
   "/app/sales-offer-lines": "SALES_OFFER_LINES",
   "/app/locations": "LOCATIONS",
   "/app/transports": "TRANSPORTS",
-   "/app/parameters": "PARAMETERS",
+  "/app/transport-units": "TRANSPORT_UNITS",
+  "/app/drivers": "DRIVERS",
+  "/app/speditors": "SPEDITORS",
+  "/app/parameters": "PARAMETERS",
   "/app/default-transports": "DEFAULT_TRANSPORTS",
   "/app/default-locations": "DEFAULT_LOCATIONS",
   "/app/sales-line-parameters": "SALES_LINE_PARAMETERS",
@@ -247,7 +257,10 @@ export default function Dashboard({ onLogout }) {
             <Route path="parameters" element={<Parameters />} />
             <Route path="transports" element={<Transports />} />
             <Route path="default-transports" element={<DefaultTransports />} />
-            <Route path="default-locations" element={<DefaultLocations />} /> {/* <-- ADD THIS */}
+            <Route path="transport-units" element={<TransportUnits />} />
+            <Route path="drivers" element={<Drivers />} />
+            <Route path="speditors" element={<Speditors />} />
+            <Route path="default-locations" element={<DefaultLocations />} />
             <Route path="agreements" element={<Agreements />} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
