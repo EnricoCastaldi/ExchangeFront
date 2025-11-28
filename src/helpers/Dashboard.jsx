@@ -34,7 +34,7 @@ import Locations from "../pages/Locations";
 import Transports from "../pages/Transports";
 import DefaultTransports from "../pages/DefaultTransports";
 
-import DefaultLocations from "../pages/DefaultLocations"; 
+import DefaultLocations from "../pages/DefaultLocations";
 import DefaultItemParameters from "../pages/DefaultItemParameters";
 import SalesLineParameters from "../pages/SalesLineParameters";
 import SalesOfferLines from "../pages/SalesOfferLines";
@@ -46,14 +46,18 @@ import Settings from "../pages/Settings";
 import TransportUnits from "../pages/TransportUnits";
 import Drivers from "../pages/Drivers";
 import Speditors from "../pages/Speditors";
+import PurchaseOfferLinesBlocks from "../pages/PurchaseOfferLinesBlocks";
+import SalesOfferLinesBlocks from "../pages/SalesOfferLinesBlocks";
 
 // Helper: title-case fallback labels and strip underscores
 const toTitle = (s) =>
-  s.toLocaleLowerCase().replace(/(^|[\s_-])(\p{L})/gu, (_, a, b) => a + b.toLocaleUpperCase());
+  s
+    .toLocaleLowerCase()
+    .replace(/(^|[\s_-])(\p{L})/gu, (_, a, b) => a + b.toLocaleUpperCase());
 
 const labelize = (t, key) => {
   const raw = t?.menu?.[key];
-  if (raw) return raw;                 // ← trust your i18n text
+  if (raw) return raw; // ← trust your i18n text
   return toTitle(String(key).replace(/_/g, " "));
 };
 
@@ -79,8 +83,10 @@ const HEADER_ICONS = {
   SPEDITORS: Truck,
   PARAMETERS: SlidersHorizontal,
   DEFAULT_TRANSPORTS: BadgeCheck,
-  DEFAULT_LOCATIONS: BadgeCheck, 
+  DEFAULT_LOCATIONS: BadgeCheck,
   SALES_LINE_PARAMETERS: SlidersHorizontal,
+  PURCHASE_OFFER_LINE_BLOCKS: FileText,
+  SALES_OFFER_LINE_BLOCKS: FileText,
 };
 
 const PATH_TO_KEY = {
@@ -88,16 +94,18 @@ const PATH_TO_KEY = {
   "/app/contacts": "CONTACTS",
   "/app/buyers": "BUYERS",
   "/app/users": "USERS",
-  "/app/settings": "SETTINGS", 
+  "/app/settings": "SETTINGS",
   "/app/items": "ITEM",
   "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
   "/app/vendors": "VENDORS",
   "/app/agreements": "AGREEMENTS",
   "/app/buy": "BUY",
   "/app/purchase-line-parameters": "PURCHASE_LINE_PARAMETERS",
+  "/app/purchase-offer-lines-blocks": "PURCHASE_OFFER_LINE_BLOCKS",
   "/app/purchase-offer-lines": "PURCHASE_OFFER_LINES",
   "/app/sell": "SELL",
   "/app/sales-offer-lines": "SALES_OFFER_LINES",
+  "/app/sales-offer-lines-blocks": "SALES_OFFER_LINE_BLOCKS",
   "/app/locations": "LOCATIONS",
   "/app/transports": "TRANSPORTS",
   "/app/transport-units": "TRANSPORT_UNITS",
@@ -111,9 +119,14 @@ const PATH_TO_KEY = {
 
 function useActiveKey() {
   const { pathname } = useLocation();
-  const match = Object.keys(PATH_TO_KEY).find((p) => pathname.startsWith(p));
+
+  const match = Object.keys(PATH_TO_KEY)
+    .sort((a, b) => b.length - a.length) // more specific (longer) paths first
+    .find((p) => pathname.startsWith(p));
+
   return match ? PATH_TO_KEY[match] : "EXCHANGE";
 }
+
 
 // read the session saved by Login.jsx
 function useSession() {
@@ -250,9 +263,12 @@ export default function Dashboard({ onLogout }) {
             <Route path="contacts" element={<Contacts />} />
             <Route path="buyers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />
-            <Route path="settings" element={<Settings />} /> 
+            <Route path="settings" element={<Settings />} />
             <Route path="items" element={<Items />} />
-            <Route path="default-item-parameters" element={<DefaultItemParameters />} />
+            <Route
+              path="default-item-parameters"
+              element={<DefaultItemParameters />}
+            />
             <Route path="locations" element={<Locations />} />
             <Route path="parameters" element={<Parameters />} />
             <Route path="transports" element={<Transports />} />
@@ -264,11 +280,38 @@ export default function Dashboard({ onLogout }) {
             <Route path="agreements" element={<Agreements />} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
-            <Route path="purchase-line-parameters" element={<PurchaseLineParameters />} />
-            <Route path="purchase-offer-lines" element={<PurchaseOfferLines />} /> 
+            <Route
+              path="purchase-line-parameters"
+              element={<PurchaseLineParameters />}
+            />
+            <Route
+              path="purchase-offer-lines"
+              element={<PurchaseOfferLines />}
+            />
+            <Route
+              path="purchase-offer-lines"
+              element={<PurchaseOfferLines />}
+            />
+
+            <Route
+              path="purchase-offer-lines"
+              element={<PurchaseOfferLines />}
+            />
+            <Route
+              path="purchase-offer-lines-blocks"
+              element={<PurchaseOfferLinesBlocks />}
+            />
+
             <Route path="sell" element={<Sell />} />
             <Route path="sales-offer-lines" element={<SalesOfferLines />} />
-              <Route path="sales-line-parameters" element={<SalesLineParameters />} />
+            <Route
+              path="sales-line-parameters"
+              element={<SalesLineParameters />}
+            />
+              <Route
+             path="sales-offer-lines-blocks"
+             element={<SalesOfferLinesBlocks />}
+           />
             <Route path="*" element={<Navigate to="exchange" replace />} />
           </Routes>
         </main>

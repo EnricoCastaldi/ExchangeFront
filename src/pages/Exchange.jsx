@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, ChevronUp, ChevronDown, Search } from "lucide-react";
-import { ListOrdered, Scale, Banknote } from "lucide-react";
-import { ArrowLeftRight } from "lucide-react";
+import { ListOrdered, Scale, Banknote, ArrowLeftRight } from "lucide-react";
 import { useI18n, fmtMoney, fmtNum } from "../helpers/i18n";
 
 const API =
@@ -10,7 +9,7 @@ const API =
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
 
-/* ---------- helpers ---------- */
+/* ---------- helpers: HTTP ---------- */
 async function readBodyAsText(res) {
   try {
     return await res.text();
@@ -33,7 +32,10 @@ async function safeJson(res, url) {
   return res.json();
 }
 
-// Normalize purchase/sales *block* rows into a common shape
+/**
+ * Normalize purchase/sales *block* rows into a common shape.
+ * Includes `block` and a best-effort `region` used for transport costs.
+ */
 function normalizeBlockRow(r, side) {
   const partyBuy =
     r.buyVendorName || r.payVendorName || r.locationName || r.vendor_name || r.party || r.documentNo || "—";
@@ -41,6 +43,16 @@ function normalizeBlockRow(r, side) {
     r.sellCustomerName || r.billCustomerName || r.locationName || r.customer_name || r.party || r.documentNo || "—";
 
   const blockVal = r.block != null ? Number(r.block) : null;
+
+  // Try to derive a region for transport matrix (adapt to your backend fields as needed)
+  const region =
+    r.locationRegion ||
+    r.buyVendorRegion ||
+    r.sellCustomerRegion ||
+    r.vendorRegion ||
+    r.customerRegion ||
+    r.region ||
+    null;
 
   return {
     lineNo: Number(r.lineNo ?? r.documentLineNo ?? r.line_no ?? r.line_number ?? r.id ?? 0),
@@ -57,6 +69,8 @@ function normalizeBlockRow(r, side) {
     // expose numeric block explicitly
     block: Number.isFinite(blockVal) ? blockVal : null,
 
+    region, // <-- used for transport matrix
+
     type: (r.lineType || r.type || "item").toString().toLowerCase(),
     quantity: Number(r.quantity) || 0,
     price: Number(r.unitPrice ?? r.price) || 0,
@@ -65,7 +79,6 @@ function normalizeBlockRow(r, side) {
     documentNo: r.documentNo || r.doc_no || "—",
   };
 }
-
 
 // Endpoints
 const ENDPOINT = {
@@ -107,8 +120,7 @@ export default function Exchange() {
   const [errMsg, setErrMsg] = useState("");
 
   const [bAllRows, setBAllRows] = useState([]);
-const [sAllRows, setSAllRows] = useState([]);
-
+  const [sAllRows, setSAllRows] = useState([]);
 
   // Load catalog once (optional)
   useEffect(() => {
@@ -126,23 +138,22 @@ const [sAllRows, setSAllRows] = useState([]);
   }, []);
 
   // ---- Fetch helpers: ONLY itemNo filter is used ----
-const buildParams = (side) => {
-  const isBuy = side === "buy";
-  const params = new URLSearchParams({
-    page: String(isBuy ? bPage : sPage),
-    limit: String(isBuy ? bLimit : sLimit),
-  });
+  const buildParams = (side) => {
+    const isBuy = side === "buy";
+    const params = new URLSearchParams({
+      page: String(isBuy ? bPage : sPage),
+      limit: String(isBuy ? bLimit : sLimit),
+    });
 
-  const itemKey = isBuy ? bItemKey : sItemKey; // this is itemNo
-  if (itemKey) {
-    // Send the param your backend expects. Keep both if unsure; extra params are usually ignored.
-    params.set("itemNo", String(itemKey));
-    params.set("query", String(itemKey));
-  }
+    const itemKey = isBuy ? bItemKey : sItemKey; // this is itemNo
+    if (itemKey) {
+      // Send the param your backend expects. Keep both if unsure; extra params are usually ignored.
+      params.set("itemNo", String(itemKey));
+      params.set("query", String(itemKey));
+    }
 
-  return params;
-};
-
+    return params;
+  };
 
   const fetchColumn = async (side) => {
     setErrMsg("");
@@ -165,54 +176,54 @@ const buildParams = (side) => {
     }
   };
 
-const fetchTotalsAndFacets = async (side) => {
-  const isBuy = side === "buy";
-  const params = buildParams(side);
-  params.set("page", "1");
-  params.set("limit", "10000"); // load BIG page for 'all rows' cache used by matcher
+  const fetchTotalsAndFacets = async (side) => {
+    const isBuy = side === "buy";
+    const params = buildParams(side);
+    params.set("page", "1");
+    params.set("limit", "10000"); // load BIG page for 'all rows' cache used by matcher
 
-  const ep = isBuy ? ENDPOINT.buy : ENDPOINT.sell;
-  const url = `${API}/api/${ep}?${params.toString()}`;
+    const ep = isBuy ? ENDPOINT.buy : ENDPOINT.sell;
+    const url = `${API}/api/${ep}?${params.toString()}`;
 
-  try {
-    const res = await fetch(url);
-    const json = await safeJson(res, url);
-    const norm = (json?.data || []).map((r) => normalizeBlockRow(r, side));
+    try {
+      const res = await fetch(url);
+      const json = await safeJson(res, url);
+      const norm = (json?.data || []).map((r) => normalizeBlockRow(r, side));
 
-    // cache ALL rows for the matcher
-    if (isBuy) setBAllRows(norm);
-    else setSAllRows(norm);
+      // cache ALL rows for the matcher
+      if (isBuy) setBAllRows(norm);
+      else setSAllRows(norm);
 
-    // totals
-    const sum = sumUp(norm);
-    if (isBuy) setBTotals(sum);
-    else setSTotals(sum);
+      // totals
+      const sum = sumUp(norm);
+      if (isBuy) setBTotals(sum);
+      else setSTotals(sum);
 
-    // facets: list of itemNo values present in current dataset
-    const itemSet = new Set();
-    for (const x of norm) {
-      const name = String(x.item_name || "").trim();
-      if (name) itemSet.add(name);
+      // facets: list of itemNo values present in current dataset
+      const itemSet = new Set();
+      for (const x of norm) {
+        const name = String(x.item_name || "").trim();
+        if (name) itemSet.add(name);
+      }
+      const facetItems = Array.from(itemSet)
+        .sort()
+        .map((name) => ({ key: name, name }));
+
+      if (isBuy) setBFacets({ items: facetItems });
+      else setSFacets({ items: facetItems });
+    } catch (e) {
+      console.error(e);
+      if (isBuy) {
+        setBTotals({ count: 0, qty: 0, notional: 0 });
+        setBFacets({ items: [] });
+        setBAllRows([]);
+      } else {
+        setSTotals({ count: 0, qty: 0, notional: 0 });
+        setSFacets({ items: [] });
+        setSAllRows([]);
+      }
     }
-    const facetItems = Array.from(itemSet)
-      .sort()
-      .map((name) => ({ key: name, name }));
-
-    if (isBuy) setBFacets({ items: facetItems });
-    else setSFacets({ items: facetItems });
-  } catch (e) {
-    console.error(e);
-    if (isBuy) {
-      setBTotals({ count: 0, qty: 0, notional: 0 });
-      setBFacets({ items: [] });
-      setBAllRows([]);
-    } else {
-      setSTotals({ count: 0, qty: 0, notional: 0 });
-      setSFacets({ items: [] });
-      setSAllRows([]);
-    }
-  }
-};
+  };
 
   const reloadBuy = async () => {
     await fetchColumn("buy");
@@ -293,7 +304,7 @@ const fetchTotalsAndFacets = async (side) => {
         <div>
           {EX.topbar.lastUpdate}: <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
         </div>
-        
+
         <div className="flex items-center gap-2">
           {EX.topbar.nextIn} <b>{countdown}s</b>
           <button
@@ -308,18 +319,17 @@ const fetchTotalsAndFacets = async (side) => {
         </div>
       </div>
 
-            {/* Matches: Buy ↔ Sell (buy.price ≤ sell.price) */}
-<div className="mt-4">
-  <MatchesTable
-    buyAllRows={bAllRows}
-    sellAllRows={sAllRows}
-    itemKey={bItemKey || sItemKey}
-    labels={C}
-    locale={locale}
-    stats={EX.stats}
-  />
-</div>
-
+      {/* Matches: Buy ↔ Sell (Hungarian-based) */}
+      <div className="mt-4">
+        <MatchesTable
+          buyAllRows={bAllRows}
+          sellAllRows={sAllRows}
+          itemKey={bItemKey || sItemKey}
+          labels={C}
+          locale={locale}
+          stats={EX.stats}
+        />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* BUY column */}
@@ -370,7 +380,6 @@ const fetchTotalsAndFacets = async (side) => {
           }}
         />
       </div>
-
     </div>
   );
 }
@@ -379,7 +388,7 @@ const fetchTotalsAndFacets = async (side) => {
 function Column({
   title,
   side,
-  itemKey,      // itemNo
+  itemKey, // itemNo
   setItemKey,
   rows,
   page,
@@ -392,13 +401,13 @@ function Column({
   onRefresh,
   locale,
   labels, // C
-  stats,  // EX.stats
+  stats, // EX.stats
   facetsItems = [],
 }) {
   // Filter by selected item (matches normalized `item_name`, which comes from itemNo)
   const filteredData = useMemo(() => {
     const arr = rows?.data || [];
-    return itemKey ? arr.filter(r => String(r.item_name) === String(itemKey)) : arr;
+    return itemKey ? arr.filter((r) => String(r.item_name) === String(itemKey)) : arr;
   }, [rows, itemKey]);
 
   // Sort after filtering
@@ -623,7 +632,6 @@ function Column({
   );
 }
 
-
 /* ===================== UI bits ===================== */
 function Header({ title, totals, locale, stats }) {
   const { count = 0, qty = 0, notional = 0 } = totals || {};
@@ -664,7 +672,13 @@ function SortableTh({ label, sortKey, sort, onSort, className = "" }) {
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        {active ? (sort.dir === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : (
+        {active ? (
+          sort.dir === "asc" ? (
+            <ChevronUp size={14} />
+          ) : (
+            <ChevronDown size={14} />
+          )
+        ) : (
           <span className="opacity-30">
             <ChevronUp size={14} />
           </span>
@@ -740,69 +754,272 @@ function getVal(row, key) {
   }
 }
 
-function buildMatches(buyRows = [], sellRows = [], { itemKey = "" } = {}) {
-  const buys = (buyRows || []).filter(b => (itemKey ? String(b.item_name) === String(itemKey) : true));
-  const sells = (sellRows || []).filter(s => (itemKey ? String(s.item_name) === String(itemKey) : true));
+/* ===================== Hungarian-based matching ===================== */
 
-  const sellsByItem = new Map();
-  for (const s of sells) {
-    if (!sellsByItem.has(s.item_name)) sellsByItem.set(s.item_name, []);
-    sellsByItem.get(s.item_name).push({ row: s, remaining: Number(s.quantity) || 0 });
+/**
+ * Compute unit profit between a buy block and a sell block.
+ * Formula:
+ *   profit = sellPrice - buyPrice - transportCost(fromRegion -> toRegion)
+ */
+function computeProfitParts(b, s, transportMatrix) {
+  const buyPrice = Number(b.price) || 0;
+  const sellPrice = Number(s.price) || 0;
+
+  // Regions from normalized rows (best-effort)
+  const fromRegion =
+    b.region ||
+    b.buyVendorRegion ||
+    b.locationRegion ||
+    b.vendor_region ||
+    null;
+
+  const toRegion =
+    s.region ||
+    s.sellCustomerRegion ||
+    s.locationRegion ||
+    s.customer_region ||
+    null;
+
+  // Example default matrix (your Excel example)
+  // From \ To:   A     B     C
+  // A          10    25    30
+  // B          20    10    35
+  const defaultTransportMatrix = {
+    A: { A: 10, B: 25, C: 30 },
+    B: { A: 20, B: 10, C: 35 },
+  };
+
+  const matrix = transportMatrix || defaultTransportMatrix;
+  let transportCost = 0;
+  if (fromRegion && toRegion && matrix[fromRegion] && matrix[fromRegion][toRegion] != null) {
+    transportCost = Number(matrix[fromRegion][toRegion]) || 0;
   }
-  for (const arr of sellsByItem.values()) {
-    arr.sort((a, b) => (Number(a.row.price) || 0) - (Number(b.row.price) || 0));
+
+  const profit = sellPrice - buyPrice - transportCost;
+  return { profit, transportCost, fromRegion, toRegion };
+}
+
+/**
+ * Hungarian algorithm (minimization) for a square cost matrix.
+ * Returns array `assignment` where assignment[i] = j (column index) or -1.
+ */
+function hungarian(costMatrix) {
+  const nRows = costMatrix.length;
+  if (!nRows) return [];
+  const nCols = costMatrix[0].length;
+  const n = Math.max(nRows, nCols);
+
+  // Make matrix square with padding
+  let maxCost = 0;
+  for (let i = 0; i < nRows; i++) {
+    for (let j = 0; j < nCols; j++) {
+      if (costMatrix[i][j] > maxCost) maxCost = costMatrix[i][j];
+    }
+  }
+  if (!Number.isFinite(maxCost)) maxCost = 0;
+  const padCost = maxCost + 1;
+
+  const cost = Array.from({ length: n }, (_, i) =>
+    Array.from({ length: n }, (_, j) =>
+      i < nRows && j < nCols ? costMatrix[i][j] : padCost
+    )
+  );
+
+  const u = Array(n + 1).fill(0);
+  const v = Array(n + 1).fill(0);
+  const p = Array(n + 1).fill(0);
+  const way = Array(n + 1).fill(0);
+
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    const minv = Array(n + 1).fill(Infinity);
+    const used = Array(n + 1).fill(false);
+    let j0 = 0;
+
+    do {
+      used[j0] = true;
+      const i0 = p[j0];
+      let delta = Infinity;
+      let j1 = 0;
+
+      for (let j = 1; j <= n; j++) {
+        if (used[j]) continue;
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) {
+          minv[j] = cur;
+          way[j] = j0;
+        }
+        if (minv[j] < delta) {
+          delta = minv[j];
+          j1 = j;
+        }
+      }
+
+      for (let j = 0; j <= n; j++) {
+        if (used[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+      j0 = j1;
+    } while (p[j0] !== 0);
+
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0);
+  }
+
+  // Build assignment for original matrix
+  const assignment = Array(nRows).fill(-1);
+  for (let j = 1; j <= n; j++) {
+    const i = p[j];
+    if (i > 0 && i <= nRows && j <= nCols) {
+      assignment[i - 1] = j - 1;
+    }
+  }
+  return assignment;
+}
+
+/**
+ * Hungarian-based global matcher.
+ * - Runs per item_name group (so items are not mixed).
+ * - Builds profit matrix from all buy/sell blocks for that item.
+ * - Converts to cost matrix (maxProfit - profit) for Hungarian.
+ * - Keeps only matches with positive profit and positive quantity.
+ */
+function buildMatchesHungarian(buyRows = [], sellRows = [], { itemKey = "", transportMatrix } = {}) {
+  // 1) Filter: only rows for selected item (if any)
+  const buysAll = (buyRows || []).filter((b) =>
+    itemKey ? String(b.item_name) === String(itemKey) : true
+  );
+  const sellsAll = (sellRows || []).filter((s) =>
+    itemKey ? String(s.item_name) === String(itemKey) : true
+  );
+
+  if (!buysAll.length || !sellsAll.length) return [];
+
+  // 2) Group by item_name, so we never match different items together
+  const groupedBuys = new Map();
+  for (const b of buysAll) {
+    const key = String(b.item_name || "—");
+    if (!groupedBuys.has(key)) groupedBuys.set(key, []);
+    groupedBuys.get(key).push(b);
+  }
+
+  const groupedSells = new Map();
+  for (const s of sellsAll) {
+    const key = String(s.item_name || "—");
+    if (!groupedSells.has(key)) groupedSells.set(key, []);
+    groupedSells.get(key).push(s);
   }
 
   const matches = [];
-  for (const b of buys) {
-    let remainingBuy = Number(b.quantity) || 0;
-    if (!remainingBuy) continue;
 
-    const bucket = sellsByItem.get(b.item_name);
-    if (!bucket || !bucket.length) continue;
+  for (const [itemName, itemBuys] of groupedBuys.entries()) {
+    const itemSells = groupedSells.get(itemName) || [];
+    if (!itemSells.length) continue;
 
-    const buyPrice = Number(b.price) || 0;
+    const m = itemBuys.length;
+    const n = itemSells.length;
+    if (!m || !n) continue;
 
-    for (const sRef of bucket) {
-      if (remainingBuy <= 0) break;
-      const s = sRef.row;
+    // 3) BUILD PROFIT MATRIX
+    const profitMatrix = Array.from({ length: m }, () => Array(n).fill(0));
+    let maxProfit = -Infinity;
+
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < n; j++) {
+        const { profit } = computeProfitParts(itemBuys[i], itemSells[j], transportMatrix);
+        profitMatrix[i][j] = profit;
+        if (profit > maxProfit) maxProfit = profit;
+      }
+    }
+
+    // If all pairs are strictly loss-making, skip this item
+    if (!Number.isFinite(maxProfit) || maxProfit < 0) continue;
+
+    // 4) CONVERT TO COST MATRIX (Hungarian minimizes cost)
+    // cost = maxProfit - max(profit, 0)
+    const costMatrix = Array.from({ length: m }, (_, i) =>
+      Array.from({ length: n }, (_, j) => {
+        const p = profitMatrix[i][j];
+        const nonNegProfit = p > 0 ? p : 0;
+        return maxProfit - nonNegProfit;
+      })
+    );
+
+    // 5) RUN HUNGARIAN
+    const assignment = hungarian(costMatrix);
+
+    // 6) BUILD MATCH OBJECTS
+    for (let i = 0; i < m; i++) {
+      const j = assignment[i];
+      if (j == null || j < 0 || j >= n) continue;
+
+      const b = itemBuys[i];
+      const s = itemSells[j];
+
+      const unitProfit = profitMatrix[i][j];
+      if (unitProfit < 0) continue; // allow 0, skip only negative (loss)
+
+      const bQty = Number(b.quantity) || 0;
+      const sQty = Number(s.quantity) || 0;
+      const matchedQty = Math.min(bQty, sQty);
+      if (!matchedQty) continue;
+
+      const buyPrice = Number(b.price) || 0;
       const sellPrice = Number(s.price) || 0;
 
-      if (buyPrice <= sellPrice && sRef.remaining > 0) {
-        const take = Math.min(remainingBuy, sRef.remaining);
-        if (take > 0) {
-          matches.push({
-            item_name: b.item_name,
-            matchedQty: take,
+      const { transportCost, fromRegion, toRegion } = computeProfitParts(b, s, transportMatrix);
 
-            buy_price: buyPrice,
-            sell_price: sellPrice,
-            spread: sellPrice - buyPrice,
-            spreadNotional: take * (sellPrice - buyPrice),
+      const spread = unitProfit; // profit per t after transport
+      const spreadNotional = matchedQty * spread;
 
-            buy_lineNo: b.lineNo,
-            buy_documentNo: b.documentNo,
-            buy_status: b.status,
-            buy_created_at: b.created_at,
-            buy_block: b.block ?? null,        // <-- here
+      matches.push({
+        item_name: itemName,
+        matchedQty,
 
-            sell_lineNo: s.lineNo,
-            sell_documentNo: s.documentNo,
-            sell_status: s.status,
-            sell_created_at: s.created_at,
-            sell_block: s.block ?? null,       // <-- and here
-          });
-          remainingBuy -= take;
-          sRef.remaining -= take;
-        }
-      }
+        buy_price: buyPrice,
+        sell_price: sellPrice,
+        spread,
+        spreadNotional,
+
+        transportCost,
+        fromRegion,
+        toRegion,
+
+        buy_lineNo: b.lineNo,
+        buy_documentNo: b.documentNo,
+        buy_status: b.status,
+        buy_created_at: b.created_at,
+        buy_block: b.block ?? null,
+
+        sell_lineNo: s.lineNo,
+        sell_documentNo: s.documentNo,
+        sell_status: s.status,
+        sell_created_at: s.created_at,
+        sell_block: s.block ?? null,
+      });
     }
   }
 
   return matches;
 }
 
+/* ---------- small helpers for MatchesTable ---------- */
+function fmtBlock(v) {
+  return v === 0 || v ? String(v) : "—";
+}
 
+function fmtPct(v, locale) {
+  return `${fmtNum(v, locale, { maximumFractionDigits: 2 })}%`;
+}
+
+/* ===================== MatchesTable ===================== */
 
 function MatchesTable({
   buyAllRows,
@@ -817,12 +1034,17 @@ function MatchesTable({
   const [page, setPage] = useState(1);
 
   const allMatchesRaw = useMemo(
-    () => buildMatches(buyAllRows || [], sellAllRows || [], { itemKey }),
+    () =>
+      buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
+        itemKey,
+        // optional: pass custom transportMatrix here if you store it in state/props
+        // transportMatrix: myTransportMatrix,
+      }),
     [buyAllRows, sellAllRows, itemKey]
   );
 
   const allMatches = useMemo(() => {
-    return (allMatchesRaw || []).map(m => {
+    return (allMatchesRaw || []).map((m) => {
       const sell = Number(m.sell_price) || 0;
       const spread = Number(m.spread) || 0;
       const pct = sell ? (spread / sell) * 100 : 0;
@@ -835,18 +1057,32 @@ function MatchesTable({
     const mult = sort.dir === "asc" ? 1 : -1;
     const get = (r, k) => {
       switch (k) {
-        case "item_name": return (r.item_name || "").toLowerCase();
-        case "matchedQty": return Number(r.matchedQty) || 0;
-        case "buy_price": return Number(r.buy_price) || 0;
-        case "sell_price": return Number(r.sell_price) || 0;
-        case "spread": return Number(r.spread) || 0;
-        case "spreadNotional": return Number(r.spreadNotional) || 0;
-        case "spreadPct": return Number(r.spreadPct) || 0;
-        case "buy_lineNo": return Number(r.buy_lineNo) || 0;
-        case "sell_lineNo": return Number(r.sell_lineNo) || 0;
-        case "buy_block": return r.buy_block ?? -Infinity;
-        case "sell_block": return r.sell_block ?? -Infinity;
-        default: return "";
+        case "item_name":
+          return (r.item_name || "").toLowerCase();
+        case "matchedQty":
+          return Number(r.matchedQty) || 0;
+        case "buy_price":
+          return Number(r.buy_price) || 0;
+        case "sell_price":
+          return Number(r.sell_price) || 0;
+        case "spread":
+          return Number(r.spread) || 0;
+        case "spreadNotional":
+          return Number(r.spreadNotional) || 0;
+        case "spreadPct":
+          return Number(r.spreadPct) || 0;
+        case "transportCost":
+          return Number(r.transportCost) || 0;
+        case "buy_lineNo":
+          return Number(r.buy_lineNo) || 0;
+        case "sell_lineNo":
+          return Number(r.sell_lineNo) || 0;
+        case "buy_block":
+          return r.buy_block ?? -Infinity;
+        case "sell_block":
+          return r.sell_block ?? -Infinity;
+        default:
+          return "";
       }
     };
     arr.sort((a, b) => {
@@ -869,7 +1105,9 @@ function MatchesTable({
   const totalSpreadNotional = allMatches.reduce((a, x) => a + (Number(x.spreadNotional) || 0), 0);
 
   const onSort = (key) => {
-    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+    );
     setPage(1);
   };
 
@@ -881,18 +1119,28 @@ function MatchesTable({
     >
       <span className="inline-flex items-center gap-1">
         {label}
-        {sort.key === k ? (sort.dir === "asc" ? <ChevronUp size={14} /> : <ChevronDown size={14} />) : (
-          <span className="opacity-30"><ChevronUp size={14} /></span>
+        {sort.key === k ? (
+          sort.dir === "asc" ? (
+            <ChevronUp size={14} />
+          ) : (
+            <ChevronDown size={14} />
+          )
+        ) : (
+          <span className="opacity-30">
+            <ChevronUp size={14} />
+          </span>
         )}
       </span>
     </th>
   );
 
+  // PROFIT logic: >0 = green, <0 = red, 0 = neutral
   const spreadClass = (spread) =>
-    spread <= 0 ? "bg-green-50 text-green-700 border border-green-200"
-                : "bg-red-50 text-red-700 border border-red-200";
-  const fmtPct = (v) => `${fmtNum(v, locale, { maximumFractionDigits: 2 })}%`;
-  const fmtBlock = (v) => (v === 0 || v ? String(v) : "—");
+    spread > 0
+      ? "bg-green-50 text-green-700 border border-green-200"
+      : spread < 0
+      ? "bg-red-50 text-red-700 border border-red-200"
+      : "bg-slate-100 text-slate-700 border border-slate-200";
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -922,6 +1170,7 @@ function MatchesTable({
               <Th label="Matched Qty" k="matchedQty" className="text-right" />
               <Th label={`Buy ${labels.headers.price}`} k="buy_price" className="text-right" />
               <Th label={`Sell ${labels.headers.price}`} k="sell_price" className="text-right" />
+              <Th label="Transport / t" k="transportCost" className="text-right" />
               <Th label="Spread" k="spread" className="text-right" />
               <Th label="Spread %" k="spreadPct" className="text-right" />
               <Th label="Spread × Qty" k="spreadNotional" className="text-right" />
@@ -930,38 +1179,72 @@ function MatchesTable({
             </tr>
           </thead>
           <tbody>
-            {pageRows.length ? pageRows.map((r, i) => (
-              <tr key={`${r.item_name}-${r.buy_lineNo}-${r.sell_lineNo}-${i}`} className="border-t">
-                <Td className="truncate">
-                  <span className="font-medium">{r.item_name}</span>
-                  <span className="text-slate-400 ml-2">B:{r.buy_documentNo} · S:{r.sell_documentNo}</span>
-                </Td>
-                <Td>{fmtBlock(r.buy_block)}</Td>
-                <Td>{fmtBlock(r.sell_block)}</Td>
-                <Td className="text-right">{fmtNum(r.matchedQty, locale)}</Td>
-                <Td className="text-right tabular-nums">{fmtMoney(r.buy_price, locale, "PLN")}</Td>
-                <Td className="text-right tabular-nums">{fmtMoney(r.sell_price, locale, "PLN")}</Td>
-                <Td className="text-right">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(r.spread)}`}>
-                    {fmtMoney(r.spread, locale, "PLN")}
-                  </span>
-                </Td>
-                <Td className="text-right">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(r.spread)}`}>
-                    {fmtPct(r.spreadPct)}
-                  </span>
-                </Td>
-                <Td className="text-right">
-                  <span className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(r.spread)}`}>
-                    {fmtMoney(r.spreadNotional, locale, "PLN")}
-                  </span>
-                </Td>
-                <Td className="font-mono">{r.buy_lineNo}</Td>
-                <Td className="font-mono">{r.sell_lineNo}</Td>
-              </tr>
-            )) : (
+            {pageRows.length ? (
+              pageRows.map((r, i) => (
+                <tr
+                  key={`${r.item_name}-${r.buy_lineNo}-${r.sell_lineNo}-${i}`}
+                  className="border-t"
+                >
+                  <Td className="truncate">
+                    <span className="font-medium">{r.item_name}</span>
+                    <span className="text-slate-400 ml-2">
+                      B:{r.buy_documentNo} · S:{r.sell_documentNo}
+                    </span>
+                  </Td>
+                  <Td>{fmtBlock(r.buy_block)}</Td>
+                  <Td>{fmtBlock(r.sell_block)}</Td>
+                  <Td className="text-right">{fmtNum(r.matchedQty, locale)}</Td>
+                  <Td className="text-right tabular-nums">
+                    {fmtMoney(r.buy_price, locale, "PLN")}
+                  </Td>
+                  <Td className="text-right tabular-nums">
+                    {fmtMoney(r.sell_price, locale, "PLN")}
+                  </Td>
+                  <Td className="text-right tabular-nums">
+                    {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+                    {(r.fromRegion || r.toRegion) && (
+                      <span className="ml-1 text-xs text-slate-400">
+                        ({r.fromRegion || "?"} → {r.toRegion || "?"})
+                      </span>
+                    )}
+                  </Td>
+                  <Td className="text-right">
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
+                        r.spread
+                      )}`}
+                    >
+                      {fmtMoney(r.spread, locale, "PLN")}
+                    </span>
+                  </Td>
+                  <Td className="text-right">
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
+                        r.spread
+                      )}`}
+                    >
+                      {fmtPct(r.spreadPct, locale)}
+                    </span>
+                  </Td>
+                  <Td className="text-right">
+                    <span
+                      className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
+                        r.spread
+                      )}`}
+                    >
+                      {fmtMoney(r.spreadNotional, locale, "PLN")}
+                    </span>
+                  </Td>
+                  <Td className="font-mono">{r.buy_lineNo}</Td>
+                  <Td className="font-mono">{r.sell_lineNo}</Td>
+                </tr>
+              ))
+            ) : (
               <tr>
-                <td colSpan={11} className="p-6 text-center text-slate-500">No matches for current data/filters.</td>
+                {/* 12 columns now */}
+                <td colSpan={12} className="p-6 text-center text-slate-500">
+                  No matches for current data/filters.
+                </td>
               </tr>
             )}
           </tbody>
@@ -976,7 +1259,10 @@ function MatchesTable({
           <select
             className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
             value={limit}
-            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
           >
             {[5, 10, 20, 50].map((n) => (
               <option key={n} value={n}>{`Per page: ${n}`}</option>
@@ -1001,4 +1287,3 @@ function MatchesTable({
     </div>
   );
 }
-

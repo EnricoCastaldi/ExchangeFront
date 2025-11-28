@@ -132,6 +132,12 @@ const MENU_REGISTRY = {
     to: "/app/purchase-offer-lines",
     parent: "BUY",
   },
+    PURCHASE_OFFER_LINE_BLOCKS: {
+    key: "PURCHASE_OFFER_LINE_BLOCKS",
+    icon: FileText,
+    to: "/app/purchase-offer-lines-blocks",
+    parent: "BUY",
+  },
 
   // SELL
   SELL: { key: "SELL", icon: Coins, to: "/app/sell" },
@@ -148,6 +154,12 @@ const MENU_REGISTRY = {
     to: "/app/sales-line-parameters",
     parent: "SELL",
   },
+   SALES_OFFER_LINE_BLOCKS: {
+   key: "SALES_OFFER_LINE_BLOCKS",
+   icon: FileText,
+   to: "/app/sales-offer-lines-blocks",
+   parent: "SELL",
+ },
   
 };
 
@@ -189,11 +201,13 @@ const GROUPS = [
       "BUY_MAIN",
       "PURCHASE_OFFER_LINES",
       "PURCHASE_LINE_PARAMETERS",
+      "PURCHASE_OFFER_LINE_BLOCKS",
 
       "SELL",
       "SELL_MAIN",
       "SALES_OFFER_LINES",
       "SALES_LINE_PARAMETERS",
+      "SALES_OFFER_LINE_BLOCKS",
     ],
   },
   
