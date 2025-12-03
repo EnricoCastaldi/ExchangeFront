@@ -88,6 +88,8 @@ export default function Locations() {
       additionalCost: P?.details?.additionalCost || "Additional cost",
       loadingCost: P?.details?.loadingCost || "Loading cost",
       unloadingCost: P?.details?.unloadingCost || "Unloading cost",
+      latitude: P?.details?.latitude || "Latitude",
+  longitude: P?.details?.longitude || "Longitude",
       active: P?.details?.active || "Active",
       created: P?.details?.created || "Created",
       updated: P?.details?.updated || "Updated",
@@ -162,6 +164,7 @@ export default function Locations() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [geoLoadingId, setGeoLoadingId] = useState(null);
 
   const [notice, setNotice] = useState(null);
   const showNotice = (type, text, ms = 3000) => {
@@ -273,6 +276,85 @@ export default function Locations() {
       showNotice("error", L.alerts.requestFail);
     }
   };
+
+
+const geocodeLocation = async (loc) => {
+  const id = loc.id || loc._id;
+
+  if (!id) {
+    console.warn("[Geocode] Location has no ID:", loc);
+    return;
+  }
+
+  console.log("[Geocode] Starting geocode for location:", {
+    id,
+    no: loc.no,
+    name: loc.name,
+    address: loc.address,
+    postCode: loc.postCode,
+    city: loc.city,
+    region: loc.region,
+    country: loc.country,
+  });
+
+  setGeoLoadingId(id);
+
+  try {
+    const url = `${API}/api/mlocations/${id}/geocode`;
+    console.log("[Geocode] Fetching:", url);
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    console.log("[Geocode] Response status:", res.status);
+
+    // Read raw text for debugging, then try to parse JSON
+    const raw = await res.text();
+    console.log("[Geocode] Raw response body:", raw);
+
+    let json = {};
+    try {
+      json = raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      console.error("[Geocode] Failed to parse JSON:", e);
+    }
+
+    if (!res.ok) {
+      console.error("[Geocode] Backend returned error:", json);
+      showNotice("error", json.message || L.alerts.requestFail);
+      return;
+    }
+
+    console.log("[Geocode] Parsed JSON:", json);
+
+    const updated = json.location || json;
+    console.log("[Geocode] Updated location from server:", updated);
+
+    // Update the relevant row in state
+    setData((prev) => {
+      console.log("[Geocode] Previous data state:", prev);
+      const next = {
+        ...prev,
+        data: prev.data.map((d) => {
+          const key = d.id || d._id;
+          return key === (updated.id || updated._id) ? { ...d, ...updated } : d;
+        }),
+      };
+      console.log("[Geocode] Next data state:", next);
+      return next;
+    });
+
+    showNotice("success", json.message || "Location geocoded");
+  } catch (e) {
+    console.error("[Geocode] Network or runtime error:", e);
+    showNotice("error", L.alerts.requestFail);
+  } finally {
+    console.log("[Geocode] Done for location id:", id);
+    setGeoLoadingId(null);
+  }
+};
 
   // ---------- UI ----------
   return (
@@ -489,6 +571,13 @@ export default function Locations() {
                             <KV label={L.details.region} icon={MapPin}>{r.region || L.table.dash}</KV>
                             <KV label={L.details.postCode} icon={MapPin}>{r.postCode || L.table.dash}</KV>
                             <KV label={L.details.country} icon={Globe}>{r.country || L.table.dash}</KV>
+                            <KV label={L.details.latitude} icon={MapPin}>
+  {typeof r.lat === "number" ? r.lat.toFixed(6) : L.table.dash}
+</KV>
+<KV label={L.details.longitude} icon={MapPin}>
+  {typeof r.lon === "number" ? r.lon.toFixed(6) : L.table.dash}
+</KV>
+
                             <KV label={L.details.email} icon={Mail}>{r.email || L.table.dash}</KV>
                             <KV label={L.details.phoneNo} icon={Phone}>{r.phoneNo || L.table.dash}</KV>
                             <KV label={L.details.minQty} icon={ArrowDown01}>{fmtInt(r.minQty)}</KV>
@@ -505,18 +594,46 @@ export default function Locations() {
                               {fmtDec(r.unloadingCost)}
                             </KV>
 
-                            <KV label={L.details.active} icon={ToggleRight}>{activeChip(r.active)}</KV>
-                            <KV label={L.details.created} icon={Calendar}>
-                              {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
-                            </KV>
-                            <KV label={L.details.updated} icon={Calendar}>
-                              {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
-                            </KV>
-                            <div className="md:col-span-3">
-                              <KV label={L.details.description} icon={AlignLeft}>
-                                {r.description || L.table.dash}
-                              </KV>
-                            </div>
+                         <KV label={L.details.active} icon={ToggleRight}>{activeChip(r.active)}</KV>
+<KV label={L.details.created} icon={Calendar}>
+  {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
+</KV>
+<KV label={L.details.updated} icon={Calendar}>
+  {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
+</KV>
+
+{/* NEW: geocode action row */}
+<div className="md:col-span-3 flex items-center justify-between gap-2">
+  <span className="text-xs text-slate-500">
+    Use Azure Maps to geocode this address and save coordinates.
+  </span>
+<button
+  type="button"
+  onClick={() => {
+    console.log("[Geocode] Button clicked for key:", key);
+    geocodeLocation(r);
+  }}
+  disabled={geoLoadingId === key}
+  className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+>
+  {geoLoadingId === key ? (
+    <span>Geocoding…</span>
+  ) : (
+    <>
+      <MapPin size={14} />
+      <span>Geocode address</span>
+    </>
+  )}
+</button>
+
+</div>
+
+<div className="md:col-span-3">
+  <KV label={L.details.description} icon={AlignLeft}>
+    {r.description || L.table.dash}
+  </KV>
+</div>
+
                           </div>
                         </td>
                       </tr>
