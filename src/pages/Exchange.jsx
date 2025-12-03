@@ -38,13 +38,58 @@ async function safeJson(res, url) {
  */
 function normalizeBlockRow(r, side) {
   const partyBuy =
-    r.buyVendorName || r.payVendorName || r.locationName || r.vendor_name || r.party || r.documentNo || "—";
+    r.buyVendorName ||
+    r.payVendorName ||
+    r.locationName ||
+    r.vendor_name ||
+    r.party ||
+    r.documentNo ||
+    "—";
+
   const partySell =
-    r.sellCustomerName || r.billCustomerName || r.locationName || r.customer_name || r.party || r.documentNo || "—";
+    r.sellCustomerName ||
+    r.billCustomerName ||
+    r.locationName ||
+    r.customer_name ||
+    r.party ||
+    r.documentNo ||
+    "—";
 
   const blockVal = r.block != null ? Number(r.block) : null;
 
-  // Try to derive a region for transport matrix (adapt to your backend fields as needed)
+  // Location fields (best-effort, from both block + joined location)
+  const locName =
+    r.locationName ||
+    r.location_name ||
+    r.location ||
+    "";
+
+  const locCity =
+    r.locationCity ||
+    r.city ||
+    "";
+
+  const locPostCode =
+    r.locationPostCode ||
+    r.postCode ||
+    r.post_code ||
+    r.zip ||
+    r.postalCode ||
+    "";
+
+  const locCountry =
+    r.locationCountryCode ||
+    r.countryRegionCode ||
+    r.countryCode ||
+    r.country ||
+    "";
+
+  const locationLabel =
+    [locPostCode, locCity].filter(Boolean).join(" ") ||
+    locName ||
+    "—";
+
+  // Try to derive a region for transport matrix
   const region =
     r.locationRegion ||
     r.buyVendorRegion ||
@@ -54,8 +99,29 @@ function normalizeBlockRow(r, side) {
     r.region ||
     null;
 
+  const qty = Number(r.quantity) || 0;
+
+  // 🔴 Transport on this block (total & per-unit)
+  // Adjust field names if your API uses different ones.
+  const transportTotal =
+    Number(
+      r.transportCost ??
+      r.transport_cost ??
+      r.transport_total ??
+      0
+    ) || 0;
+
+  const transportPerUnit = qty > 0 ? transportTotal / qty : 0;
+
   return {
-    lineNo: Number(r.lineNo ?? r.documentLineNo ?? r.line_no ?? r.line_number ?? r.id ?? 0),
+    lineNo: Number(
+      r.lineNo ??
+        r.documentLineNo ??
+        r.line_no ??
+        r.line_number ??
+        r.id ??
+        0
+    ),
 
     vendor_name: side === "buy" ? partyBuy : undefined,
     customer_name: side === "sell" ? partySell : undefined,
@@ -64,21 +130,91 @@ function normalizeBlockRow(r, side) {
     item_name: r.itemNo || r.item || r.item_name || "—",
 
     // Show UOM or (#block) next to item for context
-    item_sku: r.unitOfMeasure || r.uom || r.item_sku || (blockVal != null ? `#${blockVal}` : ""),
+    item_sku:
+      r.unitOfMeasure ||
+      r.uom ||
+      r.item_sku ||
+      (blockVal != null ? `#${blockVal}` : ""),
 
     // expose numeric block explicitly
     block: Number.isFinite(blockVal) ? blockVal : null,
 
-    region, // <-- used for transport matrix
+    // location info
+    locationName: locName || null,
+    locationCity: locCity || null,
+    locationPostCode: locPostCode || null,
+    locationCountryCode: locCountry || null,
+    locationLabel, // used in tables & sorting
+
+    region,        // used for transport matrix
 
     type: (r.lineType || r.type || "item").toString().toLowerCase(),
-    quantity: Number(r.quantity) || 0,
+    quantity: qty,
     price: Number(r.unitPrice ?? r.price) || 0,
+
+    // 🔴 transport from this block
+    transportTotal,
+    transportPerUnit,
+
     status: (r.status || "new").toString().toLowerCase(),
     created_at: r.createdAt || r.dateCreated || r.created_at || null,
     documentNo: r.documentNo || r.doc_no || "—",
   };
 }
+
+/**
+ * Compute unit profit between a buy block and a sell block.
+ * Formula:
+ *   profit_per_t = sellPrice - buyPrice - (matrixCost + manualBase + sellBlockTransport)
+ *
+ * - manualBase      = baseTransportPerUnit (global input in Exchange)
+ * - sellBlockTransport = s.transportPerUnit (already normalized from block)
+ * - matrixCost      = optional region→region cost from matrix (if used)
+ */
+function computeProfitParts(b, s, opts = {}) {
+  const { transportMatrix, baseTransportPerUnit = 0 } = opts;
+
+  const buyPrice = Number(b.price) || 0;
+  const sellPrice = Number(s.price) || 0;
+
+  // Regions from normalized rows (best-effort)
+  const fromRegion =
+    b.region ||
+    b.buyVendorRegion ||
+    b.locationRegion ||
+    b.vendor_region ||
+    null;
+
+  const toRegion =
+    s.region ||
+    s.sellCustomerRegion ||
+    s.locationRegion ||
+    s.customer_region ||
+    null;
+
+  // Default example matrix (you can ignore by not passing transportMatrix)
+  const defaultTransportMatrix = {
+    A: { A: 10, B: 25, C: 30 },
+    B: { A: 20, B: 10, C: 35 },
+  };
+
+  const matrix = transportMatrix || defaultTransportMatrix;
+  let matrixCost = 0;
+  if (fromRegion && toRegion && matrix[fromRegion] && matrix[fromRegion][toRegion] != null) {
+    matrixCost = Number(matrix[fromRegion][toRegion]) || 0;
+  }
+
+  // 🔴 SELL BLOCK transport / t (comes from normalizeBlockRow → transportPerUnit)
+  const sellBlockTransport = Number(s.transportPerUnit) || 0;
+
+  // 🔴 TOTAL transport / t used in matching:
+  // matrix (optional) + manual base + sell block transport
+  const transportCost = matrixCost + baseTransportPerUnit + sellBlockTransport;
+
+  const profit = sellPrice - buyPrice - transportCost;
+  return { profit, transportCost, fromRegion, toRegion };
+}
+
 
 // Endpoints
 const ENDPOINT = {
@@ -91,6 +227,7 @@ export default function Exchange() {
   const { t, locale } = useI18n();
   const EX = t.exchange;
   const C = EX.columns;
+  
 
   // Optional: items catalog (not used for filtering now)
   const [itemsCatalog, setItemsCatalog] = useState([]);
@@ -305,7 +442,9 @@ export default function Exchange() {
           {EX.topbar.lastUpdate}: <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+
+
           {EX.topbar.nextIn} <b>{countdown}s</b>
           <button
             type="button"
@@ -319,16 +458,17 @@ export default function Exchange() {
         </div>
       </div>
 
+
       {/* Matches: Buy ↔ Sell (Hungarian-based) */}
-      <div className="mt-4">
-        <MatchesTable
-          buyAllRows={bAllRows}
-          sellAllRows={sAllRows}
-          itemKey={bItemKey || sItemKey}
-          labels={C}
-          locale={locale}
-          stats={EX.stats}
-        />
+       <div className="mt-4">
+<MatchesTable
+  buyAllRows={bAllRows}
+  sellAllRows={sAllRows}
+  itemKey={bItemKey || sItemKey}
+  labels={C}
+  locale={locale}
+  stats={EX.stats}
+/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -437,7 +577,7 @@ function Column({
   const targetRows = Math.max(limit, MIN_ROWS);
   const padCount = Math.max(0, targetRows - (sortedData?.length || 0));
   // visible columns (vendor/customer removed): 7
-  const COLS = 7;
+  const COLS = 8;
 
   const onSort = (key) => {
     setSort((prev) => {
@@ -509,86 +649,133 @@ function Column({
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <SortableTh
-                label={labels.headers.lineNo || labels.headers.id}
-                sortKey="lineNo"
-                sort={sort}
-                onSort={onSort}
-                className="w-24"
-              />
-              <SortableTh label={labels.headers.item} sortKey="item_name" sort={sort} onSort={onSort} />
-              <SortableTh label={labels.headers.type} sortKey="type" sort={sort} onSort={onSort} />
-              <SortableTh
-                label={labels.headers.qty}
-                sortKey="quantity"
-                sort={sort}
-                onSort={onSort}
-                className="text-right"
-              />
-              <SortableTh
-                label={labels.headers.price}
-                sortKey="price"
-                sort={sort}
-                onSort={onSort}
-                className="text-right"
-              />
-              <SortableTh label={labels.headers.status} sortKey="status" sort={sort} onSort={onSort} />
-              <SortableTh label={labels.headers.created} sortKey="created_at" sort={sort} onSort={onSort} />
-            </tr>
-          </thead>
+<thead className="bg-slate-50 text-slate-600">
+  <tr>
+    <SortableTh
+      label={labels.headers.lineNo || labels.headers.id}
+      sortKey="lineNo"
+      sort={sort}
+      onSort={onSort}
+      className="w-24"
+    />
+    <SortableTh
+      label={labels.headers.item}
+      sortKey="item_name"
+      sort={sort}
+      onSort={onSort}
+    />
+    {/* NEW: location column */}
+    <SortableTh
+      label={labels.headers.location || "Location"}
+      sortKey="locationLabel"
+      sort={sort}
+      onSort={onSort}
+    />
+    <SortableTh
+      label={labels.headers.type}
+      sortKey="type"
+      sort={sort}
+      onSort={onSort}
+    />
+    <SortableTh
+      label={labels.headers.qty}
+      sortKey="quantity"
+      sort={sort}
+      onSort={onSort}
+      className="text-right"
+    />
+    <SortableTh
+      label={labels.headers.price}
+      sortKey="price"
+      sort={sort}
+      onSort={onSort}
+      className="text-right"
+    />
+    <SortableTh
+      label={labels.headers.status}
+      sortKey="status"
+      sort={sort}
+      onSort={onSort}
+    />
+    <SortableTh
+      label={labels.headers.created}
+      sortKey="created_at"
+      sort={sort}
+      onSort={onSort}
+    />
+  </tr>
+</thead>
 
-          <tbody>
-            {sortedData.length ? (
-              sortedData.map((r, idx) => (
-                <tr key={`${r.lineNo}-${idx}`} className={`border-t ${colorMap.get(r.lineNo) ?? ""}`}>
-                  <Td className="font-mono">{r.lineNo || "—"}</Td>
-                  <Td className="truncate">
-                    <span className="font-medium">{r.item_name}</span>{" "}
-                    {r.item_sku ? <span className="text-slate-500">({r.item_sku})</span> : null}
-                    <span className="text-slate-400 ml-2">{r.documentNo}</span>
-                  </Td>
-                  <Td className="uppercase">{r.type}</Td>
-                  <Td className="text-right">{fmtNum(r.quantity, locale)}</Td>
-                  <Td className="text-right font-semibold tabular-nums">
-                    {fmtMoney(r.price, locale, "PLN")}
-                  </Td>
-                  <Td>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
-                        r.status === "open"
-                          ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                          : r.status === "approved"
-                          ? "bg-green-50 text-green-700 border border-green-200"
-                          : r.status === "rejected"
-                          ? "bg-red-50 text-red-700 border border-red-200"
-                          : "bg-slate-100 text-slate-700 border border-slate-200"
-                      }`}
-                    >
-                      {(labels.statuses[r.status] || r.status).toUpperCase()}
-                    </span>
-                  </Td>
-                  <Td>{r.created_at ? new Date(r.created_at).toLocaleDateString(locale) : "—"}</Td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={COLS} className="p-6 text-center text-slate-500">
-                  {labels.empty}
-                </td>
-              </tr>
-            )}
 
-            {/* padding rows to keep height consistent */}
-            {Array.from({ length: padCount }).map((_, i) => (
-              <tr key={`pad-${i}`} className="border-t">
-                <td colSpan={COLS} className="px-4 py-3">
-                  &nbsp;
-                </td>
-              </tr>
-            ))}
-          </tbody>
+<tbody>
+  {sortedData.length ? (
+    sortedData.map((r, idx) => (
+      <tr
+        key={`${r.lineNo}-${idx}`}
+        className={`border-t ${colorMap.get(r.lineNo) ?? ""}`}
+      >
+        <Td className="font-mono">{r.lineNo || "—"}</Td>
+        <Td className="truncate">
+          <span className="font-medium">{r.item_name}</span>{" "}
+          {r.item_sku ? (
+            <span className="text-slate-500">({r.item_sku})</span>
+          ) : null}
+          <span className="text-slate-400 ml-2">{r.documentNo}</span>
+        </Td>
+
+        {/* NEW: location cell */}
+        <Td className="truncate">
+          <span className="font-medium">
+            {r.locationLabel || "—"}
+          </span>
+        </Td>
+
+        <Td className="uppercase">{r.type}</Td>
+        <Td className="text-right">{fmtNum(r.quantity, locale)}</Td>
+        <Td className="text-right font-semibold tabular-nums">
+          {fmtMoney(r.price, locale, "PLN")}
+        </Td>
+        <Td>
+          {/* status badge as before */}
+          <span
+            className={`px-2 py-1 rounded text-xs font-semibold ${
+              r.status === "open"
+                ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                : r.status === "approved"
+                ? "bg-green-50 text-green-700 border border-green-200"
+                : r.status === "rejected"
+                ? "bg-red-50 text-red-700 border border-red-200"
+                : "bg-slate-100 text-slate-700 border border-slate-200"
+            }`}
+          >
+            {(labels.statuses[r.status] || r.status).toUpperCase()}
+          </span>
+        </Td>
+        <Td>
+          {r.created_at
+            ? new Date(r.created_at).toLocaleDateString(locale)
+            : "—"}
+        </Td>
+      </tr>
+    ))
+  ) : (
+    <tr>
+      <td colSpan={COLS} className="p-6 text-center text-slate-500">
+        {labels.empty}
+      </td>
+    </tr>
+  )}
+
+  {/* padding rows – colSpan already uses COLS, so no change needed here */}
+  {Array.from({ length: padCount }).map((_, i) => (
+    <tr key={`pad-${i}`} className="border-t">
+      <td colSpan={COLS} className="px-4 py-3">
+        &nbsp;
+      </td>
+    </tr>
+  ))}
+</tbody>
+
         </table>
       </div>
 
@@ -739,6 +926,8 @@ function getVal(row, key) {
       return (row.customer_name || "").toLowerCase();
     case "item_name":
       return (row.item_name || "").toLowerCase(); // itemNo
+    case "locationLabel":
+      return (row.locationLabel || "").toLowerCase();
     case "type":
       return (row.type || "").toLowerCase();
     case "quantity":
@@ -754,50 +943,9 @@ function getVal(row, key) {
   }
 }
 
-/* ===================== Hungarian-based matching ===================== */
 
-/**
- * Compute unit profit between a buy block and a sell block.
- * Formula:
- *   profit = sellPrice - buyPrice - transportCost(fromRegion -> toRegion)
- */
-function computeProfitParts(b, s, transportMatrix) {
-  const buyPrice = Number(b.price) || 0;
-  const sellPrice = Number(s.price) || 0;
 
-  // Regions from normalized rows (best-effort)
-  const fromRegion =
-    b.region ||
-    b.buyVendorRegion ||
-    b.locationRegion ||
-    b.vendor_region ||
-    null;
 
-  const toRegion =
-    s.region ||
-    s.sellCustomerRegion ||
-    s.locationRegion ||
-    s.customer_region ||
-    null;
-
-  // Example default matrix (your Excel example)
-  // From \ To:   A     B     C
-  // A          10    25    30
-  // B          20    10    35
-  const defaultTransportMatrix = {
-    A: { A: 10, B: 25, C: 30 },
-    B: { A: 20, B: 10, C: 35 },
-  };
-
-  const matrix = transportMatrix || defaultTransportMatrix;
-  let transportCost = 0;
-  if (fromRegion && toRegion && matrix[fromRegion] && matrix[fromRegion][toRegion] != null) {
-    transportCost = Number(matrix[fromRegion][toRegion]) || 0;
-  }
-
-  const profit = sellPrice - buyPrice - transportCost;
-  return { profit, transportCost, fromRegion, toRegion };
-}
 
 /**
  * Hungarian algorithm (minimization) for a square cost matrix.
@@ -891,7 +1039,17 @@ function hungarian(costMatrix) {
  * - Converts to cost matrix (maxProfit - profit) for Hungarian.
  * - Keeps only matches with positive profit and positive quantity.
  */
-function buildMatchesHungarian(buyRows = [], sellRows = [], { itemKey = "", transportMatrix } = {}) {
+function buildMatchesHungarian(
+  buyRows = [],
+  sellRows = [],
+  options = {}
+) {
+  const {
+    itemKey = "",
+    transportMatrix,
+    baseTransportPerUnit = 0,
+  } = options;
+
   // 1) Filter: only rows for selected item (if any)
   const buysAll = (buyRows || []).filter((b) =>
     itemKey ? String(b.item_name) === String(itemKey) : true
@@ -933,7 +1091,10 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], { itemKey = "", tran
 
     for (let i = 0; i < m; i++) {
       for (let j = 0; j < n; j++) {
-        const { profit } = computeProfitParts(itemBuys[i], itemSells[j], transportMatrix);
+        const { profit } = computeProfitParts(itemBuys[i], itemSells[j], {
+          transportMatrix,
+          baseTransportPerUnit,
+        });
         profitMatrix[i][j] = profit;
         if (profit > maxProfit) maxProfit = profit;
       }
@@ -974,7 +1135,10 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], { itemKey = "", tran
       const buyPrice = Number(b.price) || 0;
       const sellPrice = Number(s.price) || 0;
 
-      const { transportCost, fromRegion, toRegion } = computeProfitParts(b, s, transportMatrix);
+      const { transportCost, fromRegion, toRegion } = computeProfitParts(b, s, {
+        transportMatrix,
+        baseTransportPerUnit,
+      });
 
       const spread = unitProfit; // profit per t after transport
       const spreadNotional = matchedQty * spread;
@@ -1003,12 +1167,17 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], { itemKey = "", tran
         sell_status: s.status,
         sell_created_at: s.created_at,
         sell_block: s.block ?? null,
+
+        // NEW: locations, from normalizeBlockRow
+        buy_location: b.locationLabel || null,
+        sell_location: s.locationLabel || null,
       });
     }
   }
 
   return matches;
 }
+
 
 /* ---------- small helpers for MatchesTable ---------- */
 function fmtBlock(v) {
@@ -1018,6 +1187,12 @@ function fmtBlock(v) {
 function fmtPct(v, locale) {
   return `${fmtNum(v, locale, { maximumFractionDigits: 2 })}%`;
 }
+
+
+function matchKey(m) {
+  return `${m.item_name || ""}::${m.buy_lineNo || ""}::${m.sell_lineNo || ""}`;
+}
+
 
 /* ===================== MatchesTable ===================== */
 
@@ -1033,28 +1208,54 @@ function MatchesTable({
   const [limit, setLimit] = useState(5);
   const [page, setPage] = useState(1);
 
+  // per-row manual overrides: { [rowKey]: number }
+  const [manualTransportMap, setManualTransportMap] = useState({});
+
   const allMatchesRaw = useMemo(
     () =>
       buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
         itemKey,
-        // optional: pass custom transportMatrix here if you store it in state/props
+        // if you still use a global base transport, you can pass it here
+        // baseTransportPerUnit,
         // transportMatrix: myTransportMatrix,
       }),
     [buyAllRows, sellAllRows, itemKey]
   );
 
+  // Apply per-row manual override and recompute spread etc.
   const allMatches = useMemo(() => {
     return (allMatchesRaw || []).map((m) => {
+      const rowKey = `${m.item_name}|${m.buy_lineNo}|${m.sell_lineNo}`;
+
+      const manual = manualTransportMap[rowKey] ?? 0;        // PLN / t
+      const baseTransport = Number(m.transportCost) || 0;    // from matcher
+      const effectiveTransport = baseTransport + manual;     // shown in table
+
       const sell = Number(m.sell_price) || 0;
-      const spread = Number(m.spread) || 0;
-      const pct = sell ? (spread / sell) * 100 : 0;
-      return { ...m, spreadPct: pct };
+      const buy = Number(m.buy_price) || 0;
+      const qty = Number(m.matchedQty) || 0;
+
+      const baseSpread = Number(m.spread) || 0;              // profit/t from matcher
+      const spread = baseSpread - manual;                    // new profit/t after manual
+      const spreadPct = sell ? (spread / sell) * 100 : 0;
+      const spreadNotional = qty * spread;
+
+      return {
+        ...m,
+        rowKey,
+        manualTransport: manual,
+        effectiveTransport,
+        spread,
+        spreadPct,
+        spreadNotional,
+      };
     });
-  }, [allMatchesRaw]);
+  }, [allMatchesRaw, manualTransportMap]);
 
   const sorted = useMemo(() => {
     const arr = [...allMatches];
     const mult = sort.dir === "asc" ? 1 : -1;
+
     const get = (r, k) => {
       switch (k) {
         case "item_name":
@@ -1072,7 +1273,8 @@ function MatchesTable({
         case "spreadPct":
           return Number(r.spreadPct) || 0;
         case "transportCost":
-          return Number(r.transportCost) || 0;
+          // sort by effective transport (base + manual)
+          return Number(r.effectiveTransport ?? r.transportCost ?? 0);
         case "buy_lineNo":
           return Number(r.buy_lineNo) || 0;
         case "sell_lineNo":
@@ -1081,10 +1283,15 @@ function MatchesTable({
           return r.buy_block ?? -Infinity;
         case "sell_block":
           return r.sell_block ?? -Infinity;
+        case "buy_location":
+          return (r.buy_location || "").toLowerCase();
+        case "sell_location":
+          return (r.sell_location || "").toLowerCase();
         default:
           return "";
       }
     };
+
     arr.sort((a, b) => {
       const va = get(a, sort.key);
       const vb = get(b, sort.key);
@@ -1102,11 +1309,16 @@ function MatchesTable({
 
   const totalMatches = allMatches.length;
   const totalQty = allMatches.reduce((a, x) => a + (Number(x.matchedQty) || 0), 0);
-  const totalSpreadNotional = allMatches.reduce((a, x) => a + (Number(x.spreadNotional) || 0), 0);
+  const totalSpreadNotional = allMatches.reduce(
+    (a, x) => a + (Number(x.spreadNotional) || 0),
+    0
+  );
 
   const onSort = (key) => {
     setSort((prev) =>
-      prev.key === key ? { key, dir: prev.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }
+      prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
     );
     setPage(1);
   };
@@ -1134,7 +1346,6 @@ function MatchesTable({
     </th>
   );
 
-  // PROFIT logic: >0 = green, <0 = red, 0 = neutral
   const spreadClass = (spread) =>
     spread > 0
       ? "bg-green-50 text-green-700 border border-green-200"
@@ -1155,7 +1366,11 @@ function MatchesTable({
           <div className="flex items-center gap-2">
             <StatChip icon={ListOrdered} label="Pairs" value={fmtNum(totalMatches, locale)} />
             <StatChip icon={Scale} label="Matched Qty" value={fmtNum(totalQty, locale)} />
-            <StatChip icon={Banknote} label="Spread PLN" value={fmtMoney(totalSpreadNotional, locale, "PLN")} />
+            <StatChip
+              icon={Banknote}
+              label="Spread PLN"
+              value={fmtMoney(totalSpreadNotional, locale, "PLN")}
+            />
           </div>
         </div>
       </div>
@@ -1167,6 +1382,8 @@ function MatchesTable({
               <Th label={labels.headers.item} k="item_name" />
               <Th label="Buy Block" k="buy_block" />
               <Th label="Sell Block" k="sell_block" />
+              <Th label="Buy Location" k="buy_location" />
+              <Th label="Sell Location" k="sell_location" />
               <Th label="Matched Qty" k="matchedQty" className="text-right" />
               <Th label={`Buy ${labels.headers.price}`} k="buy_price" className="text-right" />
               <Th label={`Sell ${labels.headers.price}`} k="sell_price" className="text-right" />
@@ -1178,11 +1395,12 @@ function MatchesTable({
               <Th label={`Sell ${labels.headers.lineNo || labels.headers.id}`} k="sell_lineNo" />
             </tr>
           </thead>
+
           <tbody>
             {pageRows.length ? (
               pageRows.map((r, i) => (
                 <tr
-                  key={`${r.item_name}-${r.buy_lineNo}-${r.sell_lineNo}-${i}`}
+                  key={`${r.rowKey}-${i}`}
                   className="border-t"
                 >
                   <Td className="truncate">
@@ -1193,21 +1411,46 @@ function MatchesTable({
                   </Td>
                   <Td>{fmtBlock(r.buy_block)}</Td>
                   <Td>{fmtBlock(r.sell_block)}</Td>
-                  <Td className="text-right">{fmtNum(r.matchedQty, locale)}</Td>
+
+                  <Td className="truncate">{r.buy_location || "—"}</Td>
+                  <Td className="truncate">{r.sell_location || "—"}</Td>
+
+                  <Td className="text-right">
+                    {fmtNum(r.matchedQty, locale)}
+                  </Td>
                   <Td className="text-right tabular-nums">
                     {fmtMoney(r.buy_price, locale, "PLN")}
                   </Td>
                   <Td className="text-right tabular-nums">
                     {fmtMoney(r.sell_price, locale, "PLN")}
                   </Td>
+
+                  {/* Transport / t with inline manual override */}
                   <Td className="text-right tabular-nums">
-                    {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+                    {fmtMoney(r.effectiveTransport ?? 0, locale, "PLN")}
+                    <div className="mt-1 flex items-center justify-end gap-1 text-[11px] text-slate-500">
+                      <span>+ manual</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={r.manualTransport ?? ""}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setManualTransportMap((prev) => ({
+                            ...prev,
+                            [r.rowKey]: Number.isFinite(val) ? val : 0,
+                          }));
+                        }}
+                        className="w-16 rounded border border-slate-300 px-1 py-0.5 text-right text-xs"
+                      />
+                    </div>
                     {(r.fromRegion || r.toRegion) && (
                       <span className="ml-1 text-xs text-slate-400">
                         ({r.fromRegion || "?"} → {r.toRegion || "?"})
                       </span>
                     )}
                   </Td>
+
                   <Td className="text-right">
                     <span
                       className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
@@ -1241,8 +1484,7 @@ function MatchesTable({
               ))
             ) : (
               <tr>
-                {/* 12 columns now */}
-                <td colSpan={12} className="p-6 text-center text-slate-500">
+                <td colSpan={14} className="p-6 text-center text-slate-500">
                   No matches for current data/filters.
                 </td>
               </tr>

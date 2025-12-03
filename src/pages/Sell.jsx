@@ -1344,6 +1344,24 @@ function Modal({ children, onClose, title }) {
       phoneNo: initial?.sellCustomerPhoneNo || "",
     });
 
+        const applyLocation = (L) => {
+      setLoc((prev) => ({
+        ...prev,
+        no: L.no || prev.no || "",
+        name: L.name || prev.name || "",
+        name2: L.name2 || prev.name2 || "",
+        address: L.address || prev.address || "",
+        address2: L.address2 || prev.address2 || "",
+        city: L.city || prev.city || "",
+        region: L.region || prev.region || "",
+        postCode: L.postCode || prev.postCode || "",
+        country: L.country || prev.country || "",
+        email: L.email || prev.email || "",
+        phoneNo: L.phoneNo || prev.phoneNo || "",
+      }));
+    };
+
+
     // bill-to
     const [bill, setBill] = useState({
       no: initial?.billCustomerNo || "",
@@ -1961,8 +1979,20 @@ function Modal({ children, onClose, title }) {
         )}
 
         {/* LOCATION */}
+       
         {tab === "location" && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field
+              label={F.pickLocation || "Pick Location"}
+              icon={IdCard}
+            >
+              <LocationCombobox
+                valueNo={loc.no}
+                onPick={applyLocation}
+                placeholder={F.pickLocation || "Search location no./name…"}
+              />
+            </Field>
+
             <Field label={F.locationNo || "Location No."} icon={IdCard}>
               <input
                 className={INPUT_CLS}
@@ -1970,6 +2000,7 @@ function Modal({ children, onClose, title }) {
                 onChange={(e) => setLoc({ ...loc, no: e.target.value })}
               />
             </Field>
+
             <Field label={F.name || "Name"} icon={Building}>
               <input
                 className={INPUT_CLS}
@@ -2049,6 +2080,7 @@ function Modal({ children, onClose, title }) {
             </Field>
           </div>
         )}
+
 
         {/* SHIPMENT */}
         {tab === "shipment" && (
@@ -2272,6 +2304,132 @@ function Modal({ children, onClose, title }) {
       return s || dash;
     }
   }
+
+  /** Typeahead combobox for /api/mlocations */
+function LocationCombobox({
+  valueNo,
+  onPick,
+  placeholder = "Type location no./name…",
+}) {
+  const [input, setInput] = useState(valueNo ? valueNo : "");
+  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(-1);
+  const [opts, setOpts] = useState([]);
+
+  useEffect(() => {
+    let stop = false;
+    const params = new URLSearchParams({ limit: "50" });
+    if (input) params.set("q", input);
+
+    fetch(`${API}/api/mlocations?${params.toString()}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (stop) return;
+        const rows = Array.isArray(json?.data) ? json.data : [];
+        setOpts(
+          rows.map((r) => ({
+            _id: r._id,
+            no: r.no || r.code,
+            name: r.name,
+            name2: r.name2,
+            address: r.address,
+            address2: r.address2,
+            city: r.city,
+            region: r.region,
+            postCode: r.postCode,
+            country: r.countryRegionCode || r.country,
+            email: r.email,
+            phoneNo: r.phoneNo,
+          }))
+        );
+      })
+      .catch(() => setOpts([]));
+
+    return () => {
+      stop = true;
+    };
+  }, [input]);
+
+  return (
+    <div className="relative">
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={input}
+        onChange={(e) => {
+          setInput(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+            setOpen(true);
+            return;
+          }
+          if (e.key === "Escape") {
+            setOpen(false);
+            return;
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setHover((i) => Math.min(i + 1, opts.length - 1));
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHover((i) => Math.max(i - 1, 0));
+          }
+          if (e.key === "Enter" && open) {
+            e.preventDefault();
+            const pick = hover >= 0 ? opts[hover] : opts[0];
+            if (pick) {
+              onPick(pick);
+              setInput(`${pick.no} — ${pick.name}`);
+              setOpen(false);
+            }
+          }
+        }}
+        placeholder={placeholder}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls="loc-listbox"
+        role="combobox"
+      />
+      {open && opts.length > 0 && (
+        <ul
+          id="loc-listbox"
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          {opts.map((o, idx) => {
+            const active = idx === hover;
+            return (
+              <li
+                key={o._id}
+                role="option"
+                aria-selected={active}
+                className={
+                  "cursor-pointer px-3 py-2 text-sm " +
+                  (active ? "bg-slate-100" : "hover:bg-slate-50")
+                }
+                onMouseEnter={() => setHover(idx)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onPick(o);
+                  setInput(`${o.no} — ${o.name}`);
+                  setOpen(false);
+                }}
+                title={`${o.no} — ${o.name}`}
+              >
+                <div className="font-medium">{o.no}</div>
+                <div className="text-slate-500 text-xs">{o.name}</div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 
   function fmtDOT(n, decimals = 2) {
     const val = Number(n);

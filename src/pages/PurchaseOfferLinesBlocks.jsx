@@ -310,6 +310,15 @@ export default function PurchaseOfferLinesBlocksPage() {
           buyVendorNo: "Buy Vendor No.",
           payVendorNo: "Pay Vendor No.",
           locationNo: "Location No.",
+          buyVendorNo: "Buy Vendor No.",
+          payVendorNo: "Pay Vendor No.",
+          locationNo: "Location No.",
+          locationName: "Location Name",
+          locationAddress: "Location Address",
+          locationAddress2: "Location Address 2",
+          locationPostCode: "Location Post Code",
+          locationCity: "Location City",
+          locationCountryCode: "Location Country / Region",
           createdBy: "Created By",
           createdAt: "Created At",
           modifiedBy: "Modified By",
@@ -959,26 +968,54 @@ export default function PurchaseOfferLinesBlocksPage() {
                               </KV>
                             </Section>
 
-                            <Section title={S.details.parties}>
-                              <KV
-                                label={S.details.kv.buyVendorNo}
-                                icon={Hash}
-                              >
+                                                       <Section title={S.details.parties}>
+                              <KV label={S.details.kv.buyVendorNo} icon={Hash}>
                                 {d.buyVendorNo || "—"}
                               </KV>
-                              <KV
-                                label={S.details.kv.payVendorNo}
-                                icon={Hash}
-                              >
+                              <KV label={S.details.kv.payVendorNo} icon={Hash}>
                                 {d.payVendorNo || "—"}
                               </KV>
-                              <KV
-                                label={S.details.kv.locationNo}
-                                icon={Hash}
-                              >
+                              <KV label={S.details.kv.locationNo} icon={Hash}>
                                 {d.locationNo || "—"}
                               </KV>
+                              <KV
+                                label={S.details.kv.locationName}
+                                icon={Hash}
+                              >
+                                {d.locationName || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress}
+                                icon={Hash}
+                              >
+                                {d.locationAddress || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress2}
+                                icon={Hash}
+                              >
+                                {d.locationAddress2 || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationPostCode}
+                                icon={Hash}
+                              >
+                                {d.locationPostCode || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCity}
+                                icon={Hash}
+                              >
+                                {d.locationCity || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCountryCode}
+                                icon={Hash}
+                              >
+                                {d.locationCountryCode || "—"}
+                              </KV>
                             </Section>
+
 
                             <Section title={S.details.audit}>
                               <KV
@@ -1358,6 +1395,26 @@ function PurchaseOfferLineBlockForm({
   const [payVendorNo, setPayVendorNo] = useState(initial?.payVendorNo || "");
   const [locationNo, setLocationNo] = useState(initial?.locationNo || "");
 
+    const [locationName, setLocationName] = useState(
+    initial?.locationName || ""
+  );
+  const [locationAddress, setLocationAddress] = useState(
+    initial?.locationAddress || ""
+  );
+  const [locationAddress2, setLocationAddress2] = useState(
+    initial?.locationAddress2 || ""
+  );
+  const [locationPostCode, setLocationPostCode] = useState(
+    initial?.locationPostCode || ""
+  );
+  const [locationCity, setLocationCity] = useState(
+    initial?.locationCity || ""
+  );
+  const [locationCountryCode, setLocationCountryCode] = useState(
+    initial?.locationCountryCode || ""
+  );
+
+
   // params (simple code + value)
   const [p1c, setP1c] = useState(initial?.param1Code || "");
   const [p1v, setP1v] = useState(initial?.param1Value || "");
@@ -1409,6 +1466,39 @@ function PurchaseOfferLineBlockForm({
       (prev) => prev || header.payVendorNo || header.buyVendorNo || ""
     );
     setLocationNo((prev) => prev || header.locationNo || "");
+
+        setLocationName((prev) => prev || header.locationName || "");
+    setLocationAddress((prev) => prev || header.locationAddress || "");
+    setLocationAddress2(
+      (prev) => prev || header.locationAddress2 || ""
+    );
+    setLocationPostCode(
+      (prev) =>
+        prev ||
+        header.locationPostCode ||
+        header.location_post_code ||
+        ""
+    );
+    setLocationCity(
+      (prev) => prev || header.locationCity || header.city || ""
+    );
+
+    const hdrCountry =
+      header.locationCountryCode ||
+      header.locationCountry ||
+      header.buyVendorCountry ||
+      header.payVendorCountry ||
+      header.countryRegionCode ||
+      header.countryCode ||
+      header.country ||
+      header.country_region_code ||
+      header.CountryRegionCode ||
+      "";
+
+    setLocationCountryCode((prev) =>
+      prev || (hdrCountry ? String(hdrCountry).toUpperCase() : "")
+    );
+
 
     setServiceDate((prev) => prev || toInputDate(header.serviceDate));
     setRequestedDeliveryDate(
@@ -1468,6 +1558,12 @@ function PurchaseOfferLineBlockForm({
       buyVendorNo: buyVendorNo || null,
       payVendorNo: payVendorNo || null,
       locationNo: locationNo || null,
+      locationName: locationName || null,
+      locationAddress: locationAddress || null,
+      locationAddress2: locationAddress2 || null,
+      locationPostCode: locationPostCode || null,
+      locationCity: locationCity || null,
+      locationCountryCode: locationCountryCode || null,
 
       param1Code: p1c || null,
       param1Value: p1v || null,
@@ -1822,7 +1918,7 @@ function PurchaseOfferLineBlockForm({
       )}
 
       {/* PARTIES */}
-      {tab === "parties" && (
+            {tab === "parties" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={SS.details.kv.buyVendorNo} icon={Hash}>
             <input
@@ -1845,8 +1941,54 @@ function PurchaseOfferLineBlockForm({
               onChange={(e) => setLocationNo(e.target.value)}
             />
           </Field>
+
+          <Field label={SS.details.kv.locationName} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationAddress} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={locationAddress}
+              onChange={(e) => setLocationAddress(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationAddress2} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={locationAddress2}
+              onChange={(e) => setLocationAddress2(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationPostCode} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={locationPostCode}
+              onChange={(e) => setLocationPostCode(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationCity} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={locationCity}
+              onChange={(e) => setLocationCity(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationCountryCode} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={locationCountryCode}
+              onChange={(e) =>
+                setLocationCountryCode(e.target.value.toUpperCase())
+              }
+            />
+          </Field>
         </div>
       )}
+
 
       {/* PARAMS */}
       {tab === "params" && (

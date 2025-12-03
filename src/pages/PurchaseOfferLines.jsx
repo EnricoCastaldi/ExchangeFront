@@ -8,6 +8,7 @@ import {
   X,
   ChevronDown,
   Maximize2,
+  MapPin,
   Minimize2,
   ChevronRight,
   Hash,
@@ -68,7 +69,6 @@ const LINE_TYPES = [
 
 const UOMS = ["SZT", "M2", "M3", "T", "KG"];
 
-
 // Server-accepted sort keys (must match backend router)
 const SERVER_SORT_KEYS = new Set([
   "createdAt",
@@ -80,7 +80,6 @@ const SERVER_SORT_KEYS = new Set([
   "unitPrice",
   "lineValue",
 ]);
-
 
 function PurchaseOfferLineForm({
   initial,
@@ -99,15 +98,22 @@ function PurchaseOfferLineForm({
       core: "Core",
       amounts: "Amounts",
       parties: "Parties",
-      params: "Parameters",
       audit: "Audit",
+      params: "Parameters",
       kv: {
-        documentNo: "Document No.",
         lineNo: "Line No.",
+        documentNo: "Document No.",
+        documentId: "Document ID",
         status: "Status",
         type: "Type",
         itemNo: "Item No.",
         uom: "Unit of Measure",
+        serviceDate: "Service / Delivery Date",
+        requestedDeliveryDate: "Requested Delivery",
+        promisedDeliveryDate: "Promised Delivery",
+        shipmentDate: "Shipment Date",
+        documentValidityDate: "Doc Validity Date",
+        documentValidityHour: "Doc Validity Hour",
         unitPrice: "Unit Price",
         quantity: "Quantity",
         lineValue: "Line Value",
@@ -117,22 +123,26 @@ function PurchaseOfferLineForm({
         additionalCosts: "Additional Costs",
         costMarginPct: "Cost Margin %",
         transportCost: "Transport Cost",
-        serviceDate: "Service / Delivery Date",
-        requestedDeliveryDate: "Requested Delivery",
-        promisedDeliveryDate: "Promised Delivery",
-        shipmentDate: "Shipment Date",
-        documentValidityDate: "Doc Validity Date",
-        documentValidityHour: "Doc Validity Hour",
         buyVendorNo: "Buy Vendor No.",
         payVendorNo: "Pay Vendor No.",
         locationNo: "Location No.",
+
+        // 👇 NEW LABELS USED IN THE EXPANDED VIEW
+        locationName: "Location Name",
+        locationAddress: "Location Address",
+        locationAddress2: "Location Address 2",
+        locationPostCode: "Location Post Code",
+        locationCity: "Location City",
+        locationCountryCode: "Location Country / Region",
+
         createdBy: "Created By",
         createdAt: "Created At",
         modifiedBy: "Modified By",
         modifiedAt: "Modified At",
-        documentId: "Document ID",
+        param: (i) => `Param${i}`,
       },
     },
+
     actions: {
       cancel: "Cancel",
       saveChanges: "Save changes",
@@ -157,9 +167,17 @@ function PurchaseOfferLineForm({
         ...(S?.details?.kv || {}),
       },
     },
-    actions: { ...DEFAULT_S.actions, ...(I18N_S.actions || {}), ...(S?.actions || {}) },
+    actions: {
+      ...DEFAULT_S.actions,
+      ...(I18N_S.actions || {}),
+      ...(S?.actions || {}),
+    },
     form: { ...DEFAULT_S.form, ...(I18N_S.form || {}), ...(S?.form || {}) },
-    controls: { ...DEFAULT_S.controls, ...(I18N_S.controls || {}), ...(S?.controls || {}) },
+    controls: {
+      ...DEFAULT_S.controls,
+      ...(I18N_S.controls || {}),
+      ...(S?.controls || {}),
+    },
   };
 
   // UI state
@@ -171,20 +189,28 @@ function PurchaseOfferLineForm({
   // header-ish / keys
   const [documentNo, setDocumentNo] = React.useState(initial?.documentNo || "");
   const [lineNo] = React.useState(initial?.lineNo ?? null); // read-only on edit
-  const [status, setStatus] = React.useState(canonStatus(initial?.status || "new"));
+  const [status, setStatus] = React.useState(
+    canonStatus(initial?.status || "new")
+  );
   const [lineType, setLineType] = React.useState(initial?.lineType || "item");
 
   // core
   const [itemNo, setItemNo] = React.useState(initial?.itemNo || "");
-  const [unitOfMeasure, setUnitOfMeasure] = React.useState(initial?.unitOfMeasure || "T");
+  const [unitOfMeasure, setUnitOfMeasure] = React.useState(
+    initial?.unitOfMeasure || "T"
+  );
   const [unitPrice, setUnitPrice] = React.useState(initial?.unitPrice ?? 0);
   const [quantity, setQuantity] = React.useState(initial?.quantity ?? 0);
 
   // costs
   const [tollCost, setTollCost] = React.useState(initial?.tollCost ?? 0);
   const [driverCost, setDriverCost] = React.useState(initial?.driverCost ?? 0);
-  const [vehicleCost, setVehicleCost] = React.useState(initial?.vehicleCost ?? 0);
-  const [additionalCosts, setAdditionalCosts] = React.useState(initial?.additionalCosts ?? 0);
+  const [vehicleCost, setVehicleCost] = React.useState(
+    initial?.vehicleCost ?? 0
+  );
+  const [additionalCosts, setAdditionalCosts] = React.useState(
+    initial?.additionalCosts ?? 0
+  );
   const [costMargin, setCostMargin] = React.useState(initial?.costMargin ?? 0);
 
   // dates
@@ -192,25 +218,55 @@ function PurchaseOfferLineForm({
     initial?.serviceDate ? initial.serviceDate.slice(0, 10) : ""
   );
   const [requestedDeliveryDate, setRequestedDeliveryDate] = React.useState(
-    initial?.requestedDeliveryDate ? initial.requestedDeliveryDate.slice(0, 10) : ""
+    initial?.requestedDeliveryDate
+      ? initial.requestedDeliveryDate.slice(0, 10)
+      : ""
   );
   const [promisedDeliveryDate, setPromisedDeliveryDate] = React.useState(
-    initial?.promisedDeliveryDate ? initial.promisedDeliveryDate.slice(0, 10) : ""
+    initial?.promisedDeliveryDate
+      ? initial.promisedDeliveryDate.slice(0, 10)
+      : ""
   );
   const [shipmentDate, setShipmentDate] = React.useState(
     initial?.shipmentDate ? initial.shipmentDate.slice(0, 10) : ""
   );
   const [documentValidityDate, setDocumentValidityDate] = React.useState(
-    initial?.documentValidityDate ? initial.documentValidityDate.slice(0, 10) : ""
+    initial?.documentValidityDate
+      ? initial.documentValidityDate.slice(0, 10)
+      : ""
   );
   const [documentValidityHour, setDocumentValidityHour] = React.useState(
     initial?.documentValidityHour || ""
   );
 
   // parties / links
-  const [buyVendorNo, setBuyVendorNo] = React.useState(initial?.buyVendorNo || "");
-  const [payVendorNo, setPayVendorNo] = React.useState(initial?.payVendorNo || "");
+  const [buyVendorNo, setBuyVendorNo] = React.useState(
+    initial?.buyVendorNo || ""
+  );
+  const [payVendorNo, setPayVendorNo] = React.useState(
+    initial?.payVendorNo || ""
+  );
   const [locationNo, setLocationNo] = React.useState(initial?.locationNo || "");
+
+  // NEW: location details (mirrors Buy)
+  const [locationName, setLocationName] = React.useState(
+    initial?.locationName || ""
+  );
+  const [locationAddress, setLocationAddress] = React.useState(
+    initial?.locationAddress || ""
+  );
+  const [locationAddress2, setLocationAddress2] = React.useState(
+    initial?.locationAddress2 || ""
+  );
+  const [locationPostCode, setLocationPostCode] = React.useState(
+    initial?.locationPostCode || ""
+  );
+  const [locationCity, setLocationCity] = React.useState(
+    initial?.locationCity || ""
+  );
+  const [locationCountryCode, setLocationCountryCode] = React.useState(
+    initial?.locationCountryCode || ""
+  );
 
   // params (1..5)
   const [p1c, setP1c] = React.useState(initial?.param1Code || "");
@@ -246,12 +302,12 @@ function PurchaseOfferLineForm({
   }, [tollCost, driverCost, vehicleCost, additionalCosts, costMargin]);
 
   const TABS = [
-    { id: "core",    label: SS.details.core,    Icon: FileText },
-    { id: "dates",   label: "Dates",            Icon: CalendarIcon },
-    { id: "costs",   label: SS.details.amounts, Icon: DollarSign },
+    { id: "core", label: SS.details.core, Icon: FileText },
+    { id: "dates", label: "Dates", Icon: CalendarIcon },
+    { id: "costs", label: SS.details.amounts, Icon: DollarSign },
     { id: "parties", label: SS.details.parties, Icon: UserIcon },
-    { id: "params",  label: SS.details.params,  Icon: SlidersHorizontal },
-    { id: "audit",   label: SS.details.audit,   Icon: ClipboardList },
+    { id: "params", label: SS.details.params, Icon: SlidersHorizontal },
+    { id: "audit", label: SS.details.audit, Icon: ClipboardList },
   ];
 
   const isItem = (lineType || "").toLowerCase() === "item";
@@ -259,7 +315,11 @@ function PurchaseOfferLineForm({
   // helper
   function toInputDate(v) {
     if (!v) return "";
-    try { return new Date(v).toISOString().slice(0, 10); } catch { return ""; }
+    try {
+      return new Date(v).toISOString().slice(0, 10);
+    } catch {
+      return "";
+    }
   }
 
   // autofill when document changes
@@ -269,14 +329,46 @@ function PurchaseOfferLineForm({
     if (!header) return;
 
     setBuyVendorNo((prev) => prev || header.buyVendorNo || "");
-    setPayVendorNo((prev) => prev || header.payVendorNo || header.buyVendorNo || "");
+    setPayVendorNo(
+      (prev) => prev || header.payVendorNo || header.buyVendorNo || ""
+    );
     setLocationNo((prev) => prev || header.locationNo || "");
 
+    // NEW: inherit detailed location from header
+  setLocationName((prev) => prev || header.locationName || "");
+  setLocationAddress((prev) => prev || header.locationAddress || "");
+  setLocationAddress2((prev) => prev || header.locationAddress2 || "");
+  setLocationPostCode((prev) => prev || header.locationPostCode || "");
+  setLocationCity((prev) => prev || header.locationCity || "");
+
+  // 👇 take country from header.locationCountry (and fallbacks)
+  const hdrCountry =
+    header.locationCountryCode ||
+    header.locationCountry ||        // <-- this is what you have: "POLAND"
+    header.buyVendorCountry ||
+    header.payVendorCountry ||
+    header.countryRegionCode ||
+    header.countryCode ||
+    header.country ||
+    header.country_region_code ||
+    header.CountryRegionCode ||
+    "";
+
+  setLocationCountryCode((prev) =>
+    prev || (hdrCountry ? String(hdrCountry).toUpperCase() : "")
+  );
+
     setServiceDate((prev) => prev || toInputDate(header.serviceDate));
-    setRequestedDeliveryDate((prev) => prev || toInputDate(header.requestedDeliveryDate));
-    setPromisedDeliveryDate((prev) => prev || toInputDate(header.promisedDeliveryDate));
+    setRequestedDeliveryDate(
+      (prev) => prev || toInputDate(header.requestedDeliveryDate)
+    );
+    setPromisedDeliveryDate(
+      (prev) => prev || toInputDate(header.promisedDeliveryDate)
+    );
     setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
-    setDocumentValidityDate((prev) => prev || toInputDate(header.documentValidityDate));
+    setDocumentValidityDate(
+      (prev) => prev || toInputDate(header.documentValidityDate)
+    );
 
     setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
   }, [documentNo, docs]);
@@ -286,7 +378,10 @@ function PurchaseOfferLineForm({
     let abort = false;
     (async () => {
       const no = (itemNo || "").trim().toUpperCase();
-      if (!no) { if (!abort) setDefaultParamCodes([]); return; }
+      if (!no) {
+        if (!abort) setDefaultParamCodes([]);
+        return;
+      }
       try {
         const qs = new URLSearchParams({
           page: "1",
@@ -294,29 +389,38 @@ function PurchaseOfferLineForm({
           sort: "parameterCode:1",
           itemNo: no,
         });
-        const res = await fetch(`${API}/api/mdefault-item-parameters?${qs.toString()}`);
+        const res = await fetch(
+          `${API}/api/mdefault-item-parameters?${qs.toString()}`
+        );
         const json = await res.json();
         const codes = Array.from(
-          new Set((json?.data || [])
-            .map(r => (r.parameterCode || "").toUpperCase())
-            .filter(Boolean))
+          new Set(
+            (json?.data || [])
+              .map((r) => (r.parameterCode || "").toUpperCase())
+              .filter(Boolean)
+          )
         );
         if (!abort) setDefaultParamCodes(codes);
       } catch {
         if (!abort) setDefaultParamCodes([]);
       }
     })();
-    return () => { abort = true; };
+    return () => {
+      abort = true;
+    };
   }, [itemNo]);
 
   // Fetch metadata for loaded codes + prefill values
   React.useEffect(() => {
     let abort = false;
     (async () => {
-      if (!defaultParamCodes?.length) { if (!abort) setParamMeta({}); return; }
+      if (!defaultParamCodes?.length) {
+        if (!abort) setParamMeta({});
+        return;
+      }
 
       const exact = defaultParamCodes
-        .map(c => String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .map((c) => String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
         .join("|");
 
       const qs = new URLSearchParams({
@@ -337,20 +441,29 @@ function PurchaseOfferLineForm({
           if (p.defaultValueText != null) dv = p.defaultValueText;
           else if (p.defaultValueBoolean != null) dv = p.defaultValueBoolean;
           else if (p.defaultValueDecimal != null) {
-            const decRaw = typeof p.defaultValueDecimal === "object" && p.defaultValueDecimal?.$numberDecimal != null
-              ? p.defaultValueDecimal.$numberDecimal
-              : p.defaultValueDecimal;
+            const decRaw =
+              typeof p.defaultValueDecimal === "object" &&
+              p.defaultValueDecimal?.$numberDecimal != null
+                ? p.defaultValueDecimal.$numberDecimal
+                : p.defaultValueDecimal;
             dv = decRaw != null ? Number(decRaw) : null;
           }
-          map[code] = { description: p.description || "", defaultValue: dv, type: p.type || "decimal" };
+          map[code] = {
+            description: p.description || "",
+            defaultValue: dv,
+            type: p.type || "decimal",
+          };
         }
 
         if (!abort) {
           setParamMeta(map);
 
           // Prefill values where empty
-          const [c1, c2, c3, c4, c5] = defaultParamCodes.map(c => c?.toUpperCase());
-          const ensure = (dv) => (prev) => (prev == null || prev === "" ? (dv ?? "") : prev);
+          const [c1, c2, c3, c4, c5] = defaultParamCodes.map((c) =>
+            c?.toUpperCase()
+          );
+          const ensure = (dv) => (prev) =>
+            prev == null || prev === "" ? dv ?? "" : prev;
           setP1v(ensure(map[c1]?.defaultValue));
           setP2v(ensure(map[c2]?.defaultValue));
           setP3v(ensure(map[c3]?.defaultValue));
@@ -361,157 +474,192 @@ function PurchaseOfferLineForm({
         if (!abort) setParamMeta({});
       }
     })();
-    return () => { abort = true; };
+    return () => {
+      abort = true;
+    };
   }, [defaultParamCodes]);
 
   // Push default codes into slots when codes change
   React.useEffect(() => {
     if (!defaultParamCodes.length) return;
     const [c1, c2, c3, c4, c5] = defaultParamCodes;
-    setP1c(c1 || ""); setP2c(c2 || ""); setP3c(c3 || ""); setP4c(c4 || ""); setP5c(c5 || "");
+    setP1c(c1 || "");
+    setP2c(c2 || "");
+    setP3c(c3 || "");
+    setP4c(c4 || "");
+    setP5c(c5 || "");
   }, [defaultParamCodes]);
 
   // Save
-async function save(e) {
-  e.preventDefault();
+  async function save(e) {
+    e.preventDefault();
 
-  // ----- 1) validate -----
-  const errs = {};
-  if (!documentNo.trim()) errs.documentNo = "Document No. *";
-  if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
-  if (!isEdit && !getUserCode()) errs.userCreated = "Missing user code (session).";
-  setErrors(errs);
-  if (Object.keys(errs).length) {
-    if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
-    return;
-  }
-
-  // ----- 2) payload -----
-  const payload = {
-    documentNo: documentNo.trim(),
-    status: canonStatus(status),
-    lineType: (lineType || "item").toLowerCase(),
-    lineNo: isEdit ? lineNo : undefined,
-    itemNo: itemNo || null,
-    unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
-    unitPrice: Number(unitPrice) || 0,
-    quantity: Number(quantity) || 0,
-
-    tollCost: Number(tollCost) || 0,
-    driverCost: Number(driverCost) || 0,
-    vehicleCost: Number(vehicleCost) || 0,
-    additionalCosts: Number(additionalCosts) || 0,
-    costMargin: Number(costMargin) || 0,
-
-    serviceDate,
-    requestedDeliveryDate,
-    promisedDeliveryDate,
-    shipmentDate,
-    documentValidityDate,
-    documentValidityHour,
-
-    buyVendorNo: buyVendorNo || null,
-    payVendorNo: payVendorNo || null,
-    locationNo: locationNo || null,
-
-    param1Code: p1c || null, param1Value: p1v || null,
-    param2Code: p2c || null, param2Value: p2v || null,
-    param3Code: p3c || null, param3Value: p3v || null,
-    param4Code: p4c || null, param4Value: p4v || null,
-    param5Code: p5c || null, param5Value: p5v || null,
-  };
-
-  const nowIso = new Date().toISOString();
-  const userCode = getUserCode();
-  if (!isEdit) {
-    payload.userCreated = userCode;
-    payload.dateCreated = nowIso;
-  } else {
-    payload.userModified = userCode;
-    payload.dateModified = nowIso;
-  }
-
-  // ----- 3) save line -----
-  try {
-    const url = isEdit
-      ? `${API}/api/purchase-offer-lines/${initial._id}`
-      : `${API}/api/purchase-offer-lines`;
-    const method = isEdit ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      showNotice?.("error", json?.message || "Save failed");
+    // ----- 1) validate -----
+    const errs = {};
+    if (!documentNo.trim()) errs.documentNo = "Document No. *";
+    if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
+    if (!isEdit && !getUserCode())
+      errs.userCreated = "Missing user code (session).";
+    setErrors(errs);
+    if (Object.keys(errs).length) {
+      if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
       return;
     }
 
-    const saved = json || {};
+// ----- 2) payload -----
+const price = Number(unitPrice) || 0;
+const qty = Number(quantity) || 0;
 
-    // ----- 4) (re)build PURCHASE blocks (DELETE then POST chunks only) -----
-    try {
-      const mustResync =
-        !isEdit ||
-        Number(saved.quantity)         !== Number(initial?.quantity) ||
-        Number(saved.unitPrice)        !== Number(initial?.unitPrice) ||
-        String(saved.unitOfMeasure||"").toUpperCase() !== String(initial?.unitOfMeasure||"").toUpperCase() ||
-        Number(saved.tollCost)         !== Number(initial?.tollCost) ||
-        Number(saved.driverCost)       !== Number(initial?.driverCost) ||
-        Number(saved.vehicleCost)      !== Number(initial?.vehicleCost) ||
-        Number(saved.additionalCosts)  !== Number(initial?.additionalCosts) ||
-        Number(saved.costMargin)       !== Number(initial?.costMargin) ||
-        String(saved.status||"")       !== String(initial?.status||"") ||
-        String(saved.itemNo||"")       !== String(initial?.itemNo||"");
+const payload = {
+  documentNo: documentNo.trim(),
+  status: canonStatus(status),
+  lineType: (lineType || "item").toLowerCase(),
+  lineNo: isEdit ? lineNo : undefined,
 
-      if (mustResync) {
-        await createPurchaseBlocksForLine(saved, userCode);
-      }
-    } catch (e) {
-      showNotice?.("error", e?.message || "Failed to (re)create purchase blocks.");
-      // If blocks must be atomic with line save, uncomment:
-      // return;
+  itemNo: itemNo || null,
+  unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
+  unitPrice: price,
+  quantity: qty,
+  lineValue: +(price * qty).toFixed(2),
+
+  tollCost: Number(tollCost) || 0,
+  driverCost: Number(driverCost) || 0,
+  vehicleCost: Number(vehicleCost) || 0,
+  additionalCosts: Number(additionalCosts) || 0,
+  costMargin: Number(costMargin) || 0,
+
+  serviceDate,
+  requestedDeliveryDate,
+  promisedDeliveryDate,
+  shipmentDate,
+  documentValidityDate,
+  documentValidityHour,
+
+  buyVendorNo: buyVendorNo || null,
+  payVendorNo: payVendorNo || null,
+  locationNo: locationNo || null,
+
+  locationName: locationName || null,
+  locationAddress: locationAddress || null,
+  locationAddress2: locationAddress2 || null,
+  locationPostCode: locationPostCode || null,
+  locationCity: locationCity || null,
+  locationCountryCode: locationCountryCode || null,
+
+  param1Code: p1c || null,
+  param1Value: p1v || null,
+  param2Code: p2c || null,
+  param2Value: p2v || null,
+  param3Code: p3c || null,
+  param3Value: p3v || null,
+  param4Code: p4c || null,
+  param4Value: p4v || null,
+  param5Code: p5c || null,
+  param5Value: p5v || null,
+};
+
+
+    const nowIso = new Date().toISOString();
+    const userCode = getUserCode();
+    if (!isEdit) {
+      payload.userCreated = userCode;
+      payload.dateCreated = nowIso;
+    } else {
+      payload.userModified = userCode;
+      payload.dateModified = nowIso;
     }
 
-    // ----- 5) sync purchase line parameters -----
+    // ----- 3) save line -----
     try {
-      const docNoForParams = (saved.documentNo || payload.documentNo || "").toUpperCase();
-      const lineNoForParams =
-        saved.lineNo != null ? String(saved.lineNo)
-        : lineNo != null     ? String(lineNo)
-        : null;
+      const url = isEdit
+        ? `${API}/api/purchase-offer-lines/${initial._id}`
+        : `${API}/api/purchase-offer-lines`;
+      const method = isEdit ? "PUT" : "POST";
 
-      if (lineNoForParams) {
-        const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
-        const paramsForSync = [
-          { code: (p1c || fallback(0)), value: p1v },
-          { code: (p2c || fallback(1)), value: p2v },
-          { code: (p3c || fallback(2)), value: p3v },
-          { code: (p4c || fallback(3)), value: p4v },
-          { code: (p5c || fallback(4)), value: p5v },
-        ].filter(p => p.code);
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-        await syncPurchaseLineParams({
-          documentNo: docNoForParams,
-          documentLineNo: String(lineNoForParams),
-          params: paramsForSync,
-          removeMissing: true,
-        });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showNotice?.("error", json?.message || "Save failed");
+        return;
       }
-    } catch (e) {
-      showNotice?.("error", e?.message || "Parameters sync failed.");
-    }
 
-    // ----- 6) done -----
-    showNotice?.("success", isEdit ? "Line updated." : "Line created.");
-    onSaved?.();
-  } catch {
-    showNotice?.("error", "Save failed");
+      const saved = json || {};
+
+      // ----- 4) (re)build PURCHASE blocks (DELETE then POST chunks only) -----
+      try {
+        const mustResync =
+          !isEdit ||
+          Number(saved.quantity) !== Number(initial?.quantity) ||
+          Number(saved.unitPrice) !== Number(initial?.unitPrice) ||
+          String(saved.unitOfMeasure || "").toUpperCase() !==
+            String(initial?.unitOfMeasure || "").toUpperCase() ||
+          Number(saved.tollCost) !== Number(initial?.tollCost) ||
+          Number(saved.driverCost) !== Number(initial?.driverCost) ||
+          Number(saved.vehicleCost) !== Number(initial?.vehicleCost) ||
+          Number(saved.additionalCosts) !== Number(initial?.additionalCosts) ||
+          Number(saved.costMargin) !== Number(initial?.costMargin) ||
+          String(saved.status || "") !== String(initial?.status || "") ||
+          String(saved.itemNo || "") !== String(initial?.itemNo || "");
+
+        if (mustResync) {
+          await createPurchaseBlocksForLine(saved, userCode);
+        }
+      } catch (e) {
+        showNotice?.(
+          "error",
+          e?.message || "Failed to (re)create purchase blocks."
+        );
+        // If blocks must be atomic with line save, uncomment:
+        // return;
+      }
+
+      // ----- 5) sync purchase line parameters -----
+      try {
+        const docNoForParams = (
+          saved.documentNo ||
+          payload.documentNo ||
+          ""
+        ).toUpperCase();
+        const lineNoForParams =
+          saved.lineNo != null
+            ? String(saved.lineNo)
+            : lineNo != null
+            ? String(lineNo)
+            : null;
+
+        if (lineNoForParams) {
+          const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
+          const paramsForSync = [
+            { code: p1c || fallback(0), value: p1v },
+            { code: p2c || fallback(1), value: p2v },
+            { code: p3c || fallback(2), value: p3v },
+            { code: p4c || fallback(3), value: p4v },
+            { code: p5c || fallback(4), value: p5v },
+          ].filter((p) => p.code);
+
+          await syncPurchaseLineParams({
+            documentNo: docNoForParams,
+            documentLineNo: String(lineNoForParams),
+            params: paramsForSync,
+            removeMissing: true,
+          });
+        }
+      } catch (e) {
+        showNotice?.("error", e?.message || "Parameters sync failed.");
+      }
+
+      // ----- 6) done -----
+      showNotice?.("success", isEdit ? "Line updated." : "Line created.");
+      onSaved?.();
+    } catch {
+      showNotice?.("error", "Save failed");
+    }
   }
-}
 
   return (
     <form onSubmit={save} className="space-y-4">
@@ -532,7 +680,10 @@ async function save(e) {
                     : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                 ].join(" ")}
               >
-                <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
+                <t.Icon
+                  size={16}
+                  className={active ? "opacity-80" : "opacity-60"}
+                />
                 {t.label}
               </button>
             );
@@ -550,7 +701,11 @@ async function save(e) {
       {/* CORE */}
       {tab === "core" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={SS.details.kv.documentNo} icon={Hash} error={errors.documentNo}>
+          <Field
+            label={SS.details.kv.documentNo}
+            icon={Hash}
+            error={errors.documentNo}
+          >
             <DocumentPicker
               value={documentNo}
               onChange={(val) => setDocumentNo(val)}
@@ -604,13 +759,17 @@ async function save(e) {
                 value={itemNo}
                 onPick={(it) => {
                   setItemNo(it.no || "");
-                  setUnitOfMeasure((prev) => prev || it.baseUnitOfMeasure || prev);
+                  setUnitOfMeasure(
+                    (prev) => prev || it.baseUnitOfMeasure || prev
+                  );
                   setUnitPrice((prev) =>
                     prev && Number(prev) > 0 ? prev : Number(it.unitPrice) || 0
                   );
                 }}
                 placeholder={
-                  SS.controls?.searchItems || SS.controls?.searchPlaceholder || "Search items…"
+                  SS.controls?.searchItems ||
+                  SS.controls?.searchPlaceholder ||
+                  "Search items…"
                 }
               />
             ) : (
@@ -660,7 +819,11 @@ async function save(e) {
           </Field>
 
           <Field label={SS.details.kv.lineValue} icon={DollarSign}>
-            <input className={INPUT_CLS} value={fmtDOT(computedLineValue, 2, locale)} disabled />
+            <input
+              className={INPUT_CLS}
+              value={fmtDOT(computedLineValue, 2, locale)}
+              disabled
+            />
           </Field>
         </div>
       )}
@@ -676,7 +839,10 @@ async function save(e) {
               onChange={(e) => setServiceDate(e.target.value)}
             />
           </Field>
-          <Field label={SS.details.kv.requestedDeliveryDate} icon={CalendarIcon}>
+          <Field
+            label={SS.details.kv.requestedDeliveryDate}
+            icon={CalendarIcon}
+          >
             <input
               type="date"
               className={INPUT_CLS}
@@ -768,11 +934,16 @@ async function save(e) {
             />
           </Field>
           <Field label={SS.details.kv.transportCost} icon={Truck}>
-            <input className={INPUT_CLS} value={fmtDOT(computedTransport, 2, locale)} disabled />
+            <input
+              className={INPUT_CLS}
+              value={fmtDOT(computedTransport, 2, locale)}
+              disabled
+            />
           </Field>
         </div>
       )}
 
+      {/* PARTIES */}
       {/* PARTIES */}
       {tab === "parties" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -783,6 +954,7 @@ async function save(e) {
               onChange={(e) => setBuyVendorNo(e.target.value)}
             />
           </Field>
+
           <Field label={SS.details.kv.payVendorNo} icon={Hash}>
             <input
               className={INPUT_CLS}
@@ -790,11 +962,86 @@ async function save(e) {
               onChange={(e) => setPayVendorNo(e.target.value)}
             />
           </Field>
-          <Field label={SS.details.kv.locationNo} icon={Hash}>
+
+          <Field label={SS.details.kv.locationNo} icon={MapPin}>
+            <LocationPicker
+              value={locationNo}
+              onPick={(loc) => {
+                const code = loc.code || loc.no || loc.locationNo || "";
+                setLocationNo(code);
+                setLocationName(loc.name || loc.locationName || "");
+                setLocationAddress(loc.address || loc.locationAddress || "");
+                setLocationAddress2(loc.address2 || loc.locationAddress2 || "");
+                setLocationPostCode(
+                  loc.postCode || loc.postcode || loc.locationPostCode || ""
+                );
+                setLocationCity(loc.city || loc.locationCity || "");
+
+                // 👇 more tolerant country resolution
+                const country =
+                  loc.countryRegionCode ||
+                  loc.countryCode ||
+                  loc.locationCountryCode ||
+                  loc.country || // e.g. "PL"
+                  loc.country_region_code || // snake_case
+                  loc.CountryRegionCode || // NAV-style
+                  "";
+
+                setLocationCountryCode(
+                  country ? String(country).toUpperCase() : ""
+                );
+              }}
+              placeholder={
+                SS.controls?.pickLocation ||
+                SS.controls?.searchLocations ||
+                "Pick location…"
+              }
+            />
+          </Field>
+
+          {/* NEW: read-only / editable location details (same grid row or new rows) */}
+          <Field label={SS.details.kv.locationName} icon={MapPin}>
             <input
               className={INPUT_CLS}
-              value={locationNo}
-              onChange={(e) => setLocationNo(e.target.value)}
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationAddress} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationAddress}
+              onChange={(e) => setLocationAddress(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationAddress2} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationAddress2}
+              onChange={(e) => setLocationAddress2(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationPostCode} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationPostCode}
+              onChange={(e) => setLocationPostCode(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationCity} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationCity}
+              onChange={(e) => setLocationCity(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationCountryCode} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationCountryCode}
+              onChange={(e) =>
+                setLocationCountryCode(e.target.value.toUpperCase())
+              }
             />
           </Field>
         </div>
@@ -804,29 +1051,49 @@ async function save(e) {
       {tab === "audit" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={SS.details.kv.createdBy} icon={UserIcon}>
-            <input className={INPUT_CLS} value={initial?.userCreated || "—"} disabled />
+            <input
+              className={INPUT_CLS}
+              value={initial?.userCreated || "—"}
+              disabled
+            />
           </Field>
           <Field label={SS.details.kv.createdAt} icon={CalendarIcon}>
             <input
               className={INPUT_CLS}
-              value={initial?.dateCreated ? new Date(initial.dateCreated).toLocaleString() : "—"}
+              value={
+                initial?.dateCreated
+                  ? new Date(initial.dateCreated).toLocaleString()
+                  : "—"
+              }
               disabled
             />
           </Field>
           <div />
           <Field label={SS.details.kv.modifiedBy} icon={UserIcon}>
-            <input className={INPUT_CLS} value={initial?.userModified || "—"} disabled />
+            <input
+              className={INPUT_CLS}
+              value={initial?.userModified || "—"}
+              disabled
+            />
           </Field>
           <Field label={SS.details.kv.modifiedAt} icon={CalendarIcon}>
             <input
               className={INPUT_CLS}
-              value={initial?.dateModified ? new Date(initial.dateModified).toLocaleString() : "—"}
+              value={
+                initial?.dateModified
+                  ? new Date(initial.dateModified).toLocaleString()
+                  : "—"
+              }
               disabled
             />
           </Field>
           <div />
           <Field label={SS.details.kv.documentId} icon={Hash}>
-            <input className={INPUT_CLS} value={initial?.documentId || "—"} disabled />
+            <input
+              className={INPUT_CLS}
+              value={initial?.documentId || "—"}
+              disabled
+            />
           </Field>
         </div>
       )}
@@ -844,38 +1111,78 @@ async function save(e) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <ParamRow
-              idx="1" c={p1c} v={p1v} setC={setP1c} setV={setP1v}
+              idx="1"
+              c={p1c}
+              v={p1v}
+              setC={setP1c}
+              setV={setP1v}
               defaultCode={defaultParamCodes?.[0]}
-              description={paramMeta[defaultParamCodes?.[0]?.toUpperCase()]?.description}
-              defaultValue={paramMeta[defaultParamCodes?.[0]?.toUpperCase()]?.defaultValue}
+              description={
+                paramMeta[defaultParamCodes?.[0]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes?.[0]?.toUpperCase()]?.defaultValue
+              }
               paramType={paramMeta[defaultParamCodes?.[0]?.toUpperCase()]?.type}
             />
             <ParamRow
-              idx="2" c={p2c} v={p2v} setC={setP2c} setV={setP2v}
+              idx="2"
+              c={p2c}
+              v={p2v}
+              setC={setP2c}
+              setV={setP2v}
               defaultCode={defaultParamCodes?.[1]}
-              description={paramMeta[defaultParamCodes?.[1]?.toUpperCase()]?.description}
-              defaultValue={paramMeta[defaultParamCodes?.[1]?.toUpperCase()]?.defaultValue}
+              description={
+                paramMeta[defaultParamCodes?.[1]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes?.[1]?.toUpperCase()]?.defaultValue
+              }
               paramType={paramMeta[defaultParamCodes?.[1]?.toUpperCase()]?.type}
             />
             <ParamRow
-              idx="3" c={p3c} v={p3v} setC={setP3c} setV={setP3v}
+              idx="3"
+              c={p3c}
+              v={p3v}
+              setC={setP3c}
+              setV={setP3v}
               defaultCode={defaultParamCodes?.[2]}
-              description={paramMeta[defaultParamCodes?.[2]?.toUpperCase()]?.description}
-              defaultValue={paramMeta[defaultParamCodes?.[2]?.toUpperCase()]?.defaultValue}
+              description={
+                paramMeta[defaultParamCodes?.[2]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes?.[2]?.toUpperCase()]?.defaultValue
+              }
               paramType={paramMeta[defaultParamCodes?.[2]?.toUpperCase()]?.type}
             />
             <ParamRow
-              idx="4" c={p4c} v={p4v} setC={setP4c} setV={setP4v}
+              idx="4"
+              c={p4c}
+              v={p4v}
+              setC={setP4c}
+              setV={setP4v}
               defaultCode={defaultParamCodes?.[3]}
-              description={paramMeta[defaultParamCodes?.[3]?.toUpperCase()]?.description}
-              defaultValue={paramMeta[defaultParamCodes?.[3]?.toUpperCase()]?.defaultValue}
+              description={
+                paramMeta[defaultParamCodes?.[3]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes?.[3]?.toUpperCase()]?.defaultValue
+              }
               paramType={paramMeta[defaultParamCodes?.[3]?.toUpperCase()]?.type}
             />
             <ParamRow
-              idx="5" c={p5c} v={p5v} setC={setP5c} setV={setP5v}
+              idx="5"
+              c={p5c}
+              v={p5v}
+              setC={setP5c}
+              setV={setP5v}
               defaultCode={defaultParamCodes?.[4]}
-              description={paramMeta[defaultParamCodes?.[4]?.toUpperCase()]?.description}
-              defaultValue={paramMeta[defaultParamCodes?.[4]?.toUpperCase()]?.defaultValue}
+              description={
+                paramMeta[defaultParamCodes?.[4]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes?.[4]?.toUpperCase()]?.defaultValue
+              }
               paramType={paramMeta[defaultParamCodes?.[4]?.toUpperCase()]?.type}
             />
           </div>
@@ -891,16 +1198,18 @@ async function save(e) {
         >
           {SS.actions?.cancel || "Cancel"}
         </button>
-        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-          {isEdit ? (SS.actions?.saveChanges || "Save changes") : (SS.actions?.createLine || "Create line")}
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
+          {isEdit
+            ? SS.actions?.saveChanges || "Save changes"
+            : SS.actions?.createLine || "Create line"}
         </button>
       </div>
     </form>
   );
 }
-
-
-
 
 /* -----------------------
    API base (same style)
@@ -951,98 +1260,103 @@ export default function PurchaseOfferLinesPage() {
 
   const { t, locale } = useI18nSafe();
 
-  const S =
-    (t && t.purchaseOfferLines) || {
-      controls: {
-        searchPlaceholder: "Search item/params…",
-        searchBtn: "Search",
-        addBtn: "New Line",
-        filters: "Filters",
-        docsLoading: "Loading documents…",
-        allDocuments: "All documents",
-        allStatuses: "All statuses",
-        allLineTypes: "All line types",
-        itemNoPlaceholder: "Item No.",
-        pickDocument: "Pick document…",
-        searchItems: "Search items…",
-      },
-      table: {
+  const S = (t && t.purchaseOfferLines) || {
+    controls: {
+      searchPlaceholder: "Search item/params…",
+      searchBtn: "Search",
+      addBtn: "New Line",
+      filters: "Filters",
+      docsLoading: "Loading documents…",
+      allDocuments: "All documents",
+      allStatuses: "All statuses",
+      allLineTypes: "All line types",
+      itemNoPlaceholder: "Item No.",
+      pickDocument: "Pick document…",
+      searchItems: "Search items…",
+    },
+    table: {
+      lineNo: "Line No.",
+      documentNo: "Document No.",
+      status: "Status",
+      type: "Type",
+      item: "Item",
+      uom: "UOM",
+      unitPrice: "Unit Price",
+      qty: "Qty",
+      lineValue: "Line Value",
+      transport: "Transport",
+      created: "Created",
+      updated: "Updated",
+      actions: "Actions",
+      loading: "Loading…",
+      empty: "No lines",
+    },
+    a11y: { toggleDetails: "Toggle details" },
+    details: {
+      core: "Core",
+      amounts: "Amounts",
+      parties: "Parties",
+      audit: "Audit",
+      params: "Parameters",
+      kv: {
         lineNo: "Line No.",
         documentNo: "Document No.",
+        documentId: "Document ID",
         status: "Status",
         type: "Type",
-        item: "Item",
-        uom: "UOM",
+        itemNo: "Item No.",
+        uom: "Unit of Measure",
+        serviceDate: "Service / Delivery Date",
+        requestedDeliveryDate: "Requested Delivery",
+        promisedDeliveryDate: "Promised Delivery",
+        shipmentDate: "Shipment Date",
+        documentValidityDate: "Doc Validity Date",
+        documentValidityHour: "Doc Validity Hour",
         unitPrice: "Unit Price",
-        qty: "Qty",
+        quantity: "Quantity",
         lineValue: "Line Value",
-        transport: "Transport",
-        created: "Created",
-        updated: "Updated",
-        actions: "Actions",
-        loading: "Loading…",
-        empty: "No lines",
+        tollCost: "Toll Cost",
+        driverCost: "Driver Cost",
+        vehicleCost: "Vehicle Cost",
+        additionalCosts: "Additional Costs",
+        costMarginPct: "Cost Margin %",
+        transportCost: "Transport Cost",
+        buyVendorNo: "Buy Vendor No.",
+        payVendorNo: "Pay Vendor No.",
+        locationNo: "Location No.",
+        locationName: "Location Name",
+        locationAddress: "Location Address",
+        locationAddress2: "Location Address 2",
+        locationPostCode: "Location Post Code",
+        locationCity: "Location City",
+        locationCountryCode: "Location Country / Region",
+        createdBy: "Created By",
+        createdAt: "Created At",
+        modifiedBy: "Modified By",
+        modifiedAt: "Modified At",
+        param: (i) => `Param${i}`,
       },
-      a11y: { toggleDetails: "Toggle details" },
-      details: {
-        core: "Core",
-        amounts: "Amounts",
-        parties: "Parties",
-        audit: "Audit",
-        params: "Parameters",
-        kv: {
-          lineNo: "Line No.",
-          documentNo: "Document No.",
-          documentId: "Document ID",
-          status: "Status",
-          type: "Type",
-          itemNo: "Item No.",
-          uom: "Unit of Measure",
-          serviceDate: "Service / Delivery Date",
-          requestedDeliveryDate: "Requested Delivery",
-          promisedDeliveryDate: "Promised Delivery",
-          shipmentDate: "Shipment Date",
-          documentValidityDate: "Doc Validity Date",
-          documentValidityHour: "Doc Validity Hour",
-          unitPrice: "Unit Price",
-          quantity: "Quantity",
-          lineValue: "Line Value",
-          tollCost: "Toll Cost",
-          driverCost: "Driver Cost",
-          vehicleCost: "Vehicle Cost",
-          additionalCosts: "Additional Costs",
-          costMarginPct: "Cost Margin %",
-          transportCost: "Transport Cost",
-          buyVendorNo: "Buy Vendor No.",
-          payVendorNo: "Pay Vendor No.",
-          locationNo: "Location No.",
-          createdBy: "Created By",
-          createdAt: "Created At",
-          modifiedBy: "Modified By",
-          modifiedAt: "Modified At",
-          param: (i) => `Param${i}`,
-        },
-      },
-      footer: {
-        meta: (total, page, pages) =>
-          `Total: ${total} • Page ${page} of ${pages || 1}`,
-        perPage: (n) => `${n} / page`,
-        prev: "Prev",
-        next: "Next",
-      },
-      modal: {
-        titleEdit: "Edit Purchase Offer Line",
-        titleNew: "New Purchase Offer Line",
-      },
-      actions: {
-        cancel: "Cancel",
-        saveChanges: "Save changes",
-        createLine: "Create line",
-      },
-      form: {
-        fixErrors: "Please correct the highlighted fields.",
-      },
-    };
+    },
+    footer: {
+      meta: (total, page, pages) =>
+        `Total: ${total} • Page ${page} of ${pages || 1}`,
+      perPage: (n) => `${n} / page`,
+      prev: "Prev",
+      next: "Next",
+    },
+    modal: {
+      titleEdit: "Edit Purchase Offer Line",
+      titleNew: "New Purchase Offer Line",
+    },
+    actions: {
+      cancel: "Cancel",
+      saveChanges: "Save changes",
+      createLine: "Create line",
+    },
+    form: {
+      fixErrors: "Please correct the highlighted fields.",
+    },
+  };
 
   // filters / paging
   const [loading, setLoading] = useState(false);
@@ -1056,8 +1370,9 @@ export default function PurchaseOfferLinesPage() {
   const [docs, setDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [documentNo, status, lineType, itemNo].filter(Boolean)
-    .length;
+  const activeFilterCount = [documentNo, status, lineType, itemNo].filter(
+    Boolean
+  ).length;
 
   const [notice, setNotice] = useState(null);
   const showNotice = (type, text, ms = 3000) => {
@@ -1080,9 +1395,6 @@ export default function PurchaseOfferLinesPage() {
   const [expandedId, setExpandedId] = useState(null);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
-
-
-
 
   // fetch documents for picker (shared header list)
   useEffect(() => {
@@ -1167,9 +1479,6 @@ export default function PurchaseOfferLinesPage() {
     fetchData();
   };
 
-
-
-
   const onDelete = async (_id) => {
     if (!window.confirm("Delete this line?")) return;
     try {
@@ -1191,12 +1500,9 @@ export default function PurchaseOfferLinesPage() {
 
   const onRecalc = async (_id) => {
     try {
-      const res = await fetch(
-        `${API}/api/purchase-offer-lines/${_id}/recalc`,
-        {
-          method: "POST",
-        }
-      );
+      const res = await fetch(`${API}/api/purchase-offer-lines/${_id}/recalc`, {
+        method: "POST",
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         showNotice("error", json?.message || "Recalc failed");
@@ -1511,7 +1817,10 @@ export default function PurchaseOfferLinesPage() {
 
                     {expandedId === d._id && (
                       <tr>
-                        <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+                        <td
+                          colSpan={COL_COUNT}
+                          className="bg-slate-50 border-t"
+                        >
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
                             <Section title={S.details.core}>
                               <KV label={S.details.kv.lineNo} icon={Hash}>
@@ -1523,7 +1832,10 @@ export default function PurchaseOfferLinesPage() {
                               <KV label={S.details.kv.documentId} icon={Hash}>
                                 {d.documentId || "—"}
                               </KV>
-                              <KV label={S.details.kv.status} icon={ClipboardList}>
+                              <KV
+                                label={S.details.kv.status}
+                                icon={ClipboardList}
+                              >
                                 <StatusBadge value={d.status} />
                               </KV>
                               <KV label={S.details.kv.type} icon={Layers}>
@@ -1574,19 +1886,28 @@ export default function PurchaseOfferLinesPage() {
                             </Section>
 
                             <Section title={S.details.amounts}>
-                              <KV label={S.details.kv.unitPrice} icon={DollarSign}>
+                              <KV
+                                label={S.details.kv.unitPrice}
+                                icon={DollarSign}
+                              >
                                 {fmtDOT(d.unitPrice, 2, locale)}
                               </KV>
                               <KV label={S.details.kv.quantity} icon={Package}>
                                 {fmtDOT(d.quantity, 3, locale)}
                               </KV>
-                              <KV label={S.details.kv.lineValue} icon={DollarSign}>
+                              <KV
+                                label={S.details.kv.lineValue}
+                                icon={DollarSign}
+                              >
                                 <b>{fmtDOT(d.lineValue, 2, locale)}</b>
                               </KV>
                               <KV label={S.details.kv.tollCost} icon={Truck}>
                                 {fmtDOT(d.tollCost, 2, locale)}
                               </KV>
-                              <KV label={S.details.kv.driverCost} icon={UserIcon}>
+                              <KV
+                                label={S.details.kv.driverCost}
+                                icon={UserIcon}
+                              >
                                 {fmtDOT(d.driverCost, 2, locale)}
                               </KV>
                               <KV label={S.details.kv.vehicleCost} icon={Truck}>
@@ -1598,10 +1919,16 @@ export default function PurchaseOfferLinesPage() {
                               >
                                 {fmtDOT(d.additionalCosts, 2, locale)}
                               </KV>
-                              <KV label={S.details.kv.costMarginPct} icon={Percent}>
+                              <KV
+                                label={S.details.kv.costMarginPct}
+                                icon={Percent}
+                              >
                                 {fmtDOT(d.costMargin, 2, locale)}
                               </KV>
-                              <KV label={S.details.kv.transportCost} icon={Truck}>
+                              <KV
+                                label={S.details.kv.transportCost}
+                                icon={Truck}
+                              >
                                 <b>{fmtDOT(d.transportCost, 2, locale)}</b>
                               </KV>
                             </Section>
@@ -1616,19 +1943,67 @@ export default function PurchaseOfferLinesPage() {
                               <KV label={S.details.kv.locationNo} icon={Hash}>
                                 {d.locationNo || "—"}
                               </KV>
+                              <KV
+                                label={S.details.kv.locationName}
+                                icon={MapPin}
+                              >
+                                {d.locationName || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress}
+                                icon={MapPin}
+                              >
+                                {d.locationAddress || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress2}
+                                icon={MapPin}
+                              >
+                                {d.locationAddress2 || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationPostCode}
+                                icon={MapPin}
+                              >
+                                {d.locationPostCode || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCity}
+                                icon={MapPin}
+                              >
+                                {d.locationCity || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCountryCode}
+                                icon={MapPin}
+                              >
+                                {d.locationCountryCode || "—"}
+                              </KV>
                             </Section>
 
                             <Section title={S.details.audit}>
-                              <KV label={S.details.kv.createdBy} icon={UserIcon}>
+                              <KV
+                                label={S.details.kv.createdBy}
+                                icon={UserIcon}
+                              >
                                 {d.userCreated || "—"}
                               </KV>
-                              <KV label={S.details.kv.createdAt} icon={CalendarIcon}>
+                              <KV
+                                label={S.details.kv.createdAt}
+                                icon={CalendarIcon}
+                              >
                                 {formatDate(d.dateCreated || d.createdAt)}
                               </KV>
-                              <KV label={S.details.kv.modifiedBy} icon={UserIcon}>
+                              <KV
+                                label={S.details.kv.modifiedBy}
+                                icon={UserIcon}
+                              >
                                 {d.userModified || "—"}
                               </KV>
-                              <KV label={S.details.kv.modifiedAt} icon={CalendarIcon}>
+                              <KV
+                                label={S.details.kv.modifiedAt}
+                                icon={CalendarIcon}
+                              >
                                 {formatDate(d.dateModified || d.updatedAt)}
                               </KV>
                             </Section>
@@ -1744,9 +2119,16 @@ export default function PurchaseOfferLinesPage() {
 /* =========== small header cells (reused) =========== */
 function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
   const active = sortBy === id;
-  const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+  const ariaSort = active
+    ? sortDir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
   return (
-    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
+    <th
+      aria-sort={ariaSort}
+      className={`text-left px-4 py-3 font-medium ${className}`}
+    >
       <button
         type="button"
         onClick={() => onSort(id)}
@@ -1762,7 +2144,11 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
   );
 }
 function Th({ children, className = "" }) {
-  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+  return (
+    <th className={`text-left px-4 py-3 font-medium ${className}`}>
+      {children}
+    </th>
+  );
 }
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
@@ -1778,7 +2164,7 @@ function Modal({ children, onClose, title }) {
       <div
         className={[
           "relative w-full rounded-2xl bg-white shadow-xl border border-slate-200",
-          isFull ? "max-w-[95vw] h-[95vh]" : "max-w-5xl"
+          isFull ? "max-w-[95vw] h-[95vh]" : "max-w-5xl",
         ].join(" ")}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
@@ -1786,7 +2172,7 @@ function Modal({ children, onClose, title }) {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setIsFull(v => !v)}
+              onClick={() => setIsFull((v) => !v)}
               className="p-2 rounded hover:bg-slate-100"
               title={isFull ? "Minimize" : "Maximize"}
               aria-label={isFull ? "Minimize" : "Maximize"}
@@ -1805,17 +2191,20 @@ function Modal({ children, onClose, title }) {
           </div>
         </div>
 
-        <div className={["p-4", isFull ? "h-[calc(95vh-56px)] overflow-auto" : "max-h-[75vh] overflow-auto"].join(" ")}>
+        <div
+          className={[
+            "p-4",
+            isFull
+              ? "h-[calc(95vh-56px)] overflow-auto"
+              : "max-h-[75vh] overflow-auto",
+          ].join(" ")}
+        >
           {children}
         </div>
       </div>
     </div>
   );
 }
-
-
-
-
 
 async function findPLP(documentNo, documentLineNo, paramCode) {
   const lineKey = Number(documentLineNo) || String(documentLineNo);
@@ -1826,14 +2215,21 @@ async function findPLP(documentNo, documentLineNo, paramCode) {
     documentLineNo: String(lineKey),
     paramCode,
   });
-  const res = await fetch(`${API}/api/purchase-line-parameters?${qs.toString()}`);
+  const res = await fetch(
+    `${API}/api/purchase-line-parameters?${qs.toString()}`
+  );
   if (!res.ok) return null;
   const json = await res.json().catch(() => null);
   const row = json?.data?.[0];
-  return row ? (row.id || row._id) : null;
+  return row ? row.id || row._id : null;
 }
 
-async function upsertPLP({ documentNo, documentLineNo, paramCode, paramValue }) {
+async function upsertPLP({
+  documentNo,
+  documentLineNo,
+  paramCode,
+  paramValue,
+}) {
   const lineKey = Number(documentLineNo) || String(documentLineNo);
 
   // 1) find existing
@@ -1845,11 +2241,14 @@ async function upsertPLP({ documentNo, documentLineNo, paramCode, paramValue }) 
 
   if (existingId) {
     // update
-    const res = await fetch(`${API}/api/purchase-line-parameters/${existingId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      `${API}/api/purchase-line-parameters/${existingId}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }
+    );
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err?.message || "Failed to update parameter.");
@@ -1877,16 +2276,25 @@ async function listPLPForLine(documentNo, documentLineNo) {
     documentNo,
     documentLineNo,
   });
-  const res = await fetch(`${API}/api/purchase-line-parameters?${qs.toString()}`);
+  const res = await fetch(
+    `${API}/api/purchase-line-parameters?${qs.toString()}`
+  );
   if (!res.ok) return [];
   const json = await res.json().catch(() => ({}));
   return Array.isArray(json?.data) ? json.data : [];
 }
 
-async function syncPurchaseLineParams({ documentNo, documentLineNo, params, removeMissing = false }) {
+async function syncPurchaseLineParams({
+  documentNo,
+  documentLineNo,
+  params,
+  removeMissing = false,
+}) {
   const filtered = (params || [])
     .map((p) => ({
-      code: String(p.code || "").trim().toUpperCase(),
+      code: String(p.code || "")
+        .trim()
+        .toUpperCase(),
       value: p.value,
     }))
     .filter((p) => p.code);
@@ -1957,7 +2365,13 @@ function useClickOutside(ref, onOutside) {
 }
 
 /* ---- DocumentPicker (same UX as sales) ---- */
-function DocumentPicker({ value, onChange, options = [], loading = false, placeholder = "Pick document…" }) {
+function DocumentPicker({
+  value,
+  onChange,
+  options = [],
+  loading = false,
+  placeholder = "Pick document…",
+}) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const rootRef = React.useRef(null);
@@ -1967,13 +2381,13 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
   const q = query.trim().toLowerCase();
   const filtered = q
     ? options.filter((d) => {
- const hay = [
-   d.documentNo,
-   d.buyVendorName,
-   d.payVendorName,
-   d.locationName,
-   d.brokerName,
- ]
+        const hay = [
+          d.documentNo,
+          d.buyVendorName,
+          d.payVendorName,
+          d.locationName,
+          d.brokerName,
+        ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -1992,7 +2406,7 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
         onClick={() => setOpen(true)}
       >
         <input
-          value={open ? query : (selected?.documentNo || "")}
+          value={open ? query : selected?.documentNo || ""}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
@@ -2033,7 +2447,9 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
                       role="option"
                       aria-selected={isActive}
                     >
-                      <div className="font-semibold tracking-tight">{d.documentNo}</div>
+                      <div className="font-semibold tracking-tight">
+                        {d.documentNo}
+                      </div>
                       <div className="text-[11px] uppercase tracking-wide text-slate-500">
                         {d.sellCustomerName ||
                           d.billCustomerName ||
@@ -2129,7 +2545,8 @@ function ItemPicker({ value, onPick, placeholder = "Search items…" }) {
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50"
                 >
-                  Use exact value: <span className="font-mono">{query.trim()}</span>
+                  Use exact value:{" "}
+                  <span className="font-mono">{query.trim()}</span>
                 </button>
               )}
             </div>
@@ -2153,7 +2570,9 @@ function ItemPicker({ value, onPick, placeholder = "Search items…" }) {
                         isActive ? "bg-slate-50" : "",
                       ].join(" ")}
                     >
-                      <div className="font-semibold tracking-tight">{it.no}</div>
+                      <div className="font-semibold tracking-tight">
+                        {it.no}
+                      </div>
                       <div className="text-[11px] tracking-wide text-slate-500">
                         {it.description || it.description2 || "—"}
                       </div>
@@ -2286,7 +2705,10 @@ function ParameterPicker({
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50"
                 >
-                  Use code: <span className="font-mono">{query.trim().toUpperCase()}</span>
+                  Use code:{" "}
+                  <span className="font-mono">
+                    {query.trim().toUpperCase()}
+                  </span>
                 </button>
               )}
             </div>
@@ -2310,7 +2732,9 @@ function ParameterPicker({
                         isActive ? "bg-slate-50" : "",
                       ].join(" ")}
                     >
-                      <div className="font-semibold tracking-tight">{p.code}</div>
+                      <div className="font-semibold tracking-tight">
+                        {p.code}
+                      </div>
                       {p.description && (
                         <div className="text-[11px] tracking-wide text-slate-500">
                           {p.description}
@@ -2362,7 +2786,8 @@ function ParamRow({
     if (paramType) setKind(paramType);
   }, [description, defaultValue, paramType]);
 
-  const valuePlaceholder = range.def != null ? `Default ${range.def}` : undefined;
+  const valuePlaceholder =
+    range.def != null ? `Default ${range.def}` : undefined;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2384,7 +2809,13 @@ function ParamRow({
                 setC(pickedCode);
                 setKind(p?.type || "decimal");
 
-                if (p && (p.description || p.defaultValue != null || p.minValue != null || p.maxValue != null)) {
+                if (
+                  p &&
+                  (p.description ||
+                    p.defaultValue != null ||
+                    p.minValue != null ||
+                    p.maxValue != null)
+                ) {
                   setDesc(p.description || "");
                   setRange({
                     min: p.minValue ?? null,
@@ -2456,13 +2887,18 @@ async function deleteAllPurchaseBlocks(documentNo, lineNo) {
     lineNo: String(lineNo ?? ""),
   });
 
-  const res = await fetch(`${API}/api/purchase-offer-lines-blocks?${qs.toString()}`, {
-    method: "DELETE",
-  });
+  const res = await fetch(
+    `${API}/api/purchase-offer-lines-blocks?${qs.toString()}`,
+    {
+      method: "DELETE",
+    }
+  );
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err?.message || "Failed to delete existing purchase blocks.");
+    throw new Error(
+      err?.message || "Failed to delete existing purchase blocks."
+    );
   }
 }
 
@@ -2473,7 +2909,7 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
   const splitIntoBlocks = (total) => {
     const t = Math.max(0, Number(total) || 0);
     const full = Math.floor(t / MAX_BLOCK_QTY);
-    const rem  = t % MAX_BLOCK_QTY;
+    const rem = t % MAX_BLOCK_QTY;
     const parts = Array(full).fill(MAX_BLOCK_QTY);
     if (rem > 0) parts.push(rem);
     if (parts.length === 0) parts.push(0); // keep a single block even if qty=0
@@ -2486,18 +2922,27 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
     return +(V * (share / T)).toFixed(2);
   };
 
-  if (!savedLine?.documentNo) throw new Error("createPurchaseBlocksForLine: missing documentNo");
-  if (savedLine?.lineNo == null) throw new Error("createPurchaseBlocksForLine: missing lineNo");
+  if (!savedLine?.documentNo)
+    throw new Error("createPurchaseBlocksForLine: missing documentNo");
+  if (savedLine?.lineNo == null)
+    throw new Error("createPurchaseBlocksForLine: missing lineNo");
 
   const totalQty = Number(savedLine.quantity) || 0;
   const parts = splitIntoBlocks(totalQty);
 
-  // 1) clean slate
+  // normalised unit price (used for all blocks)
+  const unitPrice = Number(savedLine.unitPrice) || 0;
+
+  // 1) clean existing blocks
   await deleteAllPurchaseBlocks(savedLine.documentNo, savedLine.lineNo);
 
   // 2) recreate blocks (block numbers 1..N)
   for (let i = 0; i < parts.length; i++) {
     const q = parts[i];
+
+    // explicit line value for this block
+    const lineValue = +(unitPrice * q).toFixed(2);
+
     const body = {
       // identity
       documentNo: savedLine.documentNo,
@@ -2505,13 +2950,14 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
       block: i + 1,
       userCreated: userCode,
 
-      // copy core
+      // core
       status: savedLine.status,
       lineType: savedLine.lineType,
       itemNo: savedLine.itemNo,
       unitOfMeasure: savedLine.unitOfMeasure,
-      unitPrice: Number(savedLine.unitPrice) || 0,
+      unitPrice,
       quantity: q,
+      lineValue,
 
       // dates
       serviceDate: savedLine.serviceDate || null,
@@ -2521,15 +2967,21 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
       documentValidityDate: savedLine.documentValidityDate || null,
       documentValidityHour: savedLine.documentValidityHour || null,
 
-      // parties
+      // parties / location
       buyVendorNo: savedLine.buyVendorNo || null,
       payVendorNo: savedLine.payVendorNo || null,
       locationNo: savedLine.locationNo || null,
+      locationName: savedLine.locationName || null,
+      locationAddress: savedLine.locationAddress || null,
+      locationAddress2: savedLine.locationAddress2 || null,
+      locationPostCode: savedLine.locationPostCode || null,
+      locationCity: savedLine.locationCity || null,
+      locationCountryCode: savedLine.locationCountryCode || null,
 
       // costs (prorated by qty share)
-      tollCost:        prorate(savedLine.tollCost,        q, totalQty),
-      driverCost:      prorate(savedLine.driverCost,      q, totalQty),
-      vehicleCost:     prorate(savedLine.vehicleCost,     q, totalQty),
+      tollCost: prorate(savedLine.tollCost, q, totalQty),
+      driverCost: prorate(savedLine.driverCost, q, totalQty),
+      vehicleCost: prorate(savedLine.vehicleCost, q, totalQty),
       additionalCosts: prorate(savedLine.additionalCosts, q, totalQty),
       costMargin: Number(savedLine.costMargin) || 0,
     };
@@ -2540,10 +2992,13 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
       body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json?.message || `Failed to create purchase block ${body.block}`);
+    if (!res.ok) {
+      throw new Error(
+        json?.message || `Failed to create purchase block ${body.block}`
+      );
+    }
   }
 }
-
 
 
 function Toast({ type = "success", children, onClose }) {
@@ -2552,9 +3007,13 @@ function Toast({ type = "success", children, onClose }) {
     ? "bg-emerald-50 border-emerald-200 text-emerald-800"
     : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <span className="mr-auto">{children}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
+        ✕
+      </button>
     </div>
   );
 }
@@ -2609,7 +3068,11 @@ function StatusBadge({ value }) {
       ? "bg-red-50 text-red-700 border-red-200"
       : "bg-slate-100 text-slate-700 border-slate-300";
 
-  return <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>{label}</span>;
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+      {label}
+    </span>
+  );
 }
 
 function KV({ label, icon: Icon, children }) {
@@ -2659,6 +3122,120 @@ function Field({ label, icon: Icon, error, children }) {
       </div>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </label>
+  );
+}
+
+/* ---- LocationPicker (search /api/mlocations) ---- */
+function LocationPicker({ value, onPick, placeholder = "Search locations…" }) {
+  const [open, setOpen] = React.useState(false);
+  const [query, setQuery] = React.useState("");
+  const debounced = useDebouncedValue(query, 250);
+
+  const [locations, setLocations] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+
+  const rootRef = React.useRef(null);
+  useClickOutside(rootRef, () => setOpen(false));
+
+  React.useEffect(() => {
+    if (!open) return;
+    let abort = false;
+
+    async function run() {
+      setLoading(true);
+      try {
+        const qs = new URLSearchParams({
+          page: "1",
+          limit: "50",
+          sort: "code:1",
+        });
+        if (debounced) qs.set("query", debounced);
+
+        // Adjust endpoint name if your LOCATION API differs
+        const res = await fetch(`${API}/api/mlocations?${qs.toString()}`);
+        const json = await res.json();
+        if (!abort) setLocations(json?.data || []);
+      } catch {
+        if (!abort) setLocations([]);
+      } finally {
+        if (!abort) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      abort = true;
+    };
+  }, [open, debounced]);
+
+  const displayText = open ? query : value || "";
+
+  return (
+    <div ref={rootRef} className="relative">
+      <div
+        className="h-9 w-full cursor-text rounded-xl border bg-white px-3 text-sm border-slate-300 focus-within:border-slate-400 flex items-center gap-2"
+        onClick={() => setOpen(true)}
+      >
+        <input
+          value={displayText}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="h-8 flex-1 outline-none bg-transparent"
+        />
+        <ChevronDown size={16} className="shrink-0 text-slate-400" />
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg">
+          {loading ? (
+            <div className="p-3 text-sm text-slate-500">Loading…</div>
+          ) : locations.length === 0 ? (
+            <div className="p-2">
+              <div className="p-2 text-sm text-slate-500">No matches</div>
+            </div>
+          ) : (
+            <ul className="max-h-64 overflow-auto py-1">
+              {locations.map((loc) => {
+                const code = loc.code || loc.no || loc.locationNo;
+                const isActive = code === value;
+                return (
+                  <li key={loc.id || loc._id || code}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onPick?.(loc);
+                        setQuery("");
+                        setOpen(false);
+                      }}
+                      className={[
+                        "w-full text-left px-3 py-2 rounded-lg",
+                        "hover:bg-slate-50 focus:bg-slate-50",
+                        isActive ? "bg-slate-50" : "",
+                      ].join(" ")}
+                    >
+                      <div className="font-semibold tracking-tight">{code}</div>
+                      <div className="text-[11px] tracking-wide text-slate-500">
+                        {loc.name || loc.locationName || "—"}
+                        {loc.city || loc.locationCity
+                          ? ` • ${loc.city || loc.locationCity}`
+                          : ""}
+                      </div>
+                      {loc.countryRegionCode || loc.countryCode ? (
+                        <div className="text-[11px] tracking-wide text-slate-500">
+                          {loc.countryRegionCode || loc.countryCode}
+                        </div>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -19,6 +19,7 @@ import {
   User as UserIcon,
   Layers,
   ClipboardList,
+  MapPin,
   Maximize2,
   Minimize2,
 } from "lucide-react";
@@ -326,6 +327,13 @@ export default function SalesOfferLinesBlocksPage() {
           buyVendorNo: "Buy Customer No.",
           payVendorNo: "Bill-to Customer No.",
           locationNo: "Location No.",
+          locationNo: "Location No.",
+          locationName: "Location Name",
+          locationAddress: "Location Address",
+          locationAddress2: "Location Address 2",
+          locationPostCode: "Location Post Code",
+          locationCity: "Location City",
+          locationCountryCode: "Location Country / Region",
           createdBy: "Created By",
           createdAt: "Created At",
           modifiedBy: "Modified By",
@@ -972,7 +980,44 @@ export default function SalesOfferLinesBlocksPage() {
                               >
                                 {d.locationNo || "—"}
                               </KV>
+                              <KV
+                                label={S.details.kv.locationName}
+                                icon={MapPin}
+                              >
+                                {d.locationName || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress}
+                                icon={MapPin}
+                              >
+                                {d.locationAddress || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress2}
+                                icon={MapPin}
+                              >
+                                {d.locationAddress2 || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationPostCode}
+                                icon={MapPin}
+                              >
+                                {d.locationPostCode || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCity}
+                                icon={MapPin}
+                              >
+                                {d.locationCity || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCountryCode}
+                                icon={MapPin}
+                              >
+                                {d.locationCountryCode || "—"}
+                              </KV>
                             </Section>
+
 
                             <Section title={S.details.audit}>
                               <KV
@@ -1582,6 +1627,24 @@ function SalesOfferLineBlockForm({
   const [locationNo, setLocationNo] = React.useState(
     initial?.locationNo || ""
   );
+    const [locationName, setLocationName] = React.useState(
+    initial?.locationName || ""
+  );
+  const [locationAddress, setLocationAddress] = React.useState(
+    initial?.locationAddress || ""
+  );
+  const [locationAddress2, setLocationAddress2] = React.useState(
+    initial?.locationAddress2 || ""
+  );
+  const [locationPostCode, setLocationPostCode] = React.useState(
+    initial?.locationPostCode || ""
+  );
+  const [locationCity, setLocationCity] = React.useState(
+    initial?.locationCity || ""
+  );
+  const [locationCountryCode, setLocationCountryCode] = React.useState(
+    initial?.locationCountryCode || ""
+  );
 
   // params 1..5
   const [p1c, setP1c] = React.useState(initial?.param1Code || "");
@@ -1632,32 +1695,108 @@ function SalesOfferLineBlockForm({
   }
 
   // Autofill from document header
-  React.useEffect(() => {
-    if (!documentNo) return;
-    const header = (docs || []).find((d) => d.documentNo === documentNo);
-    if (!header) return;
+useEffect(() => {
+  if (!documentNo) return;
 
-    setBuyVendorNo((prev) => prev || header.sellCustomerNo || "");
-    setPayVendorNo(
-      (prev) =>
-        prev || header.billCustomerNo || header.sellCustomerNo || ""
-    );
-    setLocationNo((prev) => prev || header.locationNo || "");
+  const header = (docs || []).find((d) => d.documentNo === documentNo);
+  if (!header) return;
 
-    setServiceDate((prev) => prev || toInputDate(header.serviceDate));
-    setRequestedDeliveryDate(
-      (prev) => prev || toInputDate(header.requestedDeliveryDate)
-    );
-    setPromisedDeliveryDate(
-      (prev) => prev || toInputDate(header.promisedDeliveryDate)
-    );
-    setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
-    setDocumentValidityDate(
-      (prev) => prev || toInputDate(header.documentValidityDate)
-    );
+  // Parties (only fill if still empty)
+  setBuyVendorNo(
+    (prev) =>
+      prev ||
+      header.brokerNo ||
+      header.billCustomerNo ||
+      header.sellCustomerNo ||
+      ""
+  );
+  setPayVendorNo(
+    (prev) => prev || header.billCustomerNo || header.sellCustomerNo || ""
+  );
+  setLocationNo((prev) => prev || header.locationNo || "");
 
-    setStatus((prev) => prev || canonStatus(header.status || "new"));
-  }, [documentNo, docs]);
+  // Basic location fields from header (only if still empty)
+  setLocationName((prev) => prev || header.locationName || "");
+  setLocationAddress((prev) => prev || header.locationAddress || "");
+  setLocationAddress2((prev) => prev || header.locationAddress2 || "");
+  setLocationCity((prev) => prev || header.locationCity || "");
+
+  // Country / region – try a lot of possible fields
+  const hdrCountry =
+    header.locationCountryCode ||
+    header.locationCountry ||
+    header.sellCustomerCountry ||
+    header.billCustomerCountry ||
+    header.countryRegionCode ||
+    header.countryCode ||
+    header.country ||
+    header.country_region_code ||
+    header.CountryRegionCode ||
+    "";
+
+  setLocationCountryCode(
+    (prev) => prev || (hdrCountry ? String(hdrCountry).toUpperCase() : "")
+  );
+
+  // Dates (only fill if still empty)
+  setServiceDate((prev) => prev || toInputDate(header.serviceDate));
+  setRequestedDeliveryDate(
+    (prev) => prev || toInputDate(header.requestedDeliveryDate)
+  );
+  setPromisedDeliveryDate(
+    (prev) => prev || toInputDate(header.promisedDeliveryDate)
+  );
+  setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
+  setDocumentValidityDate(
+    (prev) => prev || toInputDate(header.documentValidityDate)
+  );
+
+  // Status (fill on create / when empty)
+  setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
+
+  // 🔴 NEW: if document has a locationNo but no locationPostCode,
+  // load the location and use its post code.
+  if (!header.locationPostCode && header.locationNo) {
+    (async () => {
+      try {
+        const qs = new URLSearchParams({
+          page: "1",
+          limit: "1",
+          // depending on your API, adjust this:
+          query: `^${header.locationNo}$`,
+        });
+        const res = await fetch(`${API}/api/mlocations?${qs.toString()}`);
+        const json = await res.json().catch(() => ({}));
+        const loc = json?.data?.[0];
+        if (loc) {
+          const postCode =
+            loc.locationPostCode ||
+            loc.postCode ||
+            loc.post_code ||
+            loc.zip ||
+            loc.postalCode ||
+            "";
+
+          setLocationPostCode((prev) => prev || postCode);
+        }
+      } catch (e) {
+        console.warn("Failed to load location for document", e);
+      }
+    })();
+  } else {
+    // fallback: if header has some postcode field
+    const hdrPostCode =
+      header.locationPostCode ||
+      header.postCode ||
+      header.post_code ||
+      header.zip ||
+      header.postalCode ||
+      "";
+
+    setLocationPostCode((prev) => prev || hdrPostCode);
+  }
+}, [documentNo, docs]);
+
 
   async function save(e) {
     e.preventDefault();
@@ -1702,6 +1841,13 @@ function SalesOfferLineBlockForm({
       buyVendorNo: buyVendorNo || null,
       payVendorNo: payVendorNo || null,
       locationNo: locationNo || null,
+       locationName: locationName || null,
+      locationAddress: locationAddress || null,
+      locationAddress2: locationAddress2 || null,
+      locationPostCode: locationPostCode || null,
+      locationCity: locationCity || null,
+      locationCountryCode:
+        locationCountryCode ? locationCountryCode.toUpperCase() : null,
 
       param1Code: p1c || null,
       param1Value: p1v || null,
@@ -2075,6 +2221,7 @@ function SalesOfferLineBlockForm({
               onChange={(e) => setBuyVendorNo(e.target.value)}
             />
           </Field>
+
           <Field label={SS.details.kv.payVendorNo} icon={Hash}>
             <input
               className={INPUT_CLS}
@@ -2082,6 +2229,7 @@ function SalesOfferLineBlockForm({
               onChange={(e) => setPayVendorNo(e.target.value)}
             />
           </Field>
+
           <Field label={SS.details.kv.locationNo} icon={Hash}>
             <input
               className={INPUT_CLS}
@@ -2089,8 +2237,55 @@ function SalesOfferLineBlockForm({
               onChange={(e) => setLocationNo(e.target.value)}
             />
           </Field>
+
+          {/* NEW: location details */}
+          <Field label={SS.details.kv.locationName} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationName}
+              onChange={(e) => setLocationName(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationAddress} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationAddress}
+              onChange={(e) => setLocationAddress(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationAddress2} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationAddress2}
+              onChange={(e) => setLocationAddress2(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationPostCode} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationPostCode}
+              onChange={(e) => setLocationPostCode(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationCity} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationCity}
+              onChange={(e) => setLocationCity(e.target.value)}
+            />
+          </Field>
+          <Field label={SS.details.kv.locationCountryCode} icon={MapPin}>
+            <input
+              className={INPUT_CLS}
+              value={locationCountryCode}
+              onChange={(e) =>
+                setLocationCountryCode(e.target.value.toUpperCase())
+              }
+            />
+          </Field>
         </div>
       )}
+
 
       {/* PARAMS */}
       {tab === "params" && (

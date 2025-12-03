@@ -21,6 +21,7 @@ import {
   DollarSign,
   Percent,
   ClipboardList,
+  MapPin,
 } from "lucide-react";
 
 import { useI18n as _useI18n } from "../helpers/i18n";
@@ -76,8 +77,6 @@ const SERVER_SORT_KEYS = new Set([
   "lineValue",
 ]);
 
-
-
 const API =
   process.env.REACT_APP_API_URL ||
   (window.location.hostname === "localhost"
@@ -113,98 +112,101 @@ function docLabel(d) {
   return parts.filter(Boolean).join(" — ");
 }
 
-
 /* =========================================
    PAGE
 ========================================= */
 export default function SalesOfferLinesPage() {
   const COL_COUNT = 14; // increased because we add UOM column
 
-
   const { t, locale } = useI18nSafe();
 
-  const S =
-    (t && t.salesOfferLines) || {
-      controls: {
-        searchPlaceholder: "Search item/params…",
-        searchBtn: "Search",
-        addBtn: "New Line",
-        filters: "Filters",
-        docsLoading: "Loading documents…",
-        allDocuments: "All documents",
-        allStatuses: "All statuses",
-        allLineTypes: "All line types",
-        itemNoPlaceholder: "Item No.",
-      },
-      table: {
+  const S = (t && t.salesOfferLines) || {
+    controls: {
+      searchPlaceholder: "Search item/params…",
+      searchBtn: "Search",
+      addBtn: "New Line",
+      filters: "Filters",
+      docsLoading: "Loading documents…",
+      allDocuments: "All documents",
+      allStatuses: "All statuses",
+      allLineTypes: "All line types",
+      itemNoPlaceholder: "Item No.",
+    },
+    table: {
+      lineNo: "Line No.",
+      documentNo: "Document No.",
+      status: "Status",
+      type: "Type",
+      item: "Item",
+      uom: "UOM",
+      unitPrice: "Unit Price",
+      qty: "Qty",
+      lineValue: "Line Value",
+      transport: "Transport",
+      created: "Created",
+      updated: "Updated",
+      actions: "Actions",
+      loading: "Loading…",
+      empty: "No lines",
+    },
+    a11y: { toggleDetails: "Toggle details" },
+    details: {
+      core: "Core",
+      amounts: "Amounts",
+      parties: "Parties",
+      audit: "Audit",
+      params: "Parameters",
+      kv: {
         lineNo: "Line No.",
         documentNo: "Document No.",
+        documentId: "Document ID",
         status: "Status",
         type: "Type",
-        item: "Item",
-        uom: "UOM",
+        itemNo: "Item No.",
+        uom: "Unit of Measure",
+        serviceDate: "Service Date",
+        requestedDeliveryDate: "Requested Delivery",
+        promisedDeliveryDate: "Promised Delivery",
+        shipmentDate: "Shipment Date",
+        documentValidityDate: "Doc Validity Date",
+        documentValidityHour: "Doc Validity Hour",
         unitPrice: "Unit Price",
-        qty: "Qty",
+        quantity: "Quantity",
         lineValue: "Line Value",
-        transport: "Transport",
-        created: "Created",
-        updated: "Updated",
-        actions: "Actions",
-        loading: "Loading…",
-        empty: "No lines",
+        tollCost: "Toll Cost",
+        driverCost: "Driver Cost",
+        vehicleCost: "Vehicle Cost",
+        additionalCosts: "Additional Costs",
+        costMargin: "Cost Margin %",
+        transportCost: "Transport Cost",
+        buyVendorNo: "Buy Vendor No.",
+        payVendorNo: "Pay Vendor No.",
+        locationNo: "Location No.",
+        locationName: "Location Name",
+        locationAddress: "Location Address",
+        locationAddress2: "Location Address 2",
+        locationPostCode: "Location Post Code",
+        locationCity: "Location City",
+        locationCountryCode: "Location Country / Region",
+        createdBy: "Created By",
+        createdAt: "Created At",
+        modifiedBy: "Modified By",
+        modifiedAt: "Modified At",
+        param: (i) => `Param${i}`,
       },
-      a11y: { toggleDetails: "Toggle details" },
-      details: {
-        core: "Core",
-        amounts: "Amounts",
-        parties: "Parties",
-        audit: "Audit",
-        params: "Parameters",
-        kv: {
-          lineNo: "Line No.",
-          documentNo: "Document No.",
-          documentId: "Document ID",
-          status: "Status",
-          type: "Type",
-          itemNo: "Item No.",
-          uom: "Unit of Measure",
-          serviceDate: "Service Date",
-          requestedDeliveryDate: "Requested Delivery",
-          promisedDeliveryDate: "Promised Delivery",
-          shipmentDate: "Shipment Date",
-          documentValidityDate: "Doc Validity Date",
-          documentValidityHour: "Doc Validity Hour",
-          unitPrice: "Unit Price",
-          quantity: "Quantity",
-          lineValue: "Line Value",
-          tollCost: "Toll Cost",
-          driverCost: "Driver Cost",
-          vehicleCost: "Vehicle Cost",
-          additionalCosts: "Additional Costs",
-          costMargin: "Cost Margin %",
-          transportCost: "Transport Cost",
-          buyVendorNo: "Buy Vendor No.",
-          payVendorNo: "Pay Vendor No.",
-          locationNo: "Location No.",
-          createdBy: "Created By",
-          createdAt: "Created At",
-          modifiedBy: "Modified By",
-          modifiedAt: "Modified At",
-          param: (i) => `Param${i}`,
-        },
-      },
-      footer: {
-        meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
-        perPage: (n) => `${n} / page`,
-        prev: "Prev",
-        next: "Next",
-      },
-      modal: {
-        titleEdit: "Edit Sales Offer Line",
-        titleNew: "New Sales Offer Line",
-      },
-    };
-
+    },
+    footer: {
+      meta: (total, page, pages) =>
+        `Total: ${total} • Page ${page} of ${pages || 1}`,
+      perPage: (n) => `${n} / page`,
+      prev: "Prev",
+      next: "Next",
+    },
+    modal: {
+      titleEdit: "Edit Sales Offer Line",
+      titleNew: "New Sales Offer Line",
+    },
+  };
 
   // filters / paging
   const [loading, setLoading] = useState(false);
@@ -238,13 +240,11 @@ export default function SalesOfferLinesPage() {
 
   // data
   const [data, setData] = useState({ data: [], total: 0, pages: 0, page: 1 });
-  
 
   // UI
   const [expandedId, setExpandedId] = useState(null);
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
-
 
   const fetchData = async () => {
     setLoading(true);
@@ -281,45 +281,45 @@ export default function SalesOfferLinesPage() {
     }
   };
 
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function loadDocs() {
-    setDocsLoading(true);
-    try {
-      const res = await fetch(
-        `${API}/api/documents?limit=1000&sortBy=createdAt&sortDir=desc`
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
+    async function loadDocs() {
+      setDocsLoading(true);
+      try {
+        const res = await fetch(
+          `${API}/api/documents?limit=1000&sortBy=createdAt&sortDir=desc`
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
 
-      // Normalize and (optionally) de-duplicate by documentNo
-      const raw = Array.isArray(json?.data) ? json.data : [];
-      const normalized = raw.map(d => ({
-        ...d,
-        documentNo: d.documentNo || d.no || "", // ensure picker has this field
-      }));
-      const seen = new Set();
-      const available = normalized.filter(d => {
-        if (!d.documentNo) return false;
-        if (seen.has(d.documentNo)) return false;
-        seen.add(d.documentNo);
-        return true;
-      });
+        // Normalize and (optionally) de-duplicate by documentNo
+        const raw = Array.isArray(json?.data) ? json.data : [];
+        const normalized = raw.map((d) => ({
+          ...d,
+          documentNo: d.documentNo || d.no || "", // ensure picker has this field
+        }));
+        const seen = new Set();
+        const available = normalized.filter((d) => {
+          if (!d.documentNo) return false;
+          if (seen.has(d.documentNo)) return false;
+          seen.add(d.documentNo);
+          return true;
+        });
 
-      if (!cancelled) setDocs(available);
-    } catch (e) {
-      if (!cancelled) setDocs([]);
-    } finally {
-      if (!cancelled) setDocsLoading(false);
+        if (!cancelled) setDocs(available);
+      } catch (e) {
+        if (!cancelled) setDocs([]);
+      } finally {
+        if (!cancelled) setDocsLoading(false);
+      }
     }
-  }
 
-  loadDocs();
-  return () => { cancelled = true; };
-}, []);
-
-
+    loadDocs();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     fetchData(); // eslint-disable-next-line
@@ -367,8 +367,6 @@ useEffect(() => {
     }
   };
 
-
-
   const rows = useMemo(() => {
     const arr = [...(data?.data || [])];
     const dir = sortDir === "asc" ? 1 : -1;
@@ -395,467 +393,581 @@ useEffect(() => {
     return arr;
   }, [data.data, sortBy, sortDir]);
 
+  return (
+    <div className="space-y-4">
+      {notice && (
+        <Toast type={notice.type} onClose={() => setNotice(null)}>
+          {notice.text}
+        </Toast>
+      )}
 
+      {/* Controls */}
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={S.controls.searchPlaceholder}
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
+            />
+            <button
+              type="submit"
+              className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+              title={S.controls.searchBtn}
+              aria-label={S.controls.searchBtn}
+            >
+              <Search size={14} />
+            </button>
+          </div>
 
-
-return (
-  <div className="space-y-4">
-    {notice && (
-      <Toast type={notice.type} onClose={() => setNotice(null)}>
-        {notice.text}
-      </Toast>
-    )}
-
-    {/* Controls */}
-    <form
-      onSubmit={onSearch}
-      className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={S.controls.searchPlaceholder}
-            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
-          />
           <button
-            type="submit"
-            className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
-            title={S.controls.searchBtn}
-            aria-label={S.controls.searchBtn}
+            type="button"
+            onClick={() => {
+              setEditing(null);
+              setOpenForm(true);
+            }}
+            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
           >
-            <Search size={14} />
+            <Plus size={16} />
+            {S.controls.addBtn}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
+            aria-expanded={showFilters}
+            aria-controls="sol-filters-panel"
+          >
+            <SlidersHorizontal size={16} className="opacity-70" />
+            {S.controls.filters}
+            {activeFilterCount > 0 && (
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setEditing(null);
-            setOpenForm(true);
-          }}
-          className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+        {/* Filters Row */}
+        <div
+          id="sol-filters-panel"
+          className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-5 ${
+            showFilters ? "grid" : "hidden md:grid"
+          }`}
         >
-          <Plus size={16} />
-          {S.controls.addBtn}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
-          aria-expanded={showFilters}
-          aria-controls="sol-filters-panel"
-        >
-          <SlidersHorizontal size={16} className="opacity-70" />
-          {S.controls.filters}
-          {activeFilterCount > 0 && (
-            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Filters Row */}
-      <div
-        id="sol-filters-panel"
-        className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-5 ${
-          showFilters ? "grid" : "hidden md:grid"
-        }`}
-      >
-        <select
-          value={documentNo}
-          onChange={(e) => {
-            setDocumentNo(e.target.value);
-            setPage(1);
-          }}
-          className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-        >
-          <option value="">{docsLoading ? S.controls.docsLoading : S.controls.allDocuments}</option>
-          {docs.map((d) => (
-            <option key={d._id} value={d.documentNo}>
-              {docLabel(d)}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={status}
-          onChange={(e) => {
-            setStatus(canonStatus(e.target.value));
-            setPage(1);
-          }}
-          className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-        >
-          <option value="">{S.controls.allStatuses}</option>
-          {STATUS_OPTIONS.map((s) => (
-            <option key={s} value={s}>
-              {STATUS_LABELS[s]}
-            </option>
-          ))}
-        </select>
-
-        <select
-          value={lineType}
-          onChange={(e) => {
-            setLineType(e.target.value);
-            setPage(1);
-          }}
-          className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-        >
-          <option value="">{S.controls.allLineTypes}</option>
-          {LINE_TYPES.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-
-        <input
-          value={itemNo}
-          onChange={(e) => {
-            setItemNo(e.target.value);
-            setPage(1);
-          }}
-          placeholder={S.controls.itemNoPlaceholder}
-          className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-        />
-        <div className="hidden md:block" />
-      </div>
-    </form>
-
-    {/* Table */}
-    <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <Th />
-              <SortableTh id="lineNo" {...{ sortBy, sortDir, onSort }}>
-                {S.table.lineNo}
-              </SortableTh>
-              <Th>{S.table.documentNo}</Th>
-              <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
-                {S.table.status}
-              </SortableTh>
-              <Th>{S.table.type}</Th>
-              <SortableTh id="itemNo" {...{ sortBy, sortDir, onSort }}>
-                {S.table.item}
-              </SortableTh>
-              <Th>{S.table.uom}</Th>
-              <SortableTh
-                id="unitPrice"
-                {...{ sortBy, sortDir, onSort }}
-                className="text-right"
-              >
-                {S.table.unitPrice}
-              </SortableTh>
-              <SortableTh
-                id="quantity"
-                {...{ sortBy, sortDir, onSort }}
-                className="text-right"
-              >
-                {S.table.qty}
-              </SortableTh>
-              <SortableTh
-                id="lineValue"
-                {...{ sortBy, sortDir, onSort }}
-                className="text-right"
-              >
-                {S.table.lineValue}
-              </SortableTh>
-              <Th className="text-right">{S.table.transport}</Th>
-              <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
-                {S.table.created}
-              </SortableTh>
-              <SortableTh id="updatedAt" {...{ sortBy, sortDir, onSort }}>
-                {S.table.updated}
-              </SortableTh>
-              <Th className="pr-3">{S.table.actions}</Th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {loading ? (
-              <tr>
-                <td
-                  colSpan={COL_COUNT}
-                  className="p-6 text-center text-slate-500"
-                >
-                  {S.table.loading}
-                </td>
-              </tr>
-            ) : (data.data?.length || 0) === 0 ? (
-              <tr>
-                <td
-                  colSpan={COL_COUNT}
-                  className="p-6 text-center text-slate-500"
-                >
-                  {S.table.empty}
-                </td>
-              </tr>
-            ) : (
-              (rows || data.data).map((d) => (
-                <React.Fragment key={d._id}>
-                  <tr className="border-t">
-                    <Td className="w-8">
-                      <button
-                        className="p-1 rounded hover:bg-slate-100"
-                        onClick={() =>
-                          setExpandedId((id) => (id === d._id ? null : d._id))
-                        }
-                        aria-label={S.a11y.toggleDetails}
-                        title={S.a11y.toggleDetails}
-                      >
-                        {expandedId === d._id ? (
-                          <ChevronDown size={16} />
-                        ) : (
-                          <ChevronRight size={16} />
-                        )}
-                      </button>
-                    </Td>
-                    <Td className="font-mono">{d.lineNo}</Td>
-                    <Td className="font-mono">{d.documentNo}</Td>
-                    <Td>
-                      <StatusBadge value={d.status} />
-                    </Td>
-                    <Td className="capitalize">{d.lineType || "—"}</Td>
-                    <Td className="truncate max-w-[220px]">
-                      {d.itemNo || "—"}
-                    </Td>
-                    <Td className="font-mono">{d.unitOfMeasure || "—"}</Td>
-                    <Td className="text-right">{fmtDOT(d.unitPrice, 2, locale)}</Td>
-                    <Td className="text-right">{fmtDOT(d.quantity, 3, locale)}</Td>
-                    <Td className="text-right font-medium">
-                      {fmtDOT(d.lineValue, 2, locale)}
-                    </Td>
-                    <Td className="text-right">{fmtDOT(d.transportCost, 2, locale)}</Td>
-                    <Td>{formatDate(d.createdAt || d.dateCreated)}</Td>
-                    <Td>{formatDate(d.updatedAt || d.dateModified)}</Td>
-                    <Td>
-                      <div className="flex justify-end gap-2 pr-3">
-                        <button
-                          className="p-2 rounded-lg hover:bg-slate-100"
-                          onClick={() => {
-                            setEditing(d);
-                            setOpenForm(true);
-                          }}
-                          title="Edit"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          className="p-2 rounded-lg hover:bg-slate-100"
-                          onClick={() => onRecalc(d._id)}
-                          title="Recalculate"
-                        >
-                          <Calculator size={16} />
-                        </button>
-                        <button
-                          className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
-                          onClick={() => onDelete(d._id)}
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </Td>
-                  </tr>
-
-                  {expandedId === d._id && (
-                    <tr>
-                      <td
-                        colSpan={COL_COUNT}
-                        className="bg-slate-50 border-t"
-                      >
-                        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                          <Section title={S.details.core}>
-                            <KV label={S.details.kv.lineNo} icon={Hash}>
-                              {d.lineNo ?? "—"}
-                            </KV>
-                            <KV label={S.details.kv.documentNo} icon={Hash}>
-                              {d.documentNo || "—"}
-                            </KV>
-                            <KV label={S.details.kv.documentId} icon={Hash}>
-                              {d.documentId || "—"}
-                            </KV>
-                            <KV label={S.details.kv.status} icon={ClipboardList}>
-                              <StatusBadge value={d.status} />
-                            </KV>
-                            <KV label={S.details.kv.type} icon={Layers}>
-                              {d.lineType || "—"}
-                            </KV>
-                            <KV label={S.details.kv.itemNo} icon={Package}>
-                              {d.itemNo || "—"}
-                            </KV>
-                            <KV label={S.details.kv.uom} icon={Package}>
-                              {d.unitOfMeasure || "—"}
-                            </KV>
-                            <KV label={S.details.kv.serviceDate} icon={CalendarIcon}>
-                              {formatDate(d.serviceDate)}
-                            </KV>
-                            <KV label={S.details.kv.requestedDeliveryDate} icon={CalendarIcon}>
-                              {formatDate(d.requestedDeliveryDate)}
-                            </KV>
-                            <KV label={S.details.kv.promisedDeliveryDate} icon={CalendarIcon}>
-                              {formatDate(d.promisedDeliveryDate)}
-                            </KV>
-                            <KV label={S.details.kv.shipmentDate} icon={CalendarIcon}>
-                              {formatDate(d.shipmentDate)}
-                            </KV>
-                            <KV label={S.details.kv.documentValidityDate} icon={CalendarIcon}>
-                              {formatDate(d.documentValidityDate)}
-                            </KV>
-                            <KV label={S.details.kv.documentValidityHour} icon={CalendarIcon}>
-                              {d.documentValidityHour || "—"}
-                            </KV>
-                          </Section>
-
-                          <Section title={S.details.amounts}>
-                            <KV label={S.details.kv.unitPrice} icon={DollarSign}>
-                              {fmtDOT(d.unitPrice, 2, locale)}
-                            </KV>
-                            <KV label={S.details.kv.quantity} icon={Package}>
-                              {fmtDOT(d.quantity, 3, locale)}
-                            </KV>
-                            <KV label={S.details.kv.lineValue} icon={DollarSign}>
-                              <b>{fmtDOT(d.lineValue, 2, locale)}</b>
-                            </KV>
-                            <KV label={S.details.kv.tollCost} icon={Truck}>
-                              {fmtDOT(d.tollCost, 2, locale)}
-                            </KV>
-                            <KV label={S.details.kv.driverCost} icon={UserIcon}>
-                              {fmtDOT(d.driverCost, 2, locale)}
-                            </KV>
-                            <KV label={S.details.kv.vehicleCost} icon={Truck}>
-                              {fmtDOT(d.vehicleCost, 2, locale)}
-                            </KV>
-                            <KV label={S.details.kv.additionalCosts} icon={FileText}>
-                              {fmtDOT(d.additionalCosts, 2, locale)}
-                            </KV>
-                            <KV label={S.details.kv.costMarginPct} icon={Percent}>
-                              {fmtDOT(d.costMargin, 2, locale)}
-                            </KV>
-                            <KV label={S.details.kv.transportCost} icon={Truck}>
-                              <b>{fmtDOT(d.transportCost, 2, locale)}</b>
-                            </KV>
-                          </Section>
-
-                          <Section title={S.details.parties}>
-                            <KV label={S.details.kv.buyVendorNo} icon={Hash}>
-                              {d.buyVendorNo || "—"}
-                            </KV>
-                            <KV label={S.details.kv.payVendorNo} icon={Hash}>
-                              {d.payVendorNo || "—"}
-                            </KV>
-                            <KV label={S.details.kv.locationNo} icon={Hash}>
-                              {d.locationNo || "—"}
-                            </KV>
-                          </Section>
-
-                          <Section title={S.details.audit}>
-                            <KV label={S.details.kv.createdBy} icon={UserIcon}>
-                              {d.userCreated || "—"}
-                            </KV>
-                            <KV label={S.details.kv.createdAt} icon={CalendarIcon}>
-                              {formatDate(d.dateCreated || d.createdAt)}
-                            </KV>
-                            <KV label={S.details.kv.modifiedBy} icon={UserIcon}>
-                              {d.userModified || "—"}
-                            </KV>
-                            <KV label={S.details.kv.modifiedAt} icon={CalendarIcon}>
-                              {formatDate(d.dateModified || d.updatedAt)}
-                            </KV>
-                          </Section>
-
-                          <Section title={S.details.params}>
-                            <KV label={S.details.kv.param(1)}>
-                              {(d.param1Code || "—") + " : " + (d.param1Value || "—")}
-                            </KV>
-                            <KV label={S.details.kv.param(2)}>
-                              {(d.param2Code || "—") + " : " + (d.param2Value || "—")}
-                            </KV>
-                            <KV label={S.details.kv.param(3)}>
-                              {(d.param3Code || "—") + " : " + (d.param3Value || "—")}
-                            </KV>
-                            <KV label={S.details.kv.param(4)}>
-                              {(d.param4Code || "—") + " : " + (d.param4Value || "—")}
-                            </KV>
-                            <KV label={S.details.kv.param(5)}>
-                              {(d.param5Code || "—") + " : " + (d.param5Value || "—")}
-                            </KV>
-                          </Section>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
-        <div className="text-xs text-slate-500">
-          {S.footer.meta(data.total, data.page, data.pages)}
-        </div>
-        <div className="flex items-center gap-2">
           <select
-            className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
-            value={limit}
+            value={documentNo}
             onChange={(e) => {
-              setLimit(Number(e.target.value));
+              setDocumentNo(e.target.value);
               setPage(1);
             }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
-            {[10, 20, 50, 100, 200].map((n) => (
-              <option key={n} value={n}>{S.footer.perPage(n)}</option>
+            <option value="">
+              {docsLoading ? S.controls.docsLoading : S.controls.allDocuments}
+            </option>
+            {docs.map((d) => (
+              <option key={d._id} value={d.documentNo}>
+                {docLabel(d)}
+              </option>
             ))}
           </select>
 
-          <button
-            className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={data.page <= 1}
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(canonStatus(e.target.value));
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
-            {S.footer.prev}
-          </button>
-          <button
-            className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-            onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
-            disabled={data.page >= (data.pages || 1)}
+            <option value="">{S.controls.allStatuses}</option>
+            {STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={lineType}
+            onChange={(e) => {
+              setLineType(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
-            {S.footer.next}
-          </button>
+            <option value="">{S.controls.allLineTypes}</option>
+            {LINE_TYPES.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={itemNo}
+            onChange={(e) => {
+              setItemNo(e.target.value);
+              setPage(1);
+            }}
+            placeholder={S.controls.itemNoPlaceholder}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+          />
+          <div className="hidden md:block" />
+        </div>
+      </form>
+
+      {/* Table */}
+      <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead className="bg-slate-50 text-slate-600">
+              <tr>
+                <Th />
+                <SortableTh id="lineNo" {...{ sortBy, sortDir, onSort }}>
+                  {S.table.lineNo}
+                </SortableTh>
+                <Th>{S.table.documentNo}</Th>
+                <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
+                  {S.table.status}
+                </SortableTh>
+                <Th>{S.table.type}</Th>
+                <SortableTh id="itemNo" {...{ sortBy, sortDir, onSort }}>
+                  {S.table.item}
+                </SortableTh>
+                <Th>{S.table.uom}</Th>
+                <SortableTh
+                  id="unitPrice"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-right"
+                >
+                  {S.table.unitPrice}
+                </SortableTh>
+                <SortableTh
+                  id="quantity"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-right"
+                >
+                  {S.table.qty}
+                </SortableTh>
+                <SortableTh
+                  id="lineValue"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-right"
+                >
+                  {S.table.lineValue}
+                </SortableTh>
+                <Th className="text-right">{S.table.transport}</Th>
+                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
+                  {S.table.created}
+                </SortableTh>
+                <SortableTh id="updatedAt" {...{ sortBy, sortDir, onSort }}>
+                  {S.table.updated}
+                </SortableTh>
+                <Th className="pr-3">{S.table.actions}</Th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
+                    {S.table.loading}
+                  </td>
+                </tr>
+              ) : (data.data?.length || 0) === 0 ? (
+                <tr>
+                  <td
+                    colSpan={COL_COUNT}
+                    className="p-6 text-center text-slate-500"
+                  >
+                    {S.table.empty}
+                  </td>
+                </tr>
+              ) : (
+                (rows || data.data).map((d) => (
+                  <React.Fragment key={d._id}>
+                    <tr className="border-t">
+                      <Td className="w-8">
+                        <button
+                          className="p-1 rounded hover:bg-slate-100"
+                          onClick={() =>
+                            setExpandedId((id) => (id === d._id ? null : d._id))
+                          }
+                          aria-label={S.a11y.toggleDetails}
+                          title={S.a11y.toggleDetails}
+                        >
+                          {expandedId === d._id ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
+                        </button>
+                      </Td>
+                      <Td className="font-mono">{d.lineNo}</Td>
+                      <Td className="font-mono">{d.documentNo}</Td>
+                      <Td>
+                        <StatusBadge value={d.status} />
+                      </Td>
+                      <Td className="capitalize">{d.lineType || "—"}</Td>
+                      <Td className="truncate max-w-[220px]">
+                        {d.itemNo || "—"}
+                      </Td>
+                      <Td className="font-mono">{d.unitOfMeasure || "—"}</Td>
+                      <Td className="text-right">
+                        {fmtDOT(d.unitPrice, 2, locale)}
+                      </Td>
+                      <Td className="text-right">
+                        {fmtDOT(d.quantity, 3, locale)}
+                      </Td>
+                      <Td className="text-right font-medium">
+                        {fmtDOT(d.lineValue, 2, locale)}
+                      </Td>
+                      <Td className="text-right">
+                        {fmtDOT(d.transportCost, 2, locale)}
+                      </Td>
+                      <Td>{formatDate(d.createdAt || d.dateCreated)}</Td>
+                      <Td>{formatDate(d.updatedAt || d.dateModified)}</Td>
+                      <Td>
+                        <div className="flex justify-end gap-2 pr-3">
+                          <button
+                            className="p-2 rounded-lg hover:bg-slate-100"
+                            onClick={() => {
+                              setEditing(d);
+                              setOpenForm(true);
+                            }}
+                            title="Edit"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            className="p-2 rounded-lg hover:bg-slate-100"
+                            onClick={() => onRecalc(d._id)}
+                            title="Recalculate"
+                          >
+                            <Calculator size={16} />
+                          </button>
+                          <button
+                            className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                            onClick={() => onDelete(d._id)}
+                            title="Delete"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </Td>
+                    </tr>
+
+                    {expandedId === d._id && (
+                      <tr>
+                        <td
+                          colSpan={COL_COUNT}
+                          className="bg-slate-50 border-t"
+                        >
+                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                            <Section title={S.details.core}>
+                              <KV label={S.details.kv.lineNo} icon={Hash}>
+                                {d.lineNo ?? "—"}
+                              </KV>
+                              <KV label={S.details.kv.documentNo} icon={Hash}>
+                                {d.documentNo || "—"}
+                              </KV>
+                              <KV label={S.details.kv.documentId} icon={Hash}>
+                                {d.documentId || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.status}
+                                icon={ClipboardList}
+                              >
+                                <StatusBadge value={d.status} />
+                              </KV>
+                              <KV label={S.details.kv.type} icon={Layers}>
+                                {d.lineType || "—"}
+                              </KV>
+                              <KV label={S.details.kv.itemNo} icon={Package}>
+                                {d.itemNo || "—"}
+                              </KV>
+                              <KV label={S.details.kv.uom} icon={Package}>
+                                {d.unitOfMeasure || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.serviceDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.serviceDate)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.requestedDeliveryDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.requestedDeliveryDate)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.promisedDeliveryDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.promisedDeliveryDate)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.shipmentDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.shipmentDate)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.documentValidityDate}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.documentValidityDate)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.documentValidityHour}
+                                icon={CalendarIcon}
+                              >
+                                {d.documentValidityHour || "—"}
+                              </KV>
+                            </Section>
+
+                            <Section title={S.details.amounts}>
+                              <KV
+                                label={S.details.kv.unitPrice}
+                                icon={DollarSign}
+                              >
+                                {fmtDOT(d.unitPrice, 2, locale)}
+                              </KV>
+                              <KV label={S.details.kv.quantity} icon={Package}>
+                                {fmtDOT(d.quantity, 3, locale)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.lineValue}
+                                icon={DollarSign}
+                              >
+                                <b>{fmtDOT(d.lineValue, 2, locale)}</b>
+                              </KV>
+                              <KV label={S.details.kv.tollCost} icon={Truck}>
+                                {fmtDOT(d.tollCost, 2, locale)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.driverCost}
+                                icon={UserIcon}
+                              >
+                                {fmtDOT(d.driverCost, 2, locale)}
+                              </KV>
+                              <KV label={S.details.kv.vehicleCost} icon={Truck}>
+                                {fmtDOT(d.vehicleCost, 2, locale)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.additionalCosts}
+                                icon={FileText}
+                              >
+                                {fmtDOT(d.additionalCosts, 2, locale)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.costMarginPct}
+                                icon={Percent}
+                              >
+                                {fmtDOT(d.costMargin, 2, locale)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.transportCost}
+                                icon={Truck}
+                              >
+                                <b>{fmtDOT(d.transportCost, 2, locale)}</b>
+                              </KV>
+                            </Section>
+
+                            <Section title={S.details.parties}>
+                              <KV label={S.details.kv.buyVendorNo} icon={Hash}>
+                                {d.buyVendorNo || "—"}
+                              </KV>
+                              <KV label={S.details.kv.payVendorNo} icon={Hash}>
+                                {d.payVendorNo || "—"}
+                              </KV>
+                              <KV label={S.details.kv.locationNo} icon={Hash}>
+                                {d.locationNo || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationName}
+                                icon={MapPin}
+                              >
+                                {d.locationName || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress}
+                                icon={MapPin}
+                              >
+                                {d.locationAddress || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationAddress2}
+                                icon={MapPin}
+                              >
+                                {d.locationAddress2 || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationPostCode}
+                                icon={MapPin}
+                              >
+                                {d.locationPostCode || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCity}
+                                icon={MapPin}
+                              >
+                                {d.locationCity || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.locationCountryCode}
+                                icon={MapPin}
+                              >
+                                {d.locationCountryCode || "—"}
+                              </KV>
+                            </Section>
+
+                            <Section title={S.details.audit}>
+                              <KV
+                                label={S.details.kv.createdBy}
+                                icon={UserIcon}
+                              >
+                                {d.userCreated || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.createdAt}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.dateCreated || d.createdAt)}
+                              </KV>
+                              <KV
+                                label={S.details.kv.modifiedBy}
+                                icon={UserIcon}
+                              >
+                                {d.userModified || "—"}
+                              </KV>
+                              <KV
+                                label={S.details.kv.modifiedAt}
+                                icon={CalendarIcon}
+                              >
+                                {formatDate(d.dateModified || d.updatedAt)}
+                              </KV>
+                            </Section>
+
+                            <Section title={S.details.params}>
+                              <KV label={S.details.kv.param(1)}>
+                                {(d.param1Code || "—") +
+                                  " : " +
+                                  (d.param1Value || "—")}
+                              </KV>
+                              <KV label={S.details.kv.param(2)}>
+                                {(d.param2Code || "—") +
+                                  " : " +
+                                  (d.param2Value || "—")}
+                              </KV>
+                              <KV label={S.details.kv.param(3)}>
+                                {(d.param3Code || "—") +
+                                  " : " +
+                                  (d.param3Value || "—")}
+                              </KV>
+                              <KV label={S.details.kv.param(4)}>
+                                {(d.param4Code || "—") +
+                                  " : " +
+                                  (d.param4Value || "—")}
+                              </KV>
+                              <KV label={S.details.kv.param(5)}>
+                                {(d.param5Code || "—") +
+                                  " : " +
+                                  (d.param5Value || "—")}
+                              </KV>
+                            </Section>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
+          <div className="text-xs text-slate-500">
+            {S.footer.meta(data.total, data.page, data.pages)}
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+            >
+              {[10, 20, 50, 100, 200].map((n) => (
+                <option key={n} value={n}>
+                  {S.footer.perPage(n)}
+                </option>
+              ))}
+            </select>
+
+            <button
+              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={data.page <= 1}
+            >
+              {S.footer.prev}
+            </button>
+            <button
+              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+              onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
+              disabled={data.page >= (data.pages || 1)}
+            >
+              {S.footer.next}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* CREATE/EDIT MODAL */}
+      {openForm && (
+        <Modal
+          title={editing ? S.modal.titleEdit : S.modal.titleNew}
+          onClose={() => {
+            setOpenForm(false);
+            setEditing(null);
+          }}
+        >
+          <SalesOfferLineForm
+            initial={editing}
+            onCancel={() => {
+              setOpenForm(false);
+              setEditing(null);
+            }}
+            onSaved={() => {
+              setOpenForm(false);
+              setEditing(null);
+              setPage(1);
+              fetchData();
+            }}
+            showNotice={showNotice}
+            docs={docs}
+            docsLoading={docsLoading}
+            S={S} // <-- pass translations
+            locale={locale} // <-- pass locale for numbers/dates
+          />
+        </Modal>
+      )}
     </div>
-
-    {/* CREATE/EDIT MODAL */}
-{openForm && (
-  <Modal
-    title={editing ? S.modal.titleEdit : S.modal.titleNew}
-    onClose={() => { setOpenForm(false); setEditing(null); }}
-  >
-    <SalesOfferLineForm
-      initial={editing}
-      onCancel={() => { setOpenForm(false); setEditing(null); }}
-      onSaved={() => { setOpenForm(false); setEditing(null); setPage(1); fetchData(); }}
-      showNotice={showNotice}
-      docs={docs}
-      docsLoading={docsLoading}
-      S={S}                 // <-- pass translations
-      locale={locale}       // <-- pass locale for numbers/dates
-    />
-  </Modal>
-)}
-  </div>
-);
-
+  );
 }
 
 /* =========== small header cells =========== */
@@ -905,7 +1017,7 @@ function Modal({ children, onClose, title }) {
       <div
         className={[
           "relative w-full rounded-2xl bg-white shadow-xl border border-slate-200",
-          isFull ? "max-w-[95vw] h-[95vh]" : "max-w-5xl"
+          isFull ? "max-w-[95vw] h-[95vh]" : "max-w-5xl",
         ].join(" ")}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
@@ -913,7 +1025,7 @@ function Modal({ children, onClose, title }) {
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setIsFull(v => !v)}
+              onClick={() => setIsFull((v) => !v)}
               className="p-2 rounded hover:bg-slate-100"
               title={isFull ? "Minimize" : "Maximize"}
               aria-label={isFull ? "Minimize" : "Maximize"}
@@ -931,16 +1043,19 @@ function Modal({ children, onClose, title }) {
           </div>
         </div>
 
-        <div className={isFull
-          ? "p-4 h-[calc(95vh-56px)] overflow-auto"
-          : "p-4 max-h-[75vh] overflow-auto"}>
+        <div
+          className={
+            isFull
+              ? "p-4 h-[calc(95vh-56px)] overflow-auto"
+              : "p-4 max-h-[75vh] overflow-auto"
+          }
+        >
           {children}
         </div>
       </div>
     </div>
   );
 }
-
 
 function SalesOfferLineForm({
   initial,
@@ -949,10 +1064,9 @@ function SalesOfferLineForm({
   showNotice,
   docs = [],
   docsLoading = false,
-  S,                 // <-- receive translations
-  locale,            // <-- receive locale
+  S, // <-- receive translations
+  locale, // <-- receive locale
 }) {
-
   const isEdit = Boolean(initial?._id);
   const [tab, setTab] = useState("core");
   const [errors, setErrors] = useState({});
@@ -1010,7 +1124,22 @@ function SalesOfferLineForm({
   const [buyVendorNo, setBuyVendorNo] = useState(initial?.buyVendorNo || "");
   const [payVendorNo, setPayVendorNo] = useState(initial?.payVendorNo || "");
   const [locationNo, setLocationNo] = useState(initial?.locationNo || "");
-const [paramMeta, setParamMeta] = useState({});
+  const [locationName, setLocationName] = useState(initial?.locationName || "");
+  const [locationAddress, setLocationAddress] = useState(
+    initial?.locationAddress || ""
+  );
+  const [locationAddress2, setLocationAddress2] = useState(
+    initial?.locationAddress2 || ""
+  );
+  const [locationPostCode, setLocationPostCode] = useState(
+    initial?.locationPostCode || ""
+  );
+  const [locationCity, setLocationCity] = useState(initial?.locationCity || "");
+  const [locationCountryCode, setLocationCountryCode] = useState(
+    initial?.locationCountryCode || ""
+  );
+
+  const [paramMeta, setParamMeta] = useState({});
   // params 1..5
   const [p1c, setP1c] = useState(initial?.param1Code || "");
   const [p1v, setP1v] = useState(initial?.param1Value || "");
@@ -1022,7 +1151,6 @@ const [paramMeta, setParamMeta] = useState({});
   const [p4v, setP4v] = useState(initial?.param4Value || "");
   const [p5c, setP5c] = useState(initial?.param5Code || "");
   const [p5v, setP5v] = useState(initial?.param5Value || "");
-
 
   // compute preview (client-side)
   const computedLineValue = useMemo(() => {
@@ -1043,825 +1171,1104 @@ const [paramMeta, setParamMeta] = useState({});
 
   const INPUT_CLS = "w-full rounded-lg border border-slate-300 px-3 py-2";
 
-const TABS = [
-  { id: "core",   label: S.details.core,   Icon: FileText },
-  { id: "dates",  label: S.details.kv.serviceDate ? S.details.kv.serviceDate.split(" ")[0] : "Dates", Icon: CalendarIcon }, // or keep "Dates" if you don't have a key
-  { id: "costs",  label: S.details.amounts, Icon: DollarSign },
-  { id: "parties",label: S.details.parties, Icon: UserIcon },
-  { id: "params", label: S.details.params,  Icon: SlidersHorizontal },
-  { id: "audit",  label: S.details.audit,   Icon: ClipboardList },
-];
+  const TABS = [
+    { id: "core", label: S.details.core, Icon: FileText },
+    {
+      id: "dates",
+      label: S.details.kv.serviceDate
+        ? S.details.kv.serviceDate.split(" ")[0]
+        : "Dates",
+      Icon: CalendarIcon,
+    }, // or keep "Dates" if you don't have a key
+    { id: "costs", label: S.details.amounts, Icon: DollarSign },
+    { id: "parties", label: S.details.parties, Icon: UserIcon },
+    { id: "params", label: S.details.params, Icon: SlidersHorizontal },
+    { id: "audit", label: S.details.audit, Icon: ClipboardList },
+  ];
 
-// --- Sales Line Parameters sync helpers ---
-async function findSLP(documentNo, documentLineNo, paramCode) {
-  const lineKey = Number(documentLineNo) || String(documentLineNo);
-  const qs = new URLSearchParams({
-    page: "1",
-    limit: "1",
-    documentNo,
-    documentLineNo: String(lineKey), // queries are strings anyway
-    paramCode,
-  });
-  const res = await fetch(`${API}/api/sales-line-parameters?${qs.toString()}`);
-  if (!res.ok) return null;
-  const json = await res.json().catch(() => null);
-  const row = json?.data?.[0];
-  return row ? (row.id || row._id) : null;
-}
-
-
-async function upsertSLP({ documentNo, documentLineNo, paramCode, paramValue }) {
-  // normalize the line key (some backends store lineNo as a number)
-  const lineKey = Number(documentLineNo) || String(documentLineNo);
-
-  // 1) find existing
-  const existingId = await findSLP(documentNo, lineKey, paramCode);
-  const body = { documentNo, documentLineNo: lineKey, paramCode };
-  if (paramValue !== "" && paramValue !== null && paramValue !== undefined) {
-    body.paramValue = paramValue; // let backend coerce type
-  }
-
-  if (existingId) {
-    // 2a) update
-    const res = await fetch(`${API}/api/sales-line-parameters/${existingId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+  // --- Sales Line Parameters sync helpers ---
+  async function findSLP(documentNo, documentLineNo, paramCode) {
+    const lineKey = Number(documentLineNo) || String(documentLineNo);
+    const qs = new URLSearchParams({
+      page: "1",
+      limit: "1",
+      documentNo,
+      documentLineNo: String(lineKey), // queries are strings anyway
+      paramCode,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.message || "Failed to update parameter.");
-    }
-    return true;
-  } else {
-    // 2b) create
-    const res = await fetch(`${API}/api/sales-line-parameters`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err?.message || "Failed to create parameter.");
-    }
-    return true;
-  }
-}
-
-async function syncLineParams({ documentNo, documentLineNo, params, removeMissing = false }) {
-  const filtered = params
-    .map((p) => ({
-      code: String(p.code || "").trim().toUpperCase(),
-      value: p.value,
-    }))
-    .filter((p) => p.code);
-
-  const failures = [];
-
-  for (const p of filtered) {
-    try {
-      await upsertSLP({
-        documentNo,
-        documentLineNo,
-        paramCode: p.code,
-        paramValue: p.value === "" ? undefined : p.value,
-      });
-    } catch (e) {
-      console.warn("Param upsert failed:", p.code, e?.message || e);
-      failures.push({ code: p.code, error: e?.message || "Failed" });
-    }
+    const res = await fetch(
+      `${API}/api/sales-line-parameters?${qs.toString()}`
+    );
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    const row = json?.data?.[0];
+    return row ? row.id || row._id : null;
   }
 
-  if (removeMissing) {
-    try {
-      const existing = await listSLPForLine(documentNo, documentLineNo);
-      const keep = new Set(filtered.map((p) => p.code));
-      const toDelete = existing.filter(
-        (r) => !keep.has(String(r.paramCode || "").toUpperCase())
-      );
-      for (const r of toDelete) {
-        try {
-          await fetch(`${API}/api/sales-line-parameters/${r.id || r._id}`, {
-            method: "DELETE",
-          });
-        } catch (e) {
-          console.warn("Param delete failed:", r.paramCode, e);
-        }
-      }
-    } catch (e) {
-      console.warn("List existing params failed:", e);
-    }
-  }
-
-  if (failures.length) {
-    const list = failures.map((f) => f.code).join(", ");
-    throw new Error(`Some parameters failed: ${list}`);
-  }
-}
-
-
-async function listSLPForLine(documentNo, documentLineNo) {
-  const qs = new URLSearchParams({
-    page: "1",
-    limit: "200",
+  async function upsertSLP({
     documentNo,
     documentLineNo,
-  });
-  const res = await fetch(`${API}/api/sales-line-parameters?${qs.toString()}`);
-  if (!res.ok) return [];
-  const json = await res.json().catch(() => ({}));
-  return Array.isArray(json?.data) ? json.data : [];
-}
+    paramCode,
+    paramValue,
+  }) {
+    // normalize the line key (some backends store lineNo as a number)
+    const lineKey = Number(documentLineNo) || String(documentLineNo);
 
+    // 1) find existing
+    const existingId = await findSLP(documentNo, lineKey, paramCode);
+    const body = { documentNo, documentLineNo: lineKey, paramCode };
+    if (paramValue !== "" && paramValue !== null && paramValue !== undefined) {
+      body.paramValue = paramValue; // let backend coerce type
+    }
 
-
-const save = async (e) => {
-  e.preventDefault();
-
-  // ----- 1) form validation -----
-  const errs = {};
-  const lt = (lineType || "").toLowerCase();
-  const isItem = lt === "item";
-
-  if (!documentNo.trim()) errs.documentNo = "Document No. *";
-  if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
-  if (!isEdit && !getUserCode()) errs.userCreated = "Missing user code (session).";
-
-  if (Object.keys(errs).length) {
-    setErrors(errs);
-    if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
-    return;
+    if (existingId) {
+      // 2a) update
+      const res = await fetch(
+        `${API}/api/sales-line-parameters/${existingId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || "Failed to update parameter.");
+      }
+      return true;
+    } else {
+      // 2b) create
+      const res = await fetch(`${API}/api/sales-line-parameters`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.message || "Failed to create parameter.");
+      }
+      return true;
+    }
   }
 
-  // ----- 2) prepare payload for /api/sales-offer-lines -----
-  const payload = {
-    documentNo: documentNo.trim(),
-    status: canonStatus(status),
-    lineType: (lineType || "item").toLowerCase(),
-    lineNo: isEdit ? lineNo : undefined, // backend may auto-assign on create in your impl
-    itemNo: itemNo || null,
-    unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
-    unitPrice: Number(unitPrice) || 0,
-    quantity: Number(quantity) || 0,
+  async function syncLineParams({
+    documentNo,
+    documentLineNo,
+    params,
+    removeMissing = false,
+  }) {
+    const filtered = params
+      .map((p) => ({
+        code: String(p.code || "")
+          .trim()
+          .toUpperCase(),
+        value: p.value,
+      }))
+      .filter((p) => p.code);
 
-    tollCost: Number(tollCost) || 0,
-    driverCost: Number(driverCost) || 0,
-    vehicleCost: Number(vehicleCost) || 0,
-    additionalCosts: Number(additionalCosts) || 0,
-    costMargin: Number(costMargin) || 0,
+    const failures = [];
 
-    serviceDate: serviceDate || null,
-    requestedDeliveryDate: requestedDeliveryDate || null,
-    promisedDeliveryDate: promisedDeliveryDate || null,
-    shipmentDate: shipmentDate || null,
-    documentValidityDate: documentValidityDate || null,
-    documentValidityHour: documentValidityHour || null,
+    for (const p of filtered) {
+      try {
+        await upsertSLP({
+          documentNo,
+          documentLineNo,
+          paramCode: p.code,
+          paramValue: p.value === "" ? undefined : p.value,
+        });
+      } catch (e) {
+        console.warn("Param upsert failed:", p.code, e?.message || e);
+        failures.push({ code: p.code, error: e?.message || "Failed" });
+      }
+    }
 
-    buyVendorNo: buyVendorNo || null,
-    payVendorNo: payVendorNo || null,
-    locationNo: locationNo || null,
+    if (removeMissing) {
+      try {
+        const existing = await listSLPForLine(documentNo, documentLineNo);
+        const keep = new Set(filtered.map((p) => p.code));
+        const toDelete = existing.filter(
+          (r) => !keep.has(String(r.paramCode || "").toUpperCase())
+        );
+        for (const r of toDelete) {
+          try {
+            await fetch(`${API}/api/sales-line-parameters/${r.id || r._id}`, {
+              method: "DELETE",
+            });
+          } catch (e) {
+            console.warn("Param delete failed:", r.paramCode, e);
+          }
+        }
+      } catch (e) {
+        console.warn("List existing params failed:", e);
+      }
+    }
 
-    param1Code: p1c || null, param1Value: p1v || null,
-    param2Code: p2c || null, param2Value: p2v || null,
-    param3Code: p3c || null, param3Value: p3v || null,
-    param4Code: p4c || null, param4Value: p4v || null,
-    param5Code: p5c || null, param5Value: p5v || null,
-  };
-
-  const nowIso = new Date().toISOString();
-  const userCode = getUserCode();
-  if (!isEdit) {
-    payload.userCreated = userCode;
-    payload.dateCreated = nowIso;
-  } else {
-    payload.userModified = userCode;
-    payload.dateModified = nowIso;
+    if (failures.length) {
+      const list = failures.map((f) => f.code).join(", ");
+      throw new Error(`Some parameters failed: ${list}`);
+    }
   }
 
-  try {
-    // ----- 3) save the main line -----
-    const url = isEdit
-      ? `${API}/api/sales-offer-lines/${initial._id}`
-      : `${API}/api/sales-offer-lines`;
-    const method = isEdit ? "PUT" : "POST";
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+  async function listSLPForLine(documentNo, documentLineNo) {
+    const qs = new URLSearchParams({
+      page: "1",
+      limit: "200",
+      documentNo,
+      documentLineNo,
     });
-
+    const res = await fetch(
+      `${API}/api/sales-line-parameters?${qs.toString()}`
+    );
+    if (!res.ok) return [];
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      showNotice("error", json?.message || "Save failed");
+    return Array.isArray(json?.data) ? json.data : [];
+  }
+
+  const save = async (e) => {
+    e.preventDefault();
+
+    // ----- 1) form validation -----
+    const errs = {};
+    const lt = (lineType || "").toLowerCase();
+    const isItem = lt === "item";
+
+    if (!documentNo.trim()) errs.documentNo = "Document No. *";
+    if (isItem && !itemNo.trim()) errs.itemNo = "Item No. *";
+    if (!isEdit && !getUserCode())
+      errs.userCreated = "Missing user code (session).";
+
+    if (Object.keys(errs).length) {
+      setErrors(errs);
+      if (errs.documentNo || errs.itemNo || errs.userCreated) setTab("core");
       return;
     }
 
-    const saved = json || {};
+    // ----- 2) prepare payload for /api/sales-offer-lines -----
+    const payload = {
+      documentNo: documentNo.trim(),
+      status: canonStatus(status),
+      lineType: (lineType || "item").toLowerCase(),
+      lineNo: isEdit ? lineNo : undefined,
+      itemNo: itemNo || null,
+      unitOfMeasure: (unitOfMeasure || "T").toUpperCase(),
+      unitPrice: Number(unitPrice) || 0,
+      quantity: Number(quantity) || 0,
 
-    // ----- 4) create / refresh blocks (25-qty rule) -----
-    try {
-      // re-sync on create OR when critical fields changed
-      const mustResync =
-        !isEdit ||
-        Number(saved.quantity) !== Number(initial?.quantity) ||
-        Number(saved.unitPrice) !== Number(initial?.unitPrice) ||
-        String(saved.unitOfMeasure || "").toUpperCase() !== String(initial?.unitOfMeasure || "").toUpperCase() ||
-        Number(saved.tollCost)        !== Number(initial?.tollCost) ||
-        Number(saved.driverCost)      !== Number(initial?.driverCost) ||
-        Number(saved.vehicleCost)     !== Number(initial?.vehicleCost) ||
-        Number(saved.additionalCosts) !== Number(initial?.additionalCosts) ||
-        Number(saved.costMargin)      !== Number(initial?.costMargin) ||
-        String(saved.status || "")    !== String(initial?.status || "") ||
-        String(saved.itemNo || "")    !== String(initial?.itemNo || "");
+      tollCost: Number(tollCost) || 0,
+      driverCost: Number(driverCost) || 0,
+      vehicleCost: Number(vehicleCost) || 0,
+      additionalCosts: Number(additionalCosts) || 0,
+      costMargin: Number(costMargin) || 0,
 
-      if (mustResync) {
-        await createBlocksForLine(saved, userCode);
-      }
-    } catch (e) {
-      showNotice("error", e?.message || "Failed to create blocks.");
-      // If you prefer hard-stop on block failure, uncomment:
-      // return;
+      serviceDate: serviceDate || null,
+      requestedDeliveryDate: requestedDeliveryDate || null,
+      promisedDeliveryDate: promisedDeliveryDate || null,
+      shipmentDate: shipmentDate || null,
+      documentValidityDate: documentValidityDate || null,
+      documentValidityHour: documentValidityHour || null,
+
+      buyVendorNo: buyVendorNo || null,
+      payVendorNo: payVendorNo || null,
+      locationNo: locationNo || null,
+
+      // NEW
+      locationName: locationName || null,
+      locationAddress: locationAddress || null,
+      locationAddress2: locationAddress2 || null,
+      locationPostCode: locationPostCode || null,
+      locationCity: locationCity || null,
+      locationCountryCode: locationCountryCode || null,
+
+      param1Code: p1c || null,
+      param1Value: p1v || null,
+      param2Code: p2c || null,
+      param2Value: p2v || null,
+      param3Code: p3c || null,
+      param3Value: p3v || null,
+      param4Code: p4c || null,
+      param4Value: p4v || null,
+      param5Code: p5c || null,
+      param5Value: p5v || null,
+    };
+
+    const nowIso = new Date().toISOString();
+    const userCode = getUserCode();
+    if (!isEdit) {
+      payload.userCreated = userCode;
+      payload.dateCreated = nowIso;
+    } else {
+      payload.userModified = userCode;
+      payload.dateModified = nowIso;
     }
 
-    // ----- 5) sync Sales Line Parameters (optional but kept) -----
     try {
-      const docNoForParams = (saved.documentNo || payload.documentNo || "").toUpperCase();
-      const lineNoForParams =
-        saved.lineNo != null ? String(saved.lineNo)
-        : lineNo != null     ? String(lineNo)
-        : null;
+      // ----- 3) save the main line -----
+      const url = isEdit
+        ? `${API}/api/sales-offer-lines/${initial._id}`
+        : `${API}/api/sales-offer-lines`;
+      const method = isEdit ? "PUT" : "POST";
 
-      const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
-      const paramsForSync = [
-        { code: (p1c || fallback(0)), value: p1v },
-        { code: (p2c || fallback(1)), value: p2v },
-        { code: (p3c || fallback(2)), value: p3v },
-        { code: (p4c || fallback(3)), value: p4v },
-        { code: (p5c || fallback(4)), value: p5v },
-      ];
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      if (lineNoForParams) {
-        await syncLineParams({
-          documentNo: docNoForParams,
-          documentLineNo: String(lineNoForParams),
-          params: paramsForSync,
-          removeMissing: true,
-        });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showNotice("error", json?.message || "Save failed");
+        return;
       }
-    } catch (e) {
-      showNotice("error", e?.message || "Parameters sync failed.");
+
+      const saved = json || {};
+
+      // ----- 4) create / refresh blocks (25-qty rule) -----
+      try {
+        // re-sync on create OR when critical fields changed
+        const mustResync =
+          !isEdit ||
+          Number(saved.quantity) !== Number(initial?.quantity) ||
+          Number(saved.unitPrice) !== Number(initial?.unitPrice) ||
+          String(saved.unitOfMeasure || "").toUpperCase() !==
+            String(initial?.unitOfMeasure || "").toUpperCase() ||
+          Number(saved.tollCost) !== Number(initial?.tollCost) ||
+          Number(saved.driverCost) !== Number(initial?.driverCost) ||
+          Number(saved.vehicleCost) !== Number(initial?.vehicleCost) ||
+          Number(saved.additionalCosts) !== Number(initial?.additionalCosts) ||
+          Number(saved.costMargin) !== Number(initial?.costMargin) ||
+          String(saved.status || "") !== String(initial?.status || "") ||
+          String(saved.itemNo || "") !== String(initial?.itemNo || "");
+
+        if (mustResync) {
+          await createBlocksForLine(saved, userCode);
+        }
+      } catch (e) {
+        showNotice("error", e?.message || "Failed to create blocks.");
+        // If you prefer hard-stop on block failure, uncomment:
+        // return;
+      }
+
+      // ----- 5) sync Sales Line Parameters (optional but kept) -----
+      try {
+        const docNoForParams = (
+          saved.documentNo ||
+          payload.documentNo ||
+          ""
+        ).toUpperCase();
+        const lineNoForParams =
+          saved.lineNo != null
+            ? String(saved.lineNo)
+            : lineNo != null
+            ? String(lineNo)
+            : null;
+
+        const fallback = (i) => (defaultParamCodes?.[i] || "").toUpperCase();
+        const paramsForSync = [
+          { code: p1c || fallback(0), value: p1v },
+          { code: p2c || fallback(1), value: p2v },
+          { code: p3c || fallback(2), value: p3v },
+          { code: p4c || fallback(3), value: p4v },
+          { code: p5c || fallback(4), value: p5v },
+        ];
+
+        if (lineNoForParams) {
+          await syncLineParams({
+            documentNo: docNoForParams,
+            documentLineNo: String(lineNoForParams),
+            params: paramsForSync,
+            removeMissing: true,
+          });
+        }
+      } catch (e) {
+        showNotice("error", e?.message || "Parameters sync failed.");
+      }
+
+      // ----- 6) done -----
+      showNotice("success", isEdit ? "Line updated." : "Line created.");
+      onSaved();
+    } catch (err) {
+      showNotice("error", "Save failed");
     }
-
-    // ----- 6) done -----
-    showNotice("success", isEdit ? "Line updated." : "Line created.");
-    onSaved();
-  } catch (err) {
-    showNotice("error", "Save failed");
-  }
-};
-
+  };
 
   const isItem = (lineType || "").toLowerCase() === "item";
 
-
   function toInputDate(v) {
-  if (!v) return "";
-  try {
-    return new Date(v).toISOString().slice(0, 10);
-  } catch {
-    return "";
+    if (!v) return "";
+    try {
+      return new Date(v).toISOString().slice(0, 10);
+    } catch {
+      return "";
+    }
   }
-}
 
 useEffect(() => {
   if (!documentNo) return;
-  const header = (docs || []).find(d => d.documentNo === documentNo);
+  const header = (docs || []).find((d) => d.documentNo === documentNo);
   if (!header) return;
 
   // Parties (only fill if still empty)
-  setBuyVendorNo(prev =>
-    prev || header.brokerNo || header.billCustomerNo || header.sellCustomerNo || ""
+  setBuyVendorNo(
+    (prev) =>
+      prev ||
+      header.brokerNo ||
+      header.billCustomerNo ||
+      header.sellCustomerNo ||
+      ""
   );
-  setPayVendorNo(prev =>
-    prev || header.billCustomerNo || header.sellCustomerNo || ""
+  setPayVendorNo(
+    (prev) => prev || header.billCustomerNo || header.sellCustomerNo || ""
   );
-  setLocationNo(prev => prev || header.locationNo || "");
+  setLocationNo((prev) => prev || header.locationNo || "");
+
+  // Basic location fields from header
+  setLocationName((prev) => prev || header.locationName || "");
+  setLocationAddress((prev) => prev || header.locationAddress || "");
+  setLocationAddress2((prev) => prev || header.locationAddress2 || "");
+  setLocationCity((prev) => prev || header.locationCity || "");
+
+  const hdrCountry =
+    header.locationCountryCode ||
+    header.locationCountry ||
+    header.sellCustomerCountry ||
+    header.billCustomerCountry ||
+    header.countryRegionCode ||
+    header.countryCode ||
+    header.country ||
+    header.country_region_code ||
+    header.CountryRegionCode ||
+    "";
+
+  setLocationCountryCode(
+    (prev) => prev || (hdrCountry ? String(hdrCountry).toUpperCase() : "")
+  );
 
   // Dates (only fill if still empty)
-  setServiceDate(prev => prev || toInputDate(header.serviceDate));
-  setRequestedDeliveryDate(prev => prev || toInputDate(header.requestedDeliveryDate));
-  setPromisedDeliveryDate(prev => prev || toInputDate(header.promisedDeliveryDate));
-  setShipmentDate(prev => prev || toInputDate(header.shipmentDate));
-  setDocumentValidityDate(prev => prev || toInputDate(header.documentValidityDate));
+  setServiceDate((prev) => prev || toInputDate(header.serviceDate));
+  setRequestedDeliveryDate(
+    (prev) => prev || toInputDate(header.requestedDeliveryDate)
+  );
+  setPromisedDeliveryDate(
+    (prev) => prev || toInputDate(header.promisedDeliveryDate)
+  );
+  setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
+  setDocumentValidityDate(
+    (prev) => prev || toInputDate(header.documentValidityDate)
+  );
 
   // Status (fill on create / when empty)
-  setStatus(prev => (prev ? prev : canonStatus(header.status || "new")));
+  setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
+
+  // 🔴 NEW: if document has a locationNo but no locationPostCode,
+  // load the location and use its post code.
+  if (!header.locationPostCode && header.locationNo) {
+    (async () => {
+      try {
+        const qs = new URLSearchParams({
+          page: "1",
+          limit: "1",
+          // depending on your API, adjust this:
+          query: `^${header.locationNo}$`,
+        });
+        const res = await fetch(`${API}/api/mlocations?${qs.toString()}`);
+        const json = await res.json().catch(() => ({}));
+        const loc = json?.data?.[0];
+        if (loc) {
+          const postCode =
+            loc.locationPostCode ||
+            loc.postCode ||
+            loc.post_code ||
+            loc.zip ||
+            loc.postalCode ||
+            "";
+
+          setLocationPostCode((prev) => prev || postCode);
+        }
+      } catch (e) {
+        console.warn("Failed to load location for document", e);
+      }
+    })();
+  } else {
+    // fallback: if header ever gets post code later
+    const hdrPostCode =
+      header.locationPostCode ||
+      header.postCode ||
+      header.post_code ||
+      header.zip ||
+      header.postalCode ||
+      "";
+
+    setLocationPostCode((prev) => prev || hdrPostCode);
+  }
 }, [documentNo, docs]);
 
 
+  // Default param codes for the current item
+  const [defaultParamCodes, setDefaultParamCodes] = useState([]);
 
+  // Load default codes when item changes
+  useEffect(() => {
+    let abort = false;
+    (async () => {
+      const no = (itemNo || "").trim().toUpperCase();
+      if (!no) {
+        if (!abort) setDefaultParamCodes([]);
+        return;
+      }
+      try {
+        const qs = new URLSearchParams({
+          page: "1",
+          limit: "50",
+          sort: "parameterCode:1",
+          itemNo: no, // backend does a prefix match; we pass exact
+        });
+        const res = await fetch(
+          `${API}/api/mdefault-item-parameters?${qs.toString()}`
+        );
+        const json = await res.json();
+        const codes = Array.from(
+          new Set(
+            (json?.data || [])
+              .map((r) => (r.parameterCode || "").toUpperCase())
+              .filter(Boolean)
+          )
+        );
+        if (!abort) setDefaultParamCodes(codes);
+      } catch {
+        if (!abort) setDefaultParamCodes([]);
+      }
+    })();
+    return () => {
+      abort = true;
+    };
+  }, [itemNo]);
 
-// Default param codes for the current item
-const [defaultParamCodes, setDefaultParamCodes] = useState([]);
+  // { CODE -> { description, defaultValue } }
 
-// Load default codes when item changes
-useEffect(() => {
-  let abort = false;
-  (async () => {
-    const no = (itemNo || "").trim().toUpperCase();
-    if (!no) { if (!abort) setDefaultParamCodes([]); return; }
-    try {
+  const strOrEmpty = (v) => (v == null ? "" : String(v));
+
+  useEffect(() => {
+    let abort = false;
+    (async () => {
+      if (!defaultParamCodes?.length) {
+        if (!abort) setParamMeta({});
+        return;
+      }
+
+      const exact = defaultParamCodes
+        .map((c) => String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join("|");
       const qs = new URLSearchParams({
         page: "1",
-        limit: "50",
-        sort: "parameterCode:1",
-        itemNo: no, // backend does a prefix match; we pass exact
+        limit: "500",
+        sort: "code:1",
+        query: `^(${exact})$`,
       });
-      const res = await fetch(`${API}/api/mdefault-item-parameters?${qs.toString()}`);
-      const json = await res.json();
-      const codes = Array.from(
-        new Set((json?.data || [])
-          .map(r => (r.parameterCode || "").toUpperCase())
-          .filter(Boolean))
-      );
-      if (!abort) setDefaultParamCodes(codes);
-    } catch {
-      if (!abort) setDefaultParamCodes([]);
-    }
-  })();
-  return () => { abort = true; };
-}, [itemNo]);
 
-// { CODE -> { description, defaultValue } }
+      try {
+        const res = await fetch(`${API}/api/params?${qs.toString()}`);
+        const json = await res.json();
+        const map = {};
+        for (const p of json?.data || []) {
+          const code = (p.code || "").toUpperCase();
 
+          let dv = null;
+          if (p.defaultValueText != null) dv = p.defaultValueText;
+          else if (p.defaultValueBoolean != null) dv = p.defaultValueBoolean;
+          else if (p.defaultValueDecimal != null) {
+            const decRaw =
+              typeof p.defaultValueDecimal === "object" &&
+              p.defaultValueDecimal?.$numberDecimal != null
+                ? p.defaultValueDecimal.$numberDecimal
+                : p.defaultValueDecimal;
+            dv = decRaw != null ? Number(decRaw) : null;
+          }
 
-const strOrEmpty = (v) => (v == null ? "" : String(v));
-
-useEffect(() => {
-  let abort = false;
-  (async () => {
-    if (!defaultParamCodes?.length) { if (!abort) setParamMeta({}); return; }
-
-    const exact = defaultParamCodes
-      .map(c => String(c).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-      .join("|");
-    const qs = new URLSearchParams({
-      page: "1",
-      limit: "500",
-      sort: "code:1",
-      query: `^(${exact})$`,
-    });
-
-    try {
-      const res = await fetch(`${API}/api/params?${qs.toString()}`);
-      const json = await res.json();
-      const map = {};
-      for (const p of json?.data || []) {
-        const code = (p.code || "").toUpperCase();
-
-        let dv = null;
-        if (p.defaultValueText != null) dv = p.defaultValueText;
-        else if (p.defaultValueBoolean != null) dv = p.defaultValueBoolean;
-        else if (p.defaultValueDecimal != null) {
-          const decRaw =
-            typeof p.defaultValueDecimal === "object" &&
-            p.defaultValueDecimal?.$numberDecimal != null
-              ? p.defaultValueDecimal.$numberDecimal
-              : p.defaultValueDecimal;
-          dv = decRaw != null ? Number(decRaw) : null;
+          map[code] = {
+            description: p.description || "",
+            defaultValue: dv,
+            type: p.type || "decimal",
+          };
         }
+        if (abort) return;
+        setParamMeta(map);
 
-        map[code] = {
-          description: p.description || "",
-          defaultValue: dv,
-          type: p.type || "decimal",
-        };
+        // Prefill values if still empty — without reading p1v..p5v
+        const [c1, c2, c3, c4, c5] = defaultParamCodes.map((c) =>
+          c?.toUpperCase()
+        );
+
+        const ensure = (dv) => (prev) =>
+          prev == null || prev === "" ? strOrEmpty(dv) : prev;
+
+        setP1v(ensure(map[c1]?.defaultValue));
+        setP2v(ensure(map[c2]?.defaultValue));
+        setP3v(ensure(map[c3]?.defaultValue));
+        setP4v(ensure(map[c4]?.defaultValue));
+        setP5v(ensure(map[c5]?.defaultValue));
+      } catch {
+        if (!abort) setParamMeta({});
       }
-      if (abort) return;
-      setParamMeta(map);
+    })();
+    return () => {
+      abort = true;
+    };
+  }, [defaultParamCodes]);
 
-      // Prefill values if still empty — without reading p1v..p5v
-      const [c1, c2, c3, c4, c5] = defaultParamCodes.map(c => c?.toUpperCase());
+  // Push defaults into Param1..5 slots whenever defaults change
+  useEffect(() => {
+    if (!defaultParamCodes.length) return;
 
-      const ensure = (dv) => (prev) =>
-        prev == null || prev === "" ? strOrEmpty(dv) : prev;
+    // First 5 only
+    const [c1, c2, c3, c4, c5] = defaultParamCodes;
 
-      setP1v(ensure(map[c1]?.defaultValue));
-      setP2v(ensure(map[c2]?.defaultValue));
-      setP3v(ensure(map[c3]?.defaultValue));
-      setP4v(ensure(map[c4]?.defaultValue));
-      setP5v(ensure(map[c5]?.defaultValue));
-    } catch {
-      if (!abort) setParamMeta({});
-    }
-  })();
-  return () => { abort = true; };
-}, [defaultParamCodes]);
+    setP1c(c1 || "");
+    if (p1v === undefined) setP1v("");
+    setP2c(c2 || "");
+    if (p2v === undefined) setP2v("");
+    setP3c(c3 || "");
+    if (p3v === undefined) setP3v("");
+    setP4c(c4 || "");
+    if (p4v === undefined) setP4v("");
+    setP5c(c5 || "");
+    if (p5v === undefined) setP5v("");
+    // values remain as user-editable; backend model doesn’t carry default numeric values
+    // If you want to CLEAR values on item change, do it here instead.
+    // setP1v(""); setP2v(""); setP3v(""); setP4v(""); setP5v("");
+  }, [defaultParamCodes]); // eslint-disable-line
 
-
-
-// Push defaults into Param1..5 slots whenever defaults change
-useEffect(() => {
-  if (!defaultParamCodes.length) return;
-
-  // First 5 only
-  const [c1, c2, c3, c4, c5] = defaultParamCodes;
-
-  setP1c(c1 || ""); if (p1v === undefined) setP1v("");
-  setP2c(c2 || ""); if (p2v === undefined) setP2v("");
-  setP3c(c3 || ""); if (p3v === undefined) setP3v("");
-  setP4c(c4 || ""); if (p4v === undefined) setP4v("");
-  setP5c(c5 || ""); if (p5v === undefined) setP5v("");
-  // values remain as user-editable; backend model doesn’t carry default numeric values
-  // If you want to CLEAR values on item change, do it here instead.
-  // setP1v(""); setP2v(""); setP3v(""); setP4v(""); setP5v("");
-}, [defaultParamCodes]); // eslint-disable-line
-
-
-return (
-  <form onSubmit={save} className="space-y-4">
-    {/* sticky segmented tabs */}
-    <div className="sticky top-0 z-10 -mt-2 pt-2 pb-3 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
-      <div className="relative flex gap-1 p-1 rounded-2xl bg-slate-100/70 ring-1 ring-slate-200 shadow-inner">
-        {TABS.map((t) => {
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setTab(t.id)}
-              className={[
-                "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium",
-                active
-                  ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
-                  : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
-              ].join(" ")}
-            >
-              <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-
-    {/* error banner */}
-    {Object.keys(errors).length > 0 && (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-        {S.form?.fixErrors || "Please correct the highlighted fields."}
-      </div>
-    )}
-
-    {/* CORE */}
-    {tab === "core" && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Field label={S.details.kv.documentNo} icon={Hash} error={errors.documentNo}>
-          <DocumentPicker
-            value={documentNo}
-            onChange={(val) => setDocumentNo(val)}
-            options={docs}
-            loading={docsLoading}
-            placeholder={S.controls?.pickDocument || "Pick document…"}
-          />
-        </Field>
-
-        <Field label={S.details.kv.status} icon={ClipboardList}>
-          <select
-            className={INPUT_CLS}
-            value={status}
-            onChange={(e) => setStatus(canonStatus(e.target.value))}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label={S.details.kv.type} icon={Layers}>
-          <select
-            className={INPUT_CLS}
-            value={lineType}
-            onChange={(e) => setLineType(e.target.value)}
-          >
-            {LINE_TYPES.map((t) => (
-              <option key={t.id} value={t.id}>
+  return (
+    <form onSubmit={save} className="space-y-4">
+      {/* sticky segmented tabs */}
+      <div className="sticky top-0 z-10 -mt-2 pt-2 pb-3 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 border-b">
+        <div className="relative flex gap-1 p-1 rounded-2xl bg-slate-100/70 ring-1 ring-slate-200 shadow-inner">
+          {TABS.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={[
+                  "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium",
+                  active
+                    ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
+                ].join(" ")}
+              >
+                <t.Icon
+                  size={16}
+                  className={active ? "opacity-80" : "opacity-60"}
+                />
                 {t.label}
-              </option>
-            ))}
-          </select>
-        </Field>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        {isEdit && (
-          <Field label={S.details.kv.lineNo} icon={Hash}>
-            <input className={INPUT_CLS} value={lineNo ?? ""} disabled />
-          </Field>
-        )}
+      {/* error banner */}
+      {Object.keys(errors).length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {S.form?.fixErrors || "Please correct the highlighted fields."}
+        </div>
+      )}
 
-        <Field
-          label={S.details.kv.itemNo}
-          icon={Package}
-          error={isItem ? errors.itemNo : undefined}
-        >
-          {isItem ? (
-            <ItemPicker
-              value={itemNo}
-              onPick={(it) => {
-                setItemNo(it.no || "");
-                setUnitOfMeasure((prev) => prev || it.baseUnitOfMeasure || prev);
-                setUnitPrice((prev) => (prev && Number(prev) > 0 ? prev : Number(it.unitPrice) || 0));
-              }}
-              placeholder={S.controls?.searchItems || S.controls?.searchPlaceholder || "Search items…"}
+      {/* CORE */}
+      {tab === "core" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field
+            label={S.details.kv.documentNo}
+            icon={Hash}
+            error={errors.documentNo}
+          >
+            <DocumentPicker
+              value={documentNo}
+              onChange={(val) => setDocumentNo(val)}
+              options={docs}
+              loading={docsLoading}
+              placeholder={S.controls?.pickDocument || "Pick document…"}
             />
-          ) : (
-            <input
+          </Field>
+
+          <Field label={S.details.kv.status} icon={ClipboardList}>
+            <select
               className={INPUT_CLS}
-              value={itemNo}
-              onChange={(e) => setItemNo(e.target.value)}
+              value={status}
+              onChange={(e) => setStatus(canonStatus(e.target.value))}
+            >
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s} value={s}>
+                  {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={S.details.kv.type} icon={Layers}>
+            <select
+              className={INPUT_CLS}
+              value={lineType}
+              onChange={(e) => setLineType(e.target.value)}
+            >
+              {LINE_TYPES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {isEdit && (
+            <Field label={S.details.kv.lineNo} icon={Hash}>
+              <input className={INPUT_CLS} value={lineNo ?? ""} disabled />
+            </Field>
+          )}
+
+          <Field
+            label={S.details.kv.itemNo}
+            icon={Package}
+            error={isItem ? errors.itemNo : undefined}
+          >
+            {isItem ? (
+              <ItemPicker
+                value={itemNo}
+                onPick={(it) => {
+                  setItemNo(it.no || "");
+                  setUnitOfMeasure(
+                    (prev) => prev || it.baseUnitOfMeasure || prev
+                  );
+                  setUnitPrice((prev) =>
+                    prev && Number(prev) > 0 ? prev : Number(it.unitPrice) || 0
+                  );
+                }}
+                placeholder={
+                  S.controls?.searchItems ||
+                  S.controls?.searchPlaceholder ||
+                  "Search items…"
+                }
+              />
+            ) : (
+              <input
+                className={INPUT_CLS}
+                value={itemNo}
+                onChange={(e) => setItemNo(e.target.value)}
+                disabled={!isItem}
+              />
+            )}
+          </Field>
+
+          <Field label={S.details.kv.uom} icon={Package}>
+            <select
+              className={INPUT_CLS}
+              value={unitOfMeasure}
+              onChange={(e) => setUnitOfMeasure(e.target.value)}
+            >
+              {UOMS.map((u) => (
+                <option key={u} value={u}>
+                  {u}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={S.details.kv.unitPrice} icon={DollarSign}>
+            <input
+              type="number"
+              step="0.01"
+              className={INPUT_CLS}
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
               disabled={!isItem}
             />
-          )}
-        </Field>
+          </Field>
 
-        <Field label={S.details.kv.uom} icon={Package}>
-          <select
-            className={INPUT_CLS}
-            value={unitOfMeasure}
-            onChange={(e) => setUnitOfMeasure(e.target.value)}
-          >
-            {UOMS.map((u) => (
-              <option key={u} value={u}>
-                {u}
-              </option>
-            ))}
-          </select>
-        </Field>
+          <Field label={S.details.kv.quantity} icon={Package}>
+            <input
+              type="number"
+              step="0.001"
+              className={INPUT_CLS}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              disabled={!isItem}
+            />
+          </Field>
 
-        <Field label={S.details.kv.unitPrice} icon={DollarSign}>
-          <input
-            type="number"
-            step="0.01"
-            className={INPUT_CLS}
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-            disabled={!isItem}
-          />
-        </Field>
+          <Field label={S.details.kv.lineValue} icon={DollarSign}>
+            <input
+              className={INPUT_CLS}
+              value={fmtDOT(computedLineValue, 2, locale)}
+              disabled
+            />
+          </Field>
+        </div>
+      )}
 
-        <Field label={S.details.kv.quantity} icon={Package}>
-          <input
-            type="number"
-            step="0.001"
-            className={INPUT_CLS}
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            disabled={!isItem}
-          />
-        </Field>
+      {/* DATES */}
+      {tab === "dates" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={S.details.kv.serviceDate} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.requestedDeliveryDate} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={requestedDeliveryDate}
+              onChange={(e) => setRequestedDeliveryDate(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.promisedDeliveryDate} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={promisedDeliveryDate}
+              onChange={(e) => setPromisedDeliveryDate(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.shipmentDate} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={shipmentDate}
+              onChange={(e) => setShipmentDate(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.documentValidityDate} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={documentValidityDate}
+              onChange={(e) => setDocumentValidityDate(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.documentValidityHour} icon={CalendarIcon}>
+            <input
+              type="time"
+              className={INPUT_CLS}
+              value={documentValidityHour}
+              onChange={(e) => setDocumentValidityHour(e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
 
-        <Field label={S.details.kv.lineValue} icon={DollarSign}>
-          <input className={INPUT_CLS} value={fmtDOT(computedLineValue, 2, locale)} disabled />
-        </Field>
-      </div>
-    )}
+      {/* COSTS */}
+      {tab === "costs" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={S.details.kv.tollCost} icon={Truck}>
+            <input
+              type="number"
+              step="0.01"
+              className={INPUT_CLS}
+              value={tollCost}
+              onChange={(e) => setTollCost(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.driverCost} icon={UserIcon}>
+            <input
+              type="number"
+              step="0.01"
+              className={INPUT_CLS}
+              value={driverCost}
+              onChange={(e) => setDriverCost(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.vehicleCost} icon={Truck}>
+            <input
+              type="number"
+              step="0.01"
+              className={INPUT_CLS}
+              value={vehicleCost}
+              onChange={(e) => setVehicleCost(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.additionalCosts} icon={FileText}>
+            <input
+              type="number"
+              step="0.01"
+              className={INPUT_CLS}
+              value={additionalCosts}
+              onChange={(e) => setAdditionalCosts(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.costMarginPct} icon={Percent}>
+            <input
+              type="number"
+              step="0.01"
+              className={INPUT_CLS}
+              value={costMargin}
+              onChange={(e) => setCostMargin(e.target.value)}
+            />
+          </Field>
+          <Field label={S.details.kv.transportCost} icon={Truck}>
+            <input
+              className={INPUT_CLS}
+              value={fmtDOT(computedTransport, 2, locale)}
+              disabled
+            />
+          </Field>
+        </div>
+      )}
 
-    {/* DATES */}
-    {tab === "dates" && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Field label={S.details.kv.serviceDate} icon={CalendarIcon}>
-          <input
-            type="date"
-            className={INPUT_CLS}
-            value={serviceDate}
-            onChange={(e) => setServiceDate(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.requestedDeliveryDate} icon={CalendarIcon}>
-          <input
-            type="date"
-            className={INPUT_CLS}
-            value={requestedDeliveryDate}
-            onChange={(e) => setRequestedDeliveryDate(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.promisedDeliveryDate} icon={CalendarIcon}>
-          <input
-            type="date"
-            className={INPUT_CLS}
-            value={promisedDeliveryDate}
-            onChange={(e) => setPromisedDeliveryDate(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.shipmentDate} icon={CalendarIcon}>
-          <input
-            type="date"
-            className={INPUT_CLS}
-            value={shipmentDate}
-            onChange={(e) => setShipmentDate(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.documentValidityDate} icon={CalendarIcon}>
-          <input
-            type="date"
-            className={INPUT_CLS}
-            value={documentValidityDate}
-            onChange={(e) => setDocumentValidityDate(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.documentValidityHour} icon={CalendarIcon}>
-          <input
-            type="time"
-            className={INPUT_CLS}
-            value={documentValidityHour}
-            onChange={(e) => setDocumentValidityHour(e.target.value)}
-          />
-        </Field>
-      </div>
-    )}
+      {/* PARTIES */}
+{tab === "parties" && (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <Field label={S.details.kv.buyVendorNo} icon={Hash}>
+      <input
+        className={INPUT_CLS}
+        value={buyVendorNo}
+        onChange={(e) => setBuyVendorNo(e.target.value)}
+      />
+    </Field>
 
-    {/* COSTS */}
-    {tab === "costs" && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Field label={S.details.kv.tollCost} icon={Truck}>
-          <input
-            type="number"
-            step="0.01"
-            className={INPUT_CLS}
-            value={tollCost}
-            onChange={(e) => setTollCost(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.driverCost} icon={UserIcon}>
-          <input
-            type="number"
-            step="0.01"
-            className={INPUT_CLS}
-            value={driverCost}
-            onChange={(e) => setDriverCost(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.vehicleCost} icon={Truck}>
-          <input
-            type="number"
-            step="0.01"
-            className={INPUT_CLS}
-            value={vehicleCost}
-            onChange={(e) => setVehicleCost(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.additionalCosts} icon={FileText}>
-          <input
-            type="number"
-            step="0.01"
-            className={INPUT_CLS}
-            value={additionalCosts}
-            onChange={(e) => setAdditionalCosts(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.costMarginPct} icon={Percent}>
-          <input
-            type="number"
-            step="0.01"
-            className={INPUT_CLS}
-            value={costMargin}
-            onChange={(e) => setCostMargin(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.transportCost} icon={Truck}>
-          <input className={INPUT_CLS} value={fmtDOT(computedTransport, 2, locale)} disabled />
-        </Field>
-      </div>
-    )}
+    <Field label={S.details.kv.payVendorNo} icon={Hash}>
+      <input
+        className={INPUT_CLS}
+        value={payVendorNo}
+        onChange={(e) => setPayVendorNo(e.target.value)}
+      />
+    </Field>
 
-    {/* PARTIES */}
-    {tab === "parties" && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Field label={S.details.kv.buyVendorNo} icon={Hash}>
-          <input
-            className={INPUT_CLS}
-            value={buyVendorNo}
-            onChange={(e) => setBuyVendorNo(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.payVendorNo} icon={Hash}>
-          <input
-            className={INPUT_CLS}
-            value={payVendorNo}
-            onChange={(e) => setPayVendorNo(e.target.value)}
-          />
-        </Field>
-        <Field label={S.details.kv.locationNo} icon={Hash}>
-          <input
-            className={INPUT_CLS}
-            value={locationNo}
-            onChange={(e) => setLocationNo(e.target.value)}
-          />
-        </Field>
-      </div>
-    )}
+    {/* Location picker (pick from locations) */}
+    <Field label={S.details.kv.locationName} icon={MapPin}>
+      <LocationPicker
+        value={locationNo}
+        displayLabel={
+          locationNo
+            ? `${locationNo} — ${locationName || ""}`.trim()
+            : ""
+        }
+        placeholder="Search locations…"
+        onPick={(loc) => {
+          // normalize + push into individual fields
+          setLocationNo(loc.no || "");
+          setLocationName(loc.name || "");
+          setLocationAddress(loc.address || "");
+          setLocationAddress2(loc.address2 || "");
+          setLocationPostCode(loc.postCode || "");
+          setLocationCity(loc.city || "");
+          setLocationCountryCode(
+            (loc.countryCode || "").toUpperCase()
+          );
+        }}
+      />
+    </Field>
 
-    {/* AUDIT (read-only) */}
-    {tab === "audit" && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <Field label={S.details.kv.createdBy} icon={UserIcon}>
-          <input className={INPUT_CLS} value={initial?.userCreated || "—"} disabled />
-        </Field>
-        <Field label={S.details.kv.createdAt} icon={CalendarIcon}>
-          <input
-            className={INPUT_CLS}
-            value={initial?.dateCreated ? new Date(initial.dateCreated).toLocaleString() : "—"}
-            disabled
-          />
-        </Field>
-        <div />
-        <Field label={S.details.kv.modifiedBy} icon={UserIcon}>
-          <input className={INPUT_CLS} value={initial?.userModified || "—"} disabled />
-        </Field>
-        <Field label={S.details.kv.modifiedAt} icon={CalendarIcon}>
-          <input
-            className={INPUT_CLS}
-            value={initial?.dateModified ? new Date(initial.dateModified).toLocaleString() : "—"}
-            disabled
-          />
-        </Field>
-        <div />
-        <Field label={S.details.kv.documentId} icon={Hash}>
-          <input className={INPUT_CLS} value={initial?.documentId || "—"} disabled />
-        </Field>
-      </div>
-    )}
-
-    {/* PARAMS */}
-{tab === "params" && (
-  <div className="space-y-2">
-    {defaultParamCodes.length > 0 && (
-      <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-        Loaded <b>{defaultParamCodes.length}</b> default parameter
-        {defaultParamCodes.length === 1 ? "" : "s"} for item <span className="font-mono">{itemNo || "—"}</span>.
-      </div>
-    )}
-
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-<ParamRow
-  idx="1" c={p1c} v={p1v} setC={setP1c} setV={setP1v}
-  defaultCode={defaultParamCodes[0]}
-  description={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.description}
-  defaultValue={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.defaultValue}
-  paramType={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.type}
-/>
-<ParamRow
-  idx="2" c={p2c} v={p2v} setC={setP2c} setV={setP2v}
-  defaultCode={defaultParamCodes[1]}
-  description={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.description}
-  defaultValue={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.defaultValue}
-  paramType={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.type}
-/>
-<ParamRow
-  idx="3" c={p3c} v={p3v} setC={setP3c} setV={setP3v}
-  defaultCode={defaultParamCodes[2]}
-  description={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.description}
-  defaultValue={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.defaultValue}
-  paramType={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.type}
-/>
-<ParamRow
-  idx="4" c={p4c} v={p4v} setC={setP4c} setV={setP4v}
-  defaultCode={defaultParamCodes[3]}
-  description={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.description}
-  defaultValue={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.defaultValue}
-  paramType={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.type}
-/>
-<ParamRow
-  idx="5" c={p5c} v={p5v} setC={setP5c} setV={setP5v}
-  defaultCode={defaultParamCodes[4]}
-  description={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.description}
-  defaultValue={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.defaultValue}
-  paramType={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.type}
-/>
-
-    </div>
+    {/* still allow manual override / edit */}
+    <Field label={S.details.kv.locationNo} icon={Hash}>
+      <input
+        className={INPUT_CLS}
+        value={locationNo}
+        onChange={(e) => setLocationNo(e.target.value)}
+      />
+    </Field>
+    <Field label={S.details.kv.locationAddress} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={locationAddress}
+        onChange={(e) => setLocationAddress(e.target.value)}
+      />
+    </Field>
+    <Field label={S.details.kv.locationAddress2} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={locationAddress2}
+        onChange={(e) => setLocationAddress2(e.target.value)}
+      />
+    </Field>
+    <Field label={S.details.kv.locationPostCode} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={locationPostCode}
+        onChange={(e) => setLocationPostCode(e.target.value)}
+      />
+    </Field>
+    <Field label={S.details.kv.locationCity} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={locationCity}
+        onChange={(e) => setLocationCity(e.target.value)}
+      />
+    </Field>
+    <Field label={S.details.kv.locationCountryCode} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={locationCountryCode}
+        onChange={(e) => setLocationCountryCode(e.target.value)}
+      />
+    </Field>
   </div>
 )}
 
 
+      {/* AUDIT (read-only) */}
+      {tab === "audit" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={S.details.kv.createdBy} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={initial?.userCreated || "—"}
+              disabled
+            />
+          </Field>
+          <Field label={S.details.kv.createdAt} icon={CalendarIcon}>
+            <input
+              className={INPUT_CLS}
+              value={
+                initial?.dateCreated
+                  ? new Date(initial.dateCreated).toLocaleString()
+                  : "—"
+              }
+              disabled
+            />
+          </Field>
+          <div />
+          <Field label={S.details.kv.modifiedBy} icon={UserIcon}>
+            <input
+              className={INPUT_CLS}
+              value={initial?.userModified || "—"}
+              disabled
+            />
+          </Field>
+          <Field label={S.details.kv.modifiedAt} icon={CalendarIcon}>
+            <input
+              className={INPUT_CLS}
+              value={
+                initial?.dateModified
+                  ? new Date(initial.dateModified).toLocaleString()
+                  : "—"
+              }
+              disabled
+            />
+          </Field>
+          <div />
+          <Field label={S.details.kv.documentId} icon={Hash}>
+            <input
+              className={INPUT_CLS}
+              value={initial?.documentId || "—"}
+              disabled
+            />
+          </Field>
+        </div>
+      )}
 
-    {/* footer buttons */}
-    <div className="flex justify-end gap-2 pt-2">
-      <button
-        type="button"
-        onClick={onCancel}
-        className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
-      >
-        {S.actions?.cancel || "Cancel"}
-      </button>
-      <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
-        {isEdit ? (S.actions?.saveChanges || "Save changes") : (S.actions?.createLine || "Create line")}
-      </button>
-    </div>
-  </form>
-);
+      {/* PARAMS */}
+      {tab === "params" && (
+        <div className="space-y-2">
+          {defaultParamCodes.length > 0 && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Loaded <b>{defaultParamCodes.length}</b> default parameter
+              {defaultParamCodes.length === 1 ? "" : "s"} for item{" "}
+              <span className="font-mono">{itemNo || "—"}</span>.
+            </div>
+          )}
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <ParamRow
+              idx="1"
+              c={p1c}
+              v={p1v}
+              setC={setP1c}
+              setV={setP1v}
+              defaultCode={defaultParamCodes[0]}
+              description={
+                paramMeta[defaultParamCodes[0]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes[0]?.toUpperCase()]?.defaultValue
+              }
+              paramType={paramMeta[defaultParamCodes[0]?.toUpperCase()]?.type}
+            />
+            <ParamRow
+              idx="2"
+              c={p2c}
+              v={p2v}
+              setC={setP2c}
+              setV={setP2v}
+              defaultCode={defaultParamCodes[1]}
+              description={
+                paramMeta[defaultParamCodes[1]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes[1]?.toUpperCase()]?.defaultValue
+              }
+              paramType={paramMeta[defaultParamCodes[1]?.toUpperCase()]?.type}
+            />
+            <ParamRow
+              idx="3"
+              c={p3c}
+              v={p3v}
+              setC={setP3c}
+              setV={setP3v}
+              defaultCode={defaultParamCodes[2]}
+              description={
+                paramMeta[defaultParamCodes[2]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes[2]?.toUpperCase()]?.defaultValue
+              }
+              paramType={paramMeta[defaultParamCodes[2]?.toUpperCase()]?.type}
+            />
+            <ParamRow
+              idx="4"
+              c={p4c}
+              v={p4v}
+              setC={setP4c}
+              setV={setP4v}
+              defaultCode={defaultParamCodes[3]}
+              description={
+                paramMeta[defaultParamCodes[3]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes[3]?.toUpperCase()]?.defaultValue
+              }
+              paramType={paramMeta[defaultParamCodes[3]?.toUpperCase()]?.type}
+            />
+            <ParamRow
+              idx="5"
+              c={p5c}
+              v={p5v}
+              setC={setP5c}
+              setV={setP5v}
+              defaultCode={defaultParamCodes[4]}
+              description={
+                paramMeta[defaultParamCodes[4]?.toUpperCase()]?.description
+              }
+              defaultValue={
+                paramMeta[defaultParamCodes[4]?.toUpperCase()]?.defaultValue
+              }
+              paramType={paramMeta[defaultParamCodes[4]?.toUpperCase()]?.type}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* footer buttons */}
+      <div className="flex justify-end gap-2 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+        >
+          {S.actions?.cancel || "Cancel"}
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
+          {isEdit
+            ? S.actions?.saveChanges || "Save changes"
+            : S.actions?.createLine || "Create line"}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 async function deleteAllBlocks(documentNo, lineNo) {
@@ -1870,9 +2277,12 @@ async function deleteAllBlocks(documentNo, lineNo) {
     lineNo: String(lineNo ?? ""),
   });
 
-  const res = await fetch(`${API}/api/sales-offer-lines-blocks?${qs.toString()}`, {
-    method: "DELETE",
-  });
+  const res = await fetch(
+    `${API}/api/sales-offer-lines-blocks?${qs.toString()}`,
+    {
+      method: "DELETE",
+    }
+  );
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -1887,7 +2297,7 @@ async function createBlocksForLine(savedLine, userCode) {
   const splitIntoBlocks = (total) => {
     const t = Math.max(0, Number(total) || 0);
     const full = Math.floor(t / MAX_BLOCK_QTY);
-    const rem  = t % MAX_BLOCK_QTY;
+    const rem = t % MAX_BLOCK_QTY;
     const parts = Array(full).fill(MAX_BLOCK_QTY);
     if (rem > 0) parts.push(rem);
     if (parts.length === 0) parts.push(0); // still create a single block with 0 if qty=0
@@ -1902,8 +2312,10 @@ async function createBlocksForLine(savedLine, userCode) {
   };
   // ------------------------------------------------------
 
-  if (!savedLine?.documentNo) throw new Error("createBlocksForLine: missing documentNo");
-  if (savedLine?.lineNo == null) throw new Error("createBlocksForLine: missing lineNo");
+  if (!savedLine?.documentNo)
+    throw new Error("createBlocksForLine: missing documentNo");
+  if (savedLine?.lineNo == null)
+    throw new Error("createBlocksForLine: missing lineNo");
 
   const totalQty = Number(savedLine.quantity) || 0;
   const parts = splitIntoBlocks(totalQty);
@@ -1938,15 +2350,21 @@ async function createBlocksForLine(savedLine, userCode) {
       documentValidityDate: savedLine.documentValidityDate || null,
       documentValidityHour: savedLine.documentValidityHour || null,
 
-      // parties (optional)
+      // parties / locations (optional)
       buyVendorNo: savedLine.buyVendorNo || null,
       payVendorNo: savedLine.payVendorNo || null,
       locationNo: savedLine.locationNo || null,
+      locationName: savedLine.locationName || null,
+      locationAddress: savedLine.locationAddress || null,
+      locationAddress2: savedLine.locationAddress2 || null,
+      locationPostCode: savedLine.locationPostCode || null,
+      locationCity: savedLine.locationCity || null,
+      locationCountryCode: savedLine.locationCountryCode || null,
 
       // costs (prorated by quantity share)
-      tollCost:        prorate(savedLine.tollCost,        q, totalQty),
-      driverCost:      prorate(savedLine.driverCost,      q, totalQty),
-      vehicleCost:     prorate(savedLine.vehicleCost,     q, totalQty),
+      tollCost: prorate(savedLine.tollCost, q, totalQty),
+      driverCost: prorate(savedLine.driverCost, q, totalQty),
+      vehicleCost: prorate(savedLine.vehicleCost, q, totalQty),
       additionalCosts: prorate(savedLine.additionalCosts, q, totalQty),
       costMargin: Number(savedLine.costMargin) || 0, // % stays same
     };
@@ -1966,6 +2384,7 @@ async function createBlocksForLine(savedLine, userCode) {
 
   return created;
 }
+
 
 function ParamRow({
   idx,
@@ -2088,11 +2507,6 @@ function ParamRow({
   );
 }
 
-
-
-
-
-
 function formatDate(s, dash = "—") {
   try {
     return s ? new Date(s).toLocaleDateString(undefined) : dash;
@@ -2188,19 +2602,25 @@ function useClickOutside(ref, onOutside) {
   }, [ref, onOutside]);
 }
 
-function DocumentPicker({ value, onChange, options = [], loading = false, placeholder = "Pick document…" }) {
+function DocumentPicker({
+  value,
+  onChange,
+  options = [],
+  loading = false,
+  placeholder = "Pick document…",
+}) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = React.useRef(null);
   useClickOutside(rootRef, () => setOpen(false));
 
   // find currently selected doc
-  const selected = options.find(o => o.documentNo === value) || null;
+  const selected = options.find((o) => o.documentNo === value) || null;
 
   // filter by documentNo, customer names, location, broker
   const q = query.trim().toLowerCase();
   const filtered = q
-    ? options.filter(d => {
+    ? options.filter((d) => {
         const hay = [
           d.documentNo,
           d.sellCustomerName,
@@ -2240,7 +2660,7 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
         onClick={() => setOpen(true)}
       >
         <input
-          value={open ? query : (selected?.documentNo || "")}
+          value={open ? query : selected?.documentNo || ""}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
@@ -2251,11 +2671,11 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
 
       {/* Panel */}
       {open && (
-  <div
-    className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg"
-    role="listbox"
-    onMouseDown={(e) => e.stopPropagation()} // <- prevent outside handler
-  >
+        <div
+          className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg"
+          role="listbox"
+          onMouseDown={(e) => e.stopPropagation()} // <- prevent outside handler
+        >
           {loading ? (
             <div className="p-3 text-sm text-slate-500">Loading…</div>
           ) : filtered.length === 0 ? (
@@ -2268,12 +2688,13 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
                   <li key={d._id}>
                     <button
                       type="button"
-  onMouseDown={(e) => {                 // <- use mousedown
-    e.preventDefault();
-    onChange(d.documentNo);
-    setQuery("");
-    setOpen(false);
-  }}
+                      onMouseDown={(e) => {
+                        // <- use mousedown
+                        e.preventDefault();
+                        onChange(d.documentNo);
+                        setQuery("");
+                        setOpen(false);
+                      }}
                       className={[
                         "w-full text-left px-3 py-2",
                         "hover:bg-slate-50 focus:bg-slate-50",
@@ -2300,7 +2721,6 @@ function DocumentPicker({ value, onChange, options = [], loading = false, placeh
   );
 }
 
-
 function useDebouncedValue(v, ms = 250) {
   const [d, setD] = useState(v);
   useEffect(() => {
@@ -2311,8 +2731,8 @@ function useDebouncedValue(v, ms = 250) {
 }
 
 function ItemPicker({
-  value,                // current selected item no
-  onPick,              // (item) => void
+  value, // current selected item no
+  onPick, // (item) => void
   placeholder = "Search items…",
 }) {
   const [open, setOpen] = useState(false);
@@ -2341,7 +2761,7 @@ function ItemPicker({
         });
         const res = await fetch(`${API}/api/mitems?${params.toString()}`);
         const json = await res.json();
-        
+
         if (!abort) setItems(json?.data || []);
       } catch {
         if (!abort) setItems([]);
@@ -2350,12 +2770,14 @@ function ItemPicker({
       }
     }
     run();
-    return () => { abort = true; };
+    return () => {
+      abort = true;
+    };
   }, [open, debounced]);
 
   // helpers for rendering
   const filtered = items; // backend handles filtering
-  const displayText = open ? query : (value || "");
+  const displayText = open ? query : value || "";
 
   return (
     <div ref={rootRef} className="relative">
@@ -2391,7 +2813,8 @@ function ItemPicker({
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50"
                 >
-                  Use exact value: <span className="font-mono">{query.trim()}</span>
+                  Use exact value:{" "}
+                  <span className="font-mono">{query.trim()}</span>
                 </button>
               )}
             </div>
@@ -2403,19 +2826,22 @@ function ItemPicker({
                   <li key={it.id || it._id || it.no}>
                     <button
                       type="button"
-  onMouseDown={(e) => {                     // <-- use mousedown
-    e.preventDefault();
-    onPick(it);
-    setQuery("");
-    setOpen(false);
-  }}
+                      onMouseDown={(e) => {
+                        // <-- use mousedown
+                        e.preventDefault();
+                        onPick(it);
+                        setQuery("");
+                        setOpen(false);
+                      }}
                       className={[
                         "w-full text-left px-3 py-2 rounded-lg",
                         "hover:bg-slate-50 focus:bg-slate-50",
                         isActive ? "bg-slate-50" : "",
                       ].join(" ")}
                     >
-                      <div className="font-semibold tracking-tight">{it.no}</div>
+                      <div className="font-semibold tracking-tight">
+                        {it.no}
+                      </div>
                       <div className="text-[11px] tracking-wide text-slate-500">
                         {it.description || it.description2 || "—"}
                       </div>
@@ -2449,10 +2875,10 @@ function ItemPicker({
 }
 
 function ParameterPicker({
-  value,                    // current selected param code (string)
-  onPick,                   // ({ code, description, type, minValue, maxValue, defaultValue }) => void
+  value, // current selected param code (string)
+  onPick, // ({ code, description, type, minValue, maxValue, defaultValue }) => void
   placeholder = "Search parameters…",
-   displayWhenClosed,    
+  displayWhenClosed,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -2503,10 +2929,12 @@ function ParameterPicker({
     }
 
     run();
-    return () => { abort = true; };
+    return () => {
+      abort = true;
+    };
   }, [open, debounced]);
 
- const displayText = open ? query : (displayWhenClosed ?? value ?? "");
+  const displayText = open ? query : displayWhenClosed ?? value ?? "";
 
   return (
     <div ref={rootRef} className="relative">
@@ -2545,7 +2973,10 @@ function ParameterPicker({
                   }}
                   className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50"
                 >
-                  Use code: <span className="font-mono">{query.trim().toUpperCase()}</span>
+                  Use code:{" "}
+                  <span className="font-mono">
+                    {query.trim().toUpperCase()}
+                  </span>
                 </button>
               )}
             </div>
@@ -2569,7 +3000,9 @@ function ParameterPicker({
                         isActive ? "bg-slate-50" : "",
                       ].join(" ")}
                     >
-                      <div className="font-semibold tracking-tight">{p.code}</div>
+                      <div className="font-semibold tracking-tight">
+                        {p.code}
+                      </div>
                       {p.description && (
                         <div className="text-[11px] tracking-wide text-slate-500">
                           {p.description}
@@ -2592,9 +3025,151 @@ function ParameterPicker({
   );
 }
 
+function LocationPicker({
+  value,           // current locationNo (string)
+  displayLabel,    // current "NO — Name" text when closed
+  onPick,          // (loc) => void
+  placeholder = "Search locations…",
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const debounced = useDebouncedValue(query, 250);
 
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(false);
 
+  const rootRef = React.useRef(null);
+  useClickOutside(rootRef, () => setOpen(false));
 
+  useEffect(() => {
+    if (!open) return;
+    let abort = false;
+
+    async function run() {
+      setLoading(true);
+      try {
+        const qs = new URLSearchParams({
+          limit: "50",
+          page: "1",
+          sort: "code:1",
+        });
+        if (debounced) qs.set("query", debounced);
+
+        // 👇 adjust endpoint/field names if needed
+        const res = await fetch(`${API}/api/mlocations?${qs.toString()}`);
+        if (!res.ok) {
+          if (!abort) setList([]);
+          return;
+        }
+        const json = await res.json();
+
+        const rows = (json?.data || []).map((loc) => ({
+          raw: loc,
+          no: loc.locationNo || loc.no || loc.code || "",
+          name: loc.locationName || loc.name || "",
+          address: loc.locationAddress || loc.address || "",
+          address2: loc.locationAddress2 || loc.address2 || "",
+          postCode:
+            loc.locationPostCode || loc.postCode || loc.zip || loc.post_code || "",
+          city: loc.locationCity || loc.city || "",
+          countryCode:
+            loc.locationCountryCode ||
+            loc.countryCode ||
+            loc.countryRegionCode ||
+            loc.country ||
+            "",
+        }));
+
+        if (!abort) setList(rows);
+      } catch {
+        if (!abort) setList([]);
+      } finally {
+        if (!abort) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      abort = true;
+    };
+  }, [open, debounced]);
+
+  const displayText = open ? query : displayLabel || value || "";
+
+  return (
+    <div ref={rootRef} className="relative">
+      {/* input */}
+      <div
+        className="h-9 w-full cursor-text rounded-xl border bg-white px-3 text-sm border-slate-300 focus-within:border-slate-400 flex items-center gap-2"
+        onClick={() => setOpen(true)}
+      >
+        <input
+          value={displayText}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          placeholder={placeholder}
+          className="h-8 flex-1 outline-none bg-transparent"
+        />
+        <ChevronDown size={16} className="shrink-0 text-slate-400" />
+      </div>
+
+      {/* panel */}
+      {open && (
+        <div
+          className="absolute z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-lg"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          {loading ? (
+            <div className="p-3 text-sm text-slate-500">Loading…</div>
+          ) : list.length === 0 ? (
+            <div className="p-3 text-sm text-slate-500">No matches</div>
+          ) : (
+            <ul className="max-h-64 overflow-auto py-1">
+              {list.map((loc) => {
+                const isActive = loc.no === value;
+                return (
+                  <li key={loc.no || loc.name}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        onPick(loc); // pass normalized location
+                        setQuery("");
+                        setOpen(false);
+                      }}
+                      className={[
+                        "w-full text-left px-3 py-2 rounded-lg",
+                        "hover:bg-slate-50 focus:bg-slate-50",
+                        isActive ? "bg-slate-50" : "",
+                      ].join(" ")}
+                    >
+                      <div className="font-semibold tracking-tight">
+                        {loc.no || "—"}
+                      </div>
+                      <div className="text-[11px] tracking-wide text-slate-500">
+                        {loc.name || "—"}
+                      </div>
+                      {(loc.city || loc.postCode) && (
+                        <div className="text-[11px] text-slate-500">
+                          {[loc.postCode, loc.city].filter(Boolean).join(" ")}
+                        </div>
+                      )}
+                      {loc.countryCode && (
+                        <div className="mt-1 inline-flex rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-600">
+                          {loc.countryCode}
+                        </div>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 
 function Field({ label, icon: Icon, error, children }) {

@@ -1449,6 +1449,23 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
     phoneNo: initial?.buyVendorPhoneNo || "",
   });
 
+  const applyLocation = (locDoc) => {
+  setLoc((prev) => ({
+    ...prev,
+    no: locDoc.no || "",
+    name: locDoc.name || "",
+    name2: locDoc.name2 || "",
+    address: locDoc.address || "",
+    address2: locDoc.address2 || "",
+    city: locDoc.city || "",
+    region: locDoc.region || "",
+    postCode: locDoc.postCode || "",
+    country: locDoc.country || "",
+    email: locDoc.email || "",
+    phoneNo: locDoc.phoneNo || "",
+  }));
+};
+
   // pay-to vendor
   const [pay, setPay] = useState({
     no: initial?.payVendorNo || "",
@@ -2065,94 +2082,123 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
       )}
 
       {/* LOCATION */}
-      {tab === "location" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label={F.locationNo || "Location No."} icon={IdCard}>
-            <input
-              className={INPUT_CLS}
-              value={loc.no}
-              onChange={(e) => setLoc({ ...loc, no: e.target.value })}
-            />
-          </Field>
-          <Field label={F.name || "Name"} icon={Building}>
-            <input
-              className={INPUT_CLS}
-              value={loc.name}
-              onChange={(e) => setLoc({ ...loc, name: e.target.value })}
-            />
-          </Field>
+{/* LOCATION */}
+{tab === "location" && (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    {/* NEW: pick from Location table */}
+    <Field
+      label={F.pickLocation || "Pick Location"}
+      icon={MapPin}
+    >
+      <LocationCombobox
+        valueNo={loc.no}
+        onPick={applyLocation}
+        excludeId={null}
+        placeholder={F.pickLocation || "Search location no./name…"}
+      />
+    </Field>
+    <div />
 
-          <Field label={F.name2 || "Name 2"} icon={Building}>
-            <input
-              className={INPUT_CLS}
-              value={loc.name2}
-              onChange={(e) => setLoc({ ...loc, name2: e.target.value })}
-            />
-          </Field>
-          <Field label={F.address || "Address"} icon={Building}>
-            <input
-              className={INPUT_CLS}
-              value={loc.address}
-              onChange={(e) => setLoc({ ...loc, address: e.target.value })}
-            />
-          </Field>
+<Field label={F.locationNo || "Location No."} icon={IdCard}>
+  <input
+    className={INPUT_CLS}
+    value={loc.no}
+    onChange={(e) => setLoc({ ...loc, no: e.target.value })}
+    onBlur={async () => {
+      const no = (loc.no || "").trim();
+      if (!no) return;
+      try {
+        const res = await fetch(`${API}/api/mlocations/by-no/${encodeURIComponent(no)}`);
+        if (!res.ok) return;
+        const doc = await res.json();
+        applyLocation(doc);
+      } catch {
+        // silent fail – keep manual values
+      }
+    }}
+  />
+</Field>
 
-          <Field label={F.address2 || "Address 2"} icon={Building}>
-            <input
-              className={INPUT_CLS}
-              value={loc.address2}
-              onChange={(e) => setLoc({ ...loc, address2: e.target.value })}
-            />
-          </Field>
-          <Field label={F.city || "City"} icon={MapPin}>
-            <input
-              className={INPUT_CLS}
-              value={loc.city}
-              onChange={(e) => setLoc({ ...loc, city: e.target.value })}
-            />
-          </Field>
+    <Field label={F.name || "Name"} icon={Building}>
+      <input
+        className={INPUT_CLS}
+        value={loc.name}
+        onChange={(e) => setLoc({ ...loc, name: e.target.value })}
+      />
+    </Field>
 
-          <Field label={F.region || "Region"} icon={MapPin}>
-            <input
-              className={INPUT_CLS}
-              value={loc.region}
-              onChange={(e) => setLoc({ ...loc, region: e.target.value })}
-            />
-          </Field>
-          <Field label={F.postCode || "Post Code"} icon={Hash}>
-            <input
-              className={INPUT_CLS}
-              value={loc.postCode}
-              onChange={(e) => setLoc({ ...loc, postCode: e.target.value })}
-            />
-          </Field>
+    <Field label={F.name2 || "Name 2"} icon={Building}>
+      <input
+        className={INPUT_CLS}
+        value={loc.name2}
+        onChange={(e) => setLoc({ ...loc, name2: e.target.value })}
+      />
+    </Field>
+    <Field label={F.address || "Address"} icon={Building}>
+      <input
+        className={INPUT_CLS}
+        value={loc.address}
+        onChange={(e) => setLoc({ ...loc, address: e.target.value })}
+      />
+    </Field>
 
-          <Field label={F.country || "Country"} icon={Globe}>
-            <input
-              className={INPUT_CLS}
-              value={loc.country}
-              onChange={(e) =>
-                setLoc({ ...loc, country: e.target.value.toUpperCase() })
-              }
-            />
-          </Field>
-          <Field label={F.email || "Email"} icon={Mail}>
-            <input
-              className={INPUT_CLS}
-              value={loc.email}
-              onChange={(e) => setLoc({ ...loc, email: e.target.value })}
-            />
-          </Field>
+    <Field label={F.address2 || "Address 2"} icon={Building}>
+      <input
+        className={INPUT_CLS}
+        value={loc.address2}
+        onChange={(e) => setLoc({ ...loc, address2: e.target.value })}
+      />
+    </Field>
+    <Field label={F.city || "City"} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={loc.city}
+        onChange={(e) => setLoc({ ...loc, city: e.target.value })}
+      />
+    </Field>
 
-          <Field label={F.phone || "Phone"} icon={PhoneCall}>
-            <input
-              className={INPUT_CLS}
-              value={loc.phoneNo}
-              onChange={(e) => setLoc({ ...loc, phoneNo: e.target.value })}
-            />
-          </Field>
-        </div>
-      )}
+    <Field label={F.region || "Region"} icon={MapPin}>
+      <input
+        className={INPUT_CLS}
+        value={loc.region}
+        onChange={(e) => setLoc({ ...loc, region: e.target.value })}
+      />
+    </Field>
+    <Field label={F.postCode || "Post Code"} icon={Hash}>
+      <input
+        className={INPUT_CLS}
+        value={loc.postCode}
+        onChange={(e) => setLoc({ ...loc, postCode: e.target.value })}
+      />
+    </Field>
+
+    <Field label={F.country || "Country"} icon={Globe}>
+      <input
+        className={INPUT_CLS}
+        value={loc.country}
+        onChange={(e) =>
+          setLoc({ ...loc, country: e.target.value.toUpperCase() })
+        }
+      />
+    </Field>
+    <Field label={F.email || "Email"} icon={Mail}>
+      <input
+        className={INPUT_CLS}
+        value={loc.email}
+        onChange={(e) => setLoc({ ...loc, email: e.target.value })}
+      />
+    </Field>
+
+    <Field label={F.phone || "Phone"} icon={PhoneCall}>
+      <input
+        className={INPUT_CLS}
+        value={loc.phoneNo}
+        onChange={(e) => setLoc({ ...loc, phoneNo: e.target.value })}
+      />
+    </Field>
+  </div>
+)}
+
 
       {/* SHIPMENT */}
       {tab === "shipment" && (
@@ -2376,6 +2422,143 @@ function formatDate(s, locale, dash = "—") {
     return s || dash;
   }
 }
+/** Typeahead combobox for /api/mlocations (active locations) */
+function LocationCombobox({
+  valueNo,
+  onPick,
+  placeholder = "Type location no./name…",
+  excludeId,
+}) {
+  const [input, setInput] = useState(valueNo ? valueNo : "");
+  const [open, setOpen] = useState(false);
+  const [hover, setHover] = useState(-1);
+  const [opts, setOpts] = useState([]);
+
+  useEffect(() => {
+    let stop = false;
+    const params = new URLSearchParams({ limit: "50", sort: "no:1" });
+    if (input) params.set("query", input);
+    // usually we want only active locations in pickers
+    params.set("active", "true");
+
+    fetch(`${API}/api/mlocations?${params.toString()}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (stop) return;
+        const rows = Array.isArray(json?.data) ? json.data : [];
+        const filtered = excludeId
+          ? rows.filter((r) => r._id !== excludeId)
+          : rows;
+
+        setOpts(
+          filtered.map((r) => ({
+            _id: r._id,
+            no: r.no,
+            name: r.name,
+            name2: r.name2,
+            address: r.address,
+            address2: r.address2,
+            city: r.city,
+            region: r.region,
+            postCode: r.postCode,
+            country: r.country,
+            email: r.email,
+            phoneNo: r.phoneNo,
+          }))
+        );
+      })
+      .catch(() => setOpts([]));
+
+    return () => {
+      stop = true;
+    };
+  }, [input, excludeId]);
+
+  return (
+    <div className="relative">
+      <input
+        className="w-full rounded-lg border border-slate-300 px-3 py-2"
+        value={input}
+        onChange={(e) => {
+          setInput(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+            setOpen(true);
+            return;
+          }
+          if (e.key === "Escape") {
+            setOpen(false);
+            return;
+          }
+          if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setHover((i) => Math.min(i + 1, opts.length - 1));
+          }
+          if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setHover((i) => Math.max(i - 1, 0));
+          }
+          if (e.key === "Enter" && open) {
+            e.preventDefault();
+            const pick = hover >= 0 ? opts[hover] : opts[0];
+            if (pick) {
+              onPick(pick);
+              setInput(`${pick.no} — ${pick.name || ""}`);
+              setOpen(false);
+            }
+          }
+        }}
+        placeholder={placeholder}
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls="location-listbox"
+        role="combobox"
+      />
+      {open && opts.length > 0 && (
+        <ul
+          id="location-listbox"
+          role="listbox"
+          className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white shadow-lg"
+        >
+          {opts.map((o, idx) => {
+            const active = idx === hover;
+            return (
+              <li
+                key={o._id}
+                role="option"
+                aria-selected={active}
+                className={
+                  "cursor-pointer px-3 py-2 text-sm " +
+                  (active ? "bg-slate-100" : "hover:bg-slate-50")
+                }
+                onMouseEnter={() => setHover(idx)}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onPick(o);
+                  setInput(`${o.no} — ${o.name || ""}`);
+                  setOpen(false);
+                }}
+                title={`${o.no} — ${o.name || ""}`}
+              >
+                <div className="font-medium">{o.no}</div>
+                <div className="text-slate-500 text-xs">
+                  {o.name || "—"}
+                  {o.city ? ` • ${o.city}` : ""}
+                  {o.country ? ` (${o.country})` : ""}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+
 function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
