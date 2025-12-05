@@ -1302,43 +1302,35 @@ const allMatches = useMemo(() => {
           ? distanceMap[geoKey]
           : null;
 
-      const transportCost =
+      // TOTAL transport cost for the whole route (PLN)
+      const totalTransportCost =
         Number.isFinite(distanceKm) && rate > 0
           ? distanceKm * rate
           : 0;
 
-      const spread = sell - buy - transportCost;     // profit / t
-      const spreadPct = sell ? (spread / sell) * 100 : 0;
-      const spreadNotional = qty * spread;           // PLN total
+      // PER TON (or per unit of quantity)
+      const transportCostPerTon =
+        qty > 0 ? totalTransportCost / qty : 0;
 
-      console.log("[Match geo check]", {
-        rowKey,
-        buy_location: m.buy_location,
-        sell_location: m.sell_location,
-        buy_lat: m.buy_lat,
-        buy_lon: m.buy_lon,
-        sell_lat: m.sell_lat,
-        sell_lon: m.sell_lon,
-        hasCoords,
-        geoKey,
-        distanceKm,
-        transportCost,
-      });
+      const spread = sell - buy - transportCostPerTon;
+      const spreadPct = sell ? (spread / sell) * 100 : 0;
+      const spreadNotional = qty * spread;
 
       return {
         ...m,
         rowKey,
         geoKey,
         distanceKm,
-        transportCost,
+        totalTransportCost,           // PLN (total)
+        transportCost: transportCostPerTon, // PLN / t
         spread,
         spreadPct,
         spreadNotional,
       };
     })
-    // 🔴 keep only non-negative spread (>= 0)
     .filter((m) => m.spread >= 0);
 }, [allMatchesRaw, distanceMap, transportCostPerKm]);
+
 
   // Fetch route distance (km) for new coordinate pairs
   useEffect(() => {
@@ -1429,8 +1421,10 @@ const allMatches = useMemo(() => {
           return Number(r.spreadNotional) || 0;
         case "spreadPct":
           return Number(r.spreadPct) || 0;
+        case "totalTransportCost":
+        return Number(r.totalTransportCost ?? 0);
         case "transportCost":
-          return Number(r.transportCost ?? 0); // ← only base transport from matcher
+          return Number(r.transportCost ?? 0);
         case "buy_lineNo":
           return Number(r.buy_lineNo) || 0;
         case "sell_lineNo":
@@ -1546,55 +1540,60 @@ const allMatches = useMemo(() => {
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <Th label={labels.headers.item} k="item_name" />
-              <Th label="Buy Location" k="buy_location" />
-              <Th label="Sell Location" k="sell_location" />
-              <Th
-                label="Distance"
-                k="distanceKm"
-                className="text-right"
-              />
-              {/* 🔹 moved up: Transport / t after distance */}
-              <Th
-                label="Transport"
-                k="transportCost"
-                className="text-right"
-              />
-              <Th
-                label=" Quantity"
-                k="matchedQty"
-                className="text-right"
-              />
-              <Th
-                label={`Buy ${labels.headers.price}`}
-                k="buy_price"
-                className="text-right"
-              />
-              <Th
-                label={`Sell ${labels.headers.price}`}
-                k="sell_price"
-                className="text-right"
-              />
+<thead className="bg-slate-50 text-slate-600">
+  <tr>
+    <Th label={labels.headers.item} k="item_name" />
+    <Th label="Buy Location" k="buy_location" />
+    <Th label="Sell Location" k="sell_location" />
+    <Th
+      label="Distance"
+      k="distanceKm"
+      className="text-right"
+    />
+    {/* NEW: total + per-ton */}
+    <Th
+      label="Transport"
+      k="totalTransportCost"
+      className="text-right"
+    />
+    <Th
+      label="Transport / t"
+      k="transportCost"
+      className="text-right"
+    />
+    <Th
+      label=" Quantity"
+      k="matchedQty"
+      className="text-right"
+    />
+    <Th
+      label={`Buy ${labels.headers.price}`}
+      k="buy_price"
+      className="text-right"
+    />
+    <Th
+      label={`Sell ${labels.headers.price}`}
+      k="sell_price"
+      className="text-right"
+    />
+    <Th label="Spread" k="spread" className="text-right" />
+    <Th label="Spread %" k="spreadPct" className="text-right" />
+    <Th
+      label="Spread × Qty"
+      k="spreadNotional"
+      className="text-right"
+    />
+    <Th
+      label={`Buy ${labels.headers.lineNo || labels.headers.id}`}
+      k="buy_lineNo"
+    />
+    <Th
+      label={`Sell ${labels.headers.lineNo || labels.headers.id}`}
+      k="sell_lineNo"
+    />
+  </tr>
+</thead>
 
-              <Th label="Spread" k="spread" className="text-right" />
-              <Th label="Spread %" k="spreadPct" className="text-right" />
-              <Th
-                label="Spread × Qty"
-                k="spreadNotional"
-                className="text-right"
-              />
-              <Th
-                label={`Buy ${labels.headers.lineNo || labels.headers.id}`}
-                k="buy_lineNo"
-              />
-              <Th
-                label={`Sell ${labels.headers.lineNo || labels.headers.id}`}
-                k="sell_lineNo"
-              />
-            </tr>
-          </thead>
 
           <tbody>
             {pageRows.length ? (
@@ -1618,11 +1617,15 @@ const allMatches = useMemo(() => {
                           })} km`
                       : "n/a"}
                   </Td>
+{/* NEW: total transport (PLN) */}
+<Td className="text-right tabular-nums">
+  {fmtMoney(r.totalTransportCost ?? 0, locale, "PLN")}
+</Td>
 
-                  {/* 🔹 Transport / t right after distance */}
-                  <Td className="text-right tabular-nums">
-                    {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
-                  </Td>
+{/* per ton (PLN/t) */}
+<Td className="text-right tabular-nums">
+  {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+</Td>
 
                   <Td className="text-right">
                     {fmtNum(r.matchedQty, locale)}
