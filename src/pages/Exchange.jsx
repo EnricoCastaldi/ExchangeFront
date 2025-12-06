@@ -21,12 +21,16 @@ async function safeJson(res, url) {
   const ct = res.headers.get("content-type") || "";
   if (!res.ok) {
     const body = await readBodyAsText(res);
-    throw new Error(`${res.status} ${res.statusText} @ ${url} · ${body.slice(0, 120)}`);
+    throw new Error(
+      `${res.status} ${res.statusText} @ ${url} · ${body.slice(0, 120)}`
+    );
   }
   if (!ct.includes("application/json")) {
     const body = await readBodyAsText(res);
     throw new Error(
-      `Expected JSON, got ${ct || "unknown"} @ ${url} · status ${res.status} · first 120: ${body.slice(0, 120)}`
+      `Expected JSON, got ${ct || "unknown"} @ ${url} · status ${
+        res.status
+      } · first 120: ${body.slice(0, 120)}`
     );
   }
   return res.json();
@@ -58,16 +62,9 @@ function normalizeBlockRow(r, side) {
   const blockVal = r.block != null ? Number(r.block) : null;
 
   // Location fields (best-effort, from both block + joined location)
-  const locName =
-    r.locationName ||
-    r.location_name ||
-    r.location ||
-    "";
+  const locName = r.locationName || r.location_name || r.location || "";
 
-  const locCity =
-    r.locationCity ||
-    r.city ||
-    "";
+  const locCity = r.locationCity || r.city || "";
 
   const locPostCode =
     r.locationPostCode ||
@@ -86,24 +83,14 @@ function normalizeBlockRow(r, side) {
 
   // Human-friendly label used everywhere in UI
   const locationLabel =
-    [locPostCode, locCity].filter(Boolean).join(" ") ||
-    locName ||
-    "—";
+    [locPostCode, locCity].filter(Boolean).join(" ") || locName || "—";
 
   // Coordinates (if your backend joins them from Locations)
   const rawLat =
-    r.locationLat ??
-    r.locationLatitude ??
-    r.lat ??
-    r.latitude ??
-    null;
+    r.locationLat ?? r.locationLatitude ?? r.lat ?? r.latitude ?? null;
 
   const rawLon =
-    r.locationLon ??
-    r.locationLongitude ??
-    r.lon ??
-    r.longitude ??
-    null;
+    r.locationLon ?? r.locationLongitude ?? r.lon ?? r.longitude ?? null;
 
   const locLat =
     rawLat === null || rawLat === undefined || rawLat === ""
@@ -138,23 +125,13 @@ function normalizeBlockRow(r, side) {
   const qty = Number(r.quantity) || 0;
 
   const transportTotal =
-    Number(
-      r.transportCost ??
-      r.transport_cost ??
-      r.transport_total ??
-      0
-    ) || 0;
+    Number(r.transportCost ?? r.transport_cost ?? r.transport_total ?? 0) || 0;
 
   const transportPerUnit = qty > 0 ? transportTotal / qty : 0;
 
   return {
     lineNo: Number(
-      r.lineNo ??
-      r.documentLineNo ??
-      r.line_no ??
-      r.line_number ??
-      r.id ??
-      0
+      r.lineNo ?? r.documentLineNo ?? r.line_no ?? r.line_number ?? r.id ?? 0
     ),
 
     vendor_name: side === "buy" ? partyBuy : undefined,
@@ -193,6 +170,33 @@ function normalizeBlockRow(r, side) {
   };
 }
 
+function geoDistanceKm(lat1, lon1, lat2, lon2) {
+  if (
+    !Number.isFinite(lat1) ||
+    !Number.isFinite(lon1) ||
+    !Number.isFinite(lat2) ||
+    !Number.isFinite(lon2)
+  ) {
+    return null;
+  }
+
+  const R = 6371; // Earth radius in km
+  const toRad = (deg) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
 
 /**
  * Compute unit profit between a buy block and a sell block.
@@ -204,7 +208,11 @@ function normalizeBlockRow(r, side) {
  * - matrixCost      = optional region→region cost from matrix (if used)
  */
 function computeProfitParts(b, s, opts = {}) {
-  const { transportMatrix, baseTransportPerUnit = 0 } = opts;
+  const {
+    transportMatrix,
+    baseTransportPerUnit = 0,
+    costPerKm = 0, // 👈 NEW: PLN per km
+  } = opts;
 
   const buyPrice = Number(b.price) || 0;
   const sellPrice = Number(s.price) || 0;
@@ -224,29 +232,55 @@ function computeProfitParts(b, s, opts = {}) {
     s.customer_region ||
     null;
 
-  // Default example matrix (you can ignore by not passing transportMatrix)
+  // Optional region→region matrix
   const defaultTransportMatrix = {
     A: { A: 10, B: 25, C: 30 },
     B: { A: 20, B: 10, C: 35 },
   };
-
   const matrix = transportMatrix || defaultTransportMatrix;
+
   let matrixCost = 0;
-  if (fromRegion && toRegion && matrix[fromRegion] && matrix[fromRegion][toRegion] != null) {
+  if (
+    fromRegion &&
+    toRegion &&
+    matrix[fromRegion] &&
+    matrix[fromRegion][toRegion] != null
+  ) {
     matrixCost = Number(matrix[fromRegion][toRegion]) || 0;
   }
 
-  // 🔴 SELL BLOCK transport / t (comes from normalizeBlockRow → transportPerUnit)
+  // SELL BLOCK transport / t (normalized from block)
   const sellBlockTransport = Number(s.transportPerUnit) || 0;
 
-  // 🔴 TOTAL transport / t used in matching:
-  // matrix (optional) + manual base + sell block transport
-  const transportCost = matrixCost + baseTransportPerUnit + sellBlockTransport;
+  // Base + matrix + block transport (per ton)
+  let transportCost = matrixCost + baseTransportPerUnit + sellBlockTransport;
+
+  // 🔹 NEW: distance-based cost / t
+  let distanceKm = null;
+  if (costPerKm > 0) {
+    distanceKm = geoDistanceKm(
+      b.locationLat,
+      b.locationLon,
+      s.locationLat,
+      s.locationLon
+    );
+
+    if (Number.isFinite(distanceKm)) {
+      const bQty = Number(b.quantity) || 0;
+      const sQty = Number(s.quantity) || 0;
+      const qty = Math.min(bQty, sQty) || 1; // potential matched qty
+
+      const totalDistanceCost = distanceKm * costPerKm; // PLN
+      const distanceCostPerTon = totalDistanceCost / qty; // PLN/t
+
+      transportCost += distanceCostPerTon;
+    }
+  }
 
   const profit = sellPrice - buyPrice - transportCost;
-  return { profit, transportCost, fromRegion, toRegion };
-}
 
+  return { profit, transportCost, fromRegion, toRegion, distanceKm };
+}
 
 // Endpoints
 const ENDPOINT = {
@@ -259,7 +293,6 @@ export default function Exchange() {
   const { t, locale } = useI18n();
   const EX = t.exchange;
   const C = EX.columns;
-  
 
   // Optional: items catalog (not used for filtering now)
   const [itemsCatalog, setItemsCatalog] = useState([]);
@@ -306,7 +339,7 @@ export default function Exchange() {
     })();
   }, []);
 
-    // Load catalog once (optional)
+  // Load catalog once (optional)
   useEffect(() => {
     (async () => {
       try {
@@ -334,7 +367,6 @@ export default function Exchange() {
       }
     })();
   }, []);
-
 
   // ---- Fetch helpers: ONLY itemNo filter is used ----
   const buildParams = (side) => {
@@ -369,7 +401,9 @@ export default function Exchange() {
       else setSData(payload);
     } catch (e) {
       console.error(e);
-      setErrMsg(`Failed to load ${isBuy ? "purchase" : "sales"} blocks: ${e.message}`);
+      setErrMsg(
+        `Failed to load ${isBuy ? "purchase" : "sales"} blocks: ${e.message}`
+      );
       if (isBuy) setBData({ data: [], total: 0, pages: 0, page: 1 });
       else setSData({ data: [], total: 0, pages: 0, page: 1 });
     }
@@ -470,11 +504,9 @@ export default function Exchange() {
     // eslint-disable-next-line
   }, [sPage, sLimit]);
 
-
-
-const manualRefresh = () => {
-  reloadBoth();
-};
+  const manualRefresh = () => {
+    reloadBoth();
+  };
 
   return (
     <div className="space-y-4">
@@ -488,35 +520,36 @@ const manualRefresh = () => {
       {/* Top status bar */}
       <div className="flex flex-wrap items-center justify-between text-xs text-slate-600">
         <div>
-          {EX.topbar.lastUpdate}: <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
+          {EX.topbar.lastUpdate}:{" "}
+          <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
         </div>
 
-<div className="flex items-center gap-3">
-  <button
-    type="button"
-    onClick={manualRefresh}
-    className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
-    title={EX.topbar.refreshNowTitle}
-  >
-    <RefreshCcw size={14} /> {EX.topbar.refresh}
-  </button>
-  {loading && <span className="text-slate-400">{EX.topbar.loading}</span>}
-</div>
-
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={manualRefresh}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+            title={EX.topbar.refreshNowTitle}
+          >
+            <RefreshCcw size={14} /> {EX.topbar.refresh}
+          </button>
+          {loading && (
+            <span className="text-slate-400">{EX.topbar.loading}</span>
+          )}
+        </div>
       </div>
 
-
       {/* Matches: Buy ↔ Sell (Hungarian-based) */}
-       <div className="mt-4">
-<MatchesTable
-  buyAllRows={bAllRows}
-  sellAllRows={sAllRows}
-  itemKey={bItemKey || sItemKey}
-  labels={C}
-  locale={locale}
-  stats={EX.stats}
-  transportCostPerKm={settings.transportCostPerKm ?? 0} 
-/>
+      <div className="mt-4">
+        <MatchesTable
+          buyAllRows={bAllRows}
+          sellAllRows={sAllRows}
+          itemKey={bItemKey || sItemKey}
+          labels={C}
+          locale={locale}
+          stats={EX.stats}
+          transportCostPerKm={settings.transportCostPerKm ?? 0}
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -593,7 +626,9 @@ function Column({
   // Filter by selected item (matches normalized `item_name`, which comes from itemNo)
   const filteredData = useMemo(() => {
     const arr = rows?.data || [];
-    return itemKey ? arr.filter((r) => String(r.item_name) === String(itemKey)) : arr;
+    return itemKey
+      ? arr.filter((r) => String(r.item_name) === String(itemKey))
+      : arr;
   }, [rows, itemKey]);
 
   // Sort after filtering
@@ -695,133 +730,131 @@ function Column({
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-<thead className="bg-slate-50 text-slate-600">
-  <tr>
-    <SortableTh
-      label={labels.headers.lineNo || labels.headers.id}
-      sortKey="lineNo"
-      sort={sort}
-      onSort={onSort}
-      className="w-24"
-    />
-    <SortableTh
-      label={labels.headers.item}
-      sortKey="item_name"
-      sort={sort}
-      onSort={onSort}
-    />
-    {/* NEW: location column */}
-    <SortableTh
-      label={labels.headers.location || "Location"}
-      sortKey="locationLabel"
-      sort={sort}
-      onSort={onSort}
-    />
-    <SortableTh
-      label={labels.headers.type}
-      sortKey="type"
-      sort={sort}
-      onSort={onSort}
-    />
-    <SortableTh
-      label={labels.headers.qty}
-      sortKey="quantity"
-      sort={sort}
-      onSort={onSort}
-      className="text-right"
-    />
-    <SortableTh
-      label={labels.headers.price}
-      sortKey="price"
-      sort={sort}
-      onSort={onSort}
-      className="text-right"
-    />
-    <SortableTh
-      label={labels.headers.status}
-      sortKey="status"
-      sort={sort}
-      onSort={onSort}
-    />
-    <SortableTh
-      label={labels.headers.created}
-      sortKey="created_at"
-      sort={sort}
-      onSort={onSort}
-    />
-  </tr>
-</thead>
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <SortableTh
+                label={labels.headers.lineNo || labels.headers.id}
+                sortKey="lineNo"
+                sort={sort}
+                onSort={onSort}
+                className="w-24"
+              />
+              <SortableTh
+                label={labels.headers.item}
+                sortKey="item_name"
+                sort={sort}
+                onSort={onSort}
+              />
+              {/* NEW: location column */}
+              <SortableTh
+                label={labels.headers.location || "Location"}
+                sortKey="locationLabel"
+                sort={sort}
+                onSort={onSort}
+              />
+              <SortableTh
+                label={labels.headers.type}
+                sortKey="type"
+                sort={sort}
+                onSort={onSort}
+              />
+              <SortableTh
+                label={labels.headers.qty}
+                sortKey="quantity"
+                sort={sort}
+                onSort={onSort}
+                className="text-right"
+              />
+              <SortableTh
+                label={labels.headers.price}
+                sortKey="price"
+                sort={sort}
+                onSort={onSort}
+                className="text-right"
+              />
+              <SortableTh
+                label={labels.headers.status}
+                sortKey="status"
+                sort={sort}
+                onSort={onSort}
+              />
+              <SortableTh
+                label={labels.headers.created}
+                sortKey="created_at"
+                sort={sort}
+                onSort={onSort}
+              />
+            </tr>
+          </thead>
 
+          <tbody>
+            {sortedData.length ? (
+              sortedData.map((r, idx) => (
+                <tr
+                  key={`${r.lineNo}-${idx}`}
+                  className={`border-t ${colorMap.get(r.lineNo) ?? ""}`}
+                >
+                  <Td className="font-mono">{r.lineNo || "—"}</Td>
+                  <Td className="truncate">
+                    <span className="font-medium">{r.item_name}</span>{" "}
+                    {r.item_sku ? (
+                      <span className="text-slate-500">({r.item_sku})</span>
+                    ) : null}
+                    <span className="text-slate-400 ml-2">{r.documentNo}</span>
+                  </Td>
 
-<tbody>
-  {sortedData.length ? (
-    sortedData.map((r, idx) => (
-      <tr
-        key={`${r.lineNo}-${idx}`}
-        className={`border-t ${colorMap.get(r.lineNo) ?? ""}`}
-      >
-        <Td className="font-mono">{r.lineNo || "—"}</Td>
-        <Td className="truncate">
-          <span className="font-medium">{r.item_name}</span>{" "}
-          {r.item_sku ? (
-            <span className="text-slate-500">({r.item_sku})</span>
-          ) : null}
-          <span className="text-slate-400 ml-2">{r.documentNo}</span>
-        </Td>
+                  {/* NEW: location cell */}
+                  <Td className="truncate">
+                    <span className="font-medium">
+                      {r.locationLabel || "—"}
+                    </span>
+                  </Td>
 
-        {/* NEW: location cell */}
-        <Td className="truncate">
-          <span className="font-medium">
-            {r.locationLabel || "—"}
-          </span>
-        </Td>
+                  <Td className="uppercase">{r.type}</Td>
+                  <Td className="text-right">{fmtNum(r.quantity, locale)}</Td>
+                  <Td className="text-right font-semibold tabular-nums">
+                    {fmtMoney(r.price, locale, "PLN")}
+                  </Td>
+                  <Td>
+                    {/* status badge as before */}
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-semibold ${
+                        r.status === "open"
+                          ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                          : r.status === "approved"
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : r.status === "rejected"
+                          ? "bg-red-50 text-red-700 border border-red-200"
+                          : "bg-slate-100 text-slate-700 border border-slate-200"
+                      }`}
+                    >
+                      {(labels.statuses[r.status] || r.status).toUpperCase()}
+                    </span>
+                  </Td>
+                  <Td>
+                    {r.created_at
+                      ? new Date(r.created_at).toLocaleDateString(locale)
+                      : "—"}
+                  </Td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={COLS} className="p-6 text-center text-slate-500">
+                  {labels.empty}
+                </td>
+              </tr>
+            )}
 
-        <Td className="uppercase">{r.type}</Td>
-        <Td className="text-right">{fmtNum(r.quantity, locale)}</Td>
-        <Td className="text-right font-semibold tabular-nums">
-          {fmtMoney(r.price, locale, "PLN")}
-        </Td>
-        <Td>
-          {/* status badge as before */}
-          <span
-            className={`px-2 py-1 rounded text-xs font-semibold ${
-              r.status === "open"
-                ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                : r.status === "approved"
-                ? "bg-green-50 text-green-700 border border-green-200"
-                : r.status === "rejected"
-                ? "bg-red-50 text-red-700 border border-red-200"
-                : "bg-slate-100 text-slate-700 border border-slate-200"
-            }`}
-          >
-            {(labels.statuses[r.status] || r.status).toUpperCase()}
-          </span>
-        </Td>
-        <Td>
-          {r.created_at
-            ? new Date(r.created_at).toLocaleDateString(locale)
-            : "—"}
-        </Td>
-      </tr>
-    ))
-  ) : (
-    <tr>
-      <td colSpan={COLS} className="p-6 text-center text-slate-500">
-        {labels.empty}
-      </td>
-    </tr>
-  )}
-
-  {/* padding rows – colSpan already uses COLS, so no change needed here */}
-  {Array.from({ length: padCount }).map((_, i) => (
-    <tr key={`pad-${i}`} className="border-t">
-      <td colSpan={COLS} className="px-4 py-3">
-        &nbsp;
-      </td>
-    </tr>
-  ))}
-</tbody>
-
+            {/* padding rows – colSpan already uses COLS, so no change needed here */}
+            {Array.from({ length: padCount }).map((_, i) => (
+              <tr key={`pad-${i}`} className="border-t">
+                <td colSpan={COLS} className="px-4 py-3">
+                  &nbsp;
+                </td>
+              </tr>
+            ))}
+          </tbody>
         </table>
       </div>
 
@@ -874,9 +907,21 @@ function Header({ title, totals, locale, stats }) {
         <h3 className="font-semibold">{title}</h3>
 
         <div className="flex items-center gap-2">
-          <StatChip icon={ListOrdered} label={stats.count} value={fmtNum(count, locale)} />
-          <StatChip icon={Scale} label={stats.qty} value={fmtNum(qty, locale)} />
-          <StatChip icon={Banknote} label={stats.notional} value={fmtMoney(notional, locale, "PLN")} />
+          <StatChip
+            icon={ListOrdered}
+            label={stats.count}
+            value={fmtNum(count, locale)}
+          />
+          <StatChip
+            icon={Scale}
+            label={stats.qty}
+            value={fmtNum(qty, locale)}
+          />
+          <StatChip
+            icon={Banknote}
+            label={stats.notional}
+            value={fmtMoney(notional, locale, "PLN")}
+          />
         </div>
       </div>
     </div>
@@ -889,7 +934,9 @@ function StatChip({ icon: Icon, label, value }) {
         <Icon size={14} className="text-slate-600" />
       </span>
       <div className="leading-tight">
-        <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+        <div className="text-[10px] uppercase tracking-wide text-slate-500">
+          {label}
+        </div>
         <div className="text-sm font-semibold text-slate-900">{value}</div>
       </div>
     </div>
@@ -928,7 +975,10 @@ function Td({ children, className = "" }) {
 function sumUp(arr) {
   const count = arr.length;
   const qty = arr.reduce((a, x) => a + (Number(x.quantity) || 0), 0);
-  const notional = arr.reduce((a, x) => a + (Number(x.quantity) || 0) * (Number(x.price) || 0), 0);
+  const notional = arr.reduce(
+    (a, x) => a + (Number(x.quantity) || 0) * (Number(x.price) || 0),
+    0
+  );
   return { count, qty, notional };
 }
 function makeComparator(sort) {
@@ -988,10 +1038,6 @@ function getVal(row, key) {
       return "";
   }
 }
-
-
-
-
 
 /**
  * Hungarian algorithm (minimization) for a square cost matrix.
@@ -1085,16 +1131,15 @@ function hungarian(costMatrix) {
  * - Converts to cost matrix (maxProfit - profit) for Hungarian.
  * - Keeps only matches with positive profit and positive quantity.
  */
-function buildMatchesHungarian(
-  buyRows = [],
-  sellRows = [],
-  options = {}
-) {
+function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
   const {
     itemKey = "",
     transportMatrix,
     baseTransportPerUnit = 0,
+    costPerKm = 0, // NEW
   } = options;
+
+  const debugExclusions = [];
 
   // 1) Filter: only rows for selected item (if any)
   const buysAll = (buyRows || []).filter((b) =>
@@ -1104,7 +1149,22 @@ function buildMatchesHungarian(
     itemKey ? String(s.item_name) === String(itemKey) : true
   );
 
-  if (!buysAll.length || !sellsAll.length) return [];
+  if (!buysAll.length || !sellsAll.length) {
+    debugExclusions.push({
+      reason: "no_buys_or_sells_after_filter",
+      itemKey: itemKey || null,
+      buyCount: buysAll.length,
+      sellCount: sellsAll.length,
+    });
+
+    if (debugExclusions.length) {
+      console.groupCollapsed("[Exchange.match] Excluded matches");
+      debugExclusions.forEach((row, idx) => console.log(idx + 1, row));
+      console.groupEnd();
+    }
+
+    return [];
+  }
 
   // 2) Group by item_name, so we never match different items together
   const groupedBuys = new Map();
@@ -1123,15 +1183,32 @@ function buildMatchesHungarian(
 
   const matches = [];
 
+  // 3) Run Hungarian per item_name group
   for (const [itemName, itemBuys] of groupedBuys.entries()) {
     const itemSells = groupedSells.get(itemName) || [];
-    if (!itemSells.length) continue;
+    if (!itemSells.length) {
+      debugExclusions.push({
+        reason: "no_sells_for_item",
+        itemName,
+        buyCount: itemBuys.length,
+        sellCount: 0,
+      });
+      continue;
+    }
 
     const m = itemBuys.length;
     const n = itemSells.length;
-    if (!m || !n) continue;
+    if (!m || !n) {
+      debugExclusions.push({
+        reason: "empty_group_after_grouping",
+        itemName,
+        buyCount: m,
+        sellCount: n,
+      });
+      continue;
+    }
 
-    // 3) BUILD PROFIT MATRIX
+    // 3a) BUILD PROFIT MATRIX (per ton)
     const profitMatrix = Array.from({ length: m }, () => Array(n).fill(0));
     let maxProfit = -Infinity;
 
@@ -1140,16 +1217,24 @@ function buildMatchesHungarian(
         const { profit } = computeProfitParts(itemBuys[i], itemSells[j], {
           transportMatrix,
           baseTransportPerUnit,
+          costPerKm,
         });
         profitMatrix[i][j] = profit;
         if (profit > maxProfit) maxProfit = profit;
       }
     }
 
-    // If all pairs are strictly loss-making, skip this item
-    if (!Number.isFinite(maxProfit) || maxProfit < 0) continue;
+    // If all pairs are loss-making, skip this item
+    if (!Number.isFinite(maxProfit) || maxProfit < 0) {
+      debugExclusions.push({
+        reason: "all_pairs_loss_making_for_item",
+        itemName,
+        maxProfit,
+      });
+      continue;
+    }
 
-    // 4) CONVERT TO COST MATRIX (Hungarian minimizes cost)
+    // 3b) CONVERT TO COST MATRIX (Hungarian minimizes cost)
     // cost = maxProfit - max(profit, 0)
     const costMatrix = Array.from({ length: m }, (_, i) =>
       Array.from({ length: n }, (_, j) => {
@@ -1159,34 +1244,65 @@ function buildMatchesHungarian(
       })
     );
 
-    // 5) RUN HUNGARIAN
+    // 3c) RUN HUNGARIAN
     const assignment = hungarian(costMatrix);
 
-    // 6) BUILD MATCH OBJECTS
+    // 3d) BUILD MATCH OBJECTS
     for (let i = 0; i < m; i++) {
       const j = assignment[i];
-      if (j == null || j < 0 || j >= n) continue;
-
       const b = itemBuys[i];
-      const s = itemSells[j];
+      const s = j != null && j >= 0 && j < n ? itemSells[j] : null;
+
+      if (j == null || j < 0 || j >= n || !s) {
+        debugExclusions.push({
+          reason: "no_assignment_for_buy",
+          itemName,
+          buy_lineNo: b?.lineNo ?? null,
+          buy_documentNo: b?.documentNo ?? null,
+        });
+        continue;
+      }
 
       const unitProfit = profitMatrix[i][j];
-      if (unitProfit < 0) continue; // allow 0, skip only negative (loss)
+      if (unitProfit < 0) {
+        debugExclusions.push({
+          reason: "negative_unit_profit",
+          itemName,
+          buy_lineNo: b.lineNo,
+          sell_lineNo: s.lineNo,
+          buy_documentNo: b.documentNo,
+          sell_documentNo: s.documentNo,
+          unitProfit,
+        });
+        continue;
+      }
 
       const bQty = Number(b.quantity) || 0;
       const sQty = Number(s.quantity) || 0;
       const matchedQty = Math.min(bQty, sQty);
-      if (!matchedQty) continue;
+      if (!matchedQty) {
+        debugExclusions.push({
+          reason: "zero_matched_qty",
+          itemName,
+          buy_lineNo: b.lineNo,
+          sell_lineNo: s.lineNo,
+          buyQty: bQty,
+          sellQty: sQty,
+        });
+        continue;
+      }
 
       const buyPrice = Number(b.price) || 0;
       const sellPrice = Number(s.price) || 0;
 
-      const { transportCost, fromRegion, toRegion } = computeProfitParts(b, s, {
-        transportMatrix,
-        baseTransportPerUnit,
-      });
+      const { transportCost, fromRegion, toRegion, distanceKm } =
+        computeProfitParts(b, s, {
+          transportMatrix,
+          baseTransportPerUnit,
+          costPerKm,
+        });
 
-      const spread = unitProfit; // profit per t after transport
+      const spread = unitProfit; // profit per ton
       const spreadNotional = matchedQty * spread;
 
       matches.push({
@@ -1201,6 +1317,7 @@ function buildMatchesHungarian(
         transportCost,
         fromRegion,
         toRegion,
+        distanceKm,
 
         buy_lineNo: b.lineNo,
         buy_documentNo: b.documentNo,
@@ -1214,19 +1331,24 @@ function buildMatchesHungarian(
         sell_created_at: s.created_at,
         sell_block: s.block ?? null,
 
-        // locations (labels)
         buy_location: b.locationLabel || null,
         sell_location: s.locationLabel || null,
 
-        // NEW: coordinates (used for distance)
         buy_lat: b.locationLat ?? null,
         buy_lon: b.locationLon ?? null,
         sell_lat: s.locationLat ?? null,
         sell_lon: s.locationLon ?? null,
       });
-
-
     }
+  }
+
+  // 🔍 Dump all exclusions at once in console
+  if (debugExclusions.length) {
+    console.groupCollapsed(
+      "[Exchange.match] Excluded matches (reason + context)"
+    );
+    debugExclusions.forEach((row, idx) => console.log(idx + 1, row));
+    console.groupEnd();
   }
 
   return matches;
@@ -1246,7 +1368,6 @@ function matchKey(m) {
   return `${m.item_name || ""}::${m.buy_lineNo || ""}::${m.sell_lineNo || ""}`;
 }
 
-
 /* ===================== MatchesTable ===================== */
 
 function MatchesTable({
@@ -1256,150 +1377,43 @@ function MatchesTable({
   labels,
   locale,
   stats,
-  transportCostPerKm, 
+  transportCostPerKm,
 }) {
   const [sort, setSort] = useState({ key: "spread", dir: "asc" });
   const [limit, setLimit] = useState(5);
   const [page, setPage] = useState(1);
 
-  // distance cache: { [geoKey]: km }
-  const [distanceMap, setDistanceMap] = useState({});
-
   const allMatchesRaw = useMemo(
     () =>
       buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
         itemKey,
-        // baseTransportPerUnit, transportMatrix can still be passed here if you use them
+        costPerKm: transportCostPerKm, // 👈 NEW
+        // transportMatrix, baseTransportPerUnit can still go here if you use them
       }),
-    [buyAllRows, sellAllRows, itemKey]
+    [buyAllRows, sellAllRows, itemKey, transportCostPerKm]
   );
 
-const allMatches = useMemo(() => {
-  const rate = Number(transportCostPerKm) || 0;
+  const allMatches = useMemo(() => {
+    return (allMatchesRaw || [])
+      .map((m) => {
+        const rowKey = `${m.item_name}|${m.buy_lineNo}|${m.sell_lineNo}`;
 
-  return (allMatchesRaw || [])
-    .map((m) => {
-      const rowKey = `${m.item_name}|${m.buy_lineNo}|${m.sell_lineNo}`;
+        const sell = Number(m.sell_price) || 0;
+        const qty = Number(m.matchedQty) || 0;
+        const spread = Number(m.spread) || 0; // per ton, already includes distance
+        const spreadPct = sell ? (spread / sell) * 100 : 0;
+        const spreadNotional = qty * spread;
 
-      const sell = Number(m.sell_price) || 0;
-      const buy = Number(m.buy_price) || 0;
-      const qty  = Number(m.matchedQty) || 0;
+        return {
+          ...m,
+          rowKey,
+          spreadPct,
+          spreadNotional,
+        };
+      })
+      .filter((m) => m.spread >= 0);
+  }, [allMatchesRaw]);
 
-      const hasCoords =
-        Number.isFinite(m.buy_lat) &&
-        Number.isFinite(m.buy_lon) &&
-        Number.isFinite(m.sell_lat) &&
-        Number.isFinite(m.sell_lon) &&
-        (m.buy_lat !== 0 || m.buy_lon !== 0) &&
-        (m.sell_lat !== 0 || m.sell_lon !== 0);
-
-      const geoKey = hasCoords
-        ? `${m.buy_lat},${m.buy_lon}|${m.sell_lat},${m.sell_lon}`
-        : null;
-
-      const distanceKm =
-        geoKey && typeof distanceMap[geoKey] === "number"
-          ? distanceMap[geoKey]
-          : null;
-
-      // TOTAL transport cost for the whole route (PLN)
-      const totalTransportCost =
-        Number.isFinite(distanceKm) && rate > 0
-          ? distanceKm * rate
-          : 0;
-
-      // PER TON (or per unit of quantity)
-      const transportCostPerTon =
-        qty > 0 ? totalTransportCost / qty : 0;
-
-      const spread = sell - buy - transportCostPerTon;
-      const spreadPct = sell ? (spread / sell) * 100 : 0;
-      const spreadNotional = qty * spread;
-
-      return {
-        ...m,
-        rowKey,
-        geoKey,
-        distanceKm,
-        totalTransportCost,           // PLN (total)
-        transportCost: transportCostPerTon, // PLN / t
-        spread,
-        spreadPct,
-        spreadNotional,
-      };
-    })
-    .filter((m) => m.spread >= 0);
-}, [allMatchesRaw, distanceMap, transportCostPerKm]);
-
-
-  // Fetch route distance (km) for new coordinate pairs
-  useEffect(() => {
-    let cancelled = false;
-
-    const toFetch = [];
-    for (const m of allMatches) {
-      if (!m.geoKey) continue;
-      if (distanceMap[m.geoKey] === undefined) {
-        console.log("[Distance] New pair", {
-          geoKey: m.geoKey,
-          fromLat: m.buy_lat,
-          fromLon: m.buy_lon,
-          toLat: m.sell_lat,
-          toLon: m.sell_lon,
-        });
-        toFetch.push({
-          geoKey: m.geoKey,
-          fromLat: m.buy_lat,
-          fromLon: m.buy_lon,
-          toLat: m.sell_lat,
-          toLon: m.sell_lon,
-        });
-      }
-    }
-
-    if (!toFetch.length) return;
-
-    (async () => {
-      for (const pair of toFetch) {
-        try {
-          const params = new URLSearchParams({
-            fromLat: String(pair.fromLat),
-            fromLon: String(pair.fromLon),
-            toLat: String(pair.toLat),
-            toLon: String(pair.toLon),
-          });
-
-          const url = `${API}/api/maps/distance?${params.toString()}`;
-          console.log("[Distance] Fetching", url);
-
-          const res = await fetch(url);
-          const json = await res.json().catch(() => ({}));
-
-          if (cancelled) return;
-          const km =
-            json && typeof json.distanceInMeters === "number"
-              ? json.distanceInMeters / 1000
-              : null;
-
-          setDistanceMap((prev) => ({
-            ...prev,
-            [pair.geoKey]: Number.isFinite(km) ? km : null,
-          }));
-        } catch (err) {
-          console.error("[Distance] Error for", pair.geoKey, err);
-          if (cancelled) return;
-          setDistanceMap((prev) => ({
-            ...prev,
-            [pair.geoKey]: null,
-          }));
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [allMatches, distanceMap]);
 
   const sorted = useMemo(() => {
     const arr = [...allMatches];
@@ -1422,9 +1436,17 @@ const allMatches = useMemo(() => {
         case "spreadPct":
           return Number(r.spreadPct) || 0;
         case "totalTransportCost":
-        return Number(r.totalTransportCost ?? 0);
+          return Number(
+            r.distanceKm && transportCostPerKm
+              ? r.distanceKm * transportCostPerKm
+              : 0
+          );
         case "transportCost":
           return Number(r.transportCost ?? 0);
+        case "distanceKm":
+          return Number.isFinite(r.distanceKm)
+            ? Number(r.distanceKm)
+            : Infinity;
         case "buy_lineNo":
           return Number(r.buy_lineNo) || 0;
         case "sell_lineNo":
@@ -1437,12 +1459,11 @@ const allMatches = useMemo(() => {
           return (r.buy_location || "").toLowerCase();
         case "sell_location":
           return (r.sell_location || "").toLowerCase();
-        case "distanceKm":
-          return Number.isFinite(r.distanceKm) ? Number(r.distanceKm) : Infinity;
         default:
           return "";
       }
     };
+
 
     arr.sort((a, b) => {
       const va = get(a, sort.key);
@@ -1540,60 +1561,51 @@ const allMatches = useMemo(() => {
 
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-<thead className="bg-slate-50 text-slate-600">
-  <tr>
-    <Th label={labels.headers.item} k="item_name" />
-    <Th label="Buy Location" k="buy_location" />
-    <Th label="Sell Location" k="sell_location" />
-    <Th
-      label="Distance"
-      k="distanceKm"
-      className="text-right"
-    />
-    {/* NEW: total + per-ton */}
-    <Th
-      label="Transport"
-      k="totalTransportCost"
-      className="text-right"
-    />
-    <Th
-      label="Transport / t"
-      k="transportCost"
-      className="text-right"
-    />
-    <Th
-      label=" Quantity"
-      k="matchedQty"
-      className="text-right"
-    />
-    <Th
-      label={`Buy ${labels.headers.price}`}
-      k="buy_price"
-      className="text-right"
-    />
-    <Th
-      label={`Sell ${labels.headers.price}`}
-      k="sell_price"
-      className="text-right"
-    />
-    <Th label="Spread" k="spread" className="text-right" />
-    <Th label="Spread %" k="spreadPct" className="text-right" />
-    <Th
-      label="Spread × Qty"
-      k="spreadNotional"
-      className="text-right"
-    />
-    <Th
-      label={`Buy ${labels.headers.lineNo || labels.headers.id}`}
-      k="buy_lineNo"
-    />
-    <Th
-      label={`Sell ${labels.headers.lineNo || labels.headers.id}`}
-      k="sell_lineNo"
-    />
-  </tr>
-</thead>
-
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <Th label={labels.headers.item} k="item_name" />
+              <Th label="Buy Location" k="buy_location" />
+              <Th label="Sell Location" k="sell_location" />
+              <Th label="Distance" k="distanceKm" className="text-right" />
+              {/* NEW: total + per-ton */}
+              <Th
+                label="Transport"
+                k="totalTransportCost"
+                className="text-right"
+              />
+              <Th
+                label="Transport / t"
+                k="transportCost"
+                className="text-right"
+              />
+              <Th label=" Quantity" k="matchedQty" className="text-right" />
+              <Th
+                label={`Buy ${labels.headers.price}`}
+                k="buy_price"
+                className="text-right"
+              />
+              <Th
+                label={`Sell ${labels.headers.price}`}
+                k="sell_price"
+                className="text-right"
+              />
+              <Th label="Spread" k="spread" className="text-right" />
+              <Th label="Spread %" k="spreadPct" className="text-right" />
+              <Th
+                label="Spread × Qty"
+                k="spreadNotional"
+                className="text-right"
+              />
+              <Th
+                label={`Buy ${labels.headers.lineNo || labels.headers.id}`}
+                k="buy_lineNo"
+              />
+              <Th
+                label={`Sell ${labels.headers.lineNo || labels.headers.id}`}
+                k="sell_lineNo"
+              />
+            </tr>
+          </thead>
 
           <tbody>
             {pageRows.length ? (
@@ -1608,28 +1620,32 @@ const allMatches = useMemo(() => {
 
                   <Td className="truncate">{r.buy_location || "—"}</Td>
                   <Td className="truncate">{r.sell_location || "—"}</Td>
-                     <Td className="text-right">
-                    {r.geoKey
-                      ? r.distanceKm == null
-                        ? "…"
-                        : `${fmtNum(r.distanceKm, locale, {
-                            maximumFractionDigits: 1,
-                          })} km`
-                      : "n/a"}
-                  </Td>
-{/* NEW: total transport (PLN) */}
-<Td className="text-right tabular-nums">
-  {fmtMoney(r.totalTransportCost ?? 0, locale, "PLN")}
-</Td>
-
-{/* per ton (PLN/t) */}
-<Td className="text-right tabular-nums">
-  {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
-</Td>
 
                   <Td className="text-right">
-                    {fmtNum(r.matchedQty, locale)}
+                    {Number.isFinite(r.distanceKm)
+                      ? `${fmtNum(r.distanceKm, locale, {
+                          maximumFractionDigits: 1,
+                        })} km`
+                      : "n/a"}
                   </Td>
+
+                  {/* total transport from distance only (for info) */}
+                  <Td className="text-right tabular-nums">
+                    {fmtMoney(
+                      Number.isFinite(r.distanceKm)
+                        ? r.distanceKm * transportCostPerKm
+                        : 0,
+                      locale,
+                      "PLN"
+                    )}
+                  </Td>
+
+                  {/* per ton transport cost = what Hungarian used */}
+                  <Td className="text-right tabular-nums">
+                    {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+                  </Td>
+
+                  <Td className="text-right">{fmtNum(r.matchedQty, locale)}</Td>
                   <Td className="text-right tabular-nums">
                     {fmtMoney(r.buy_price, locale, "PLN")}
                   </Td>
