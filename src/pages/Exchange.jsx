@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { RefreshCcw, ChevronUp, ChevronDown, Search } from "lucide-react";
-import { ListOrdered, Scale, Banknote, ArrowLeftRight } from "lucide-react";
 import { useI18n, fmtMoney, fmtNum } from "../helpers/i18n";
+import {
+  ListOrdered,
+  Scale,
+  Banknote,
+  ArrowLeftRight,
+  Info,
+} from "lucide-react";
 
 const API =
   process.env.REACT_APP_API_URL ||
@@ -40,94 +46,98 @@ async function safeJson(res, url) {
  * Normalize purchase/sales *block* rows into a common shape.
  * Includes `block` and a best-effort `region` used for transport costs.
  */
-function normalizeBlockRow(r, side) {
-  const partyBuy =
-    r.buyVendorName ||
-    r.payVendorName ||
-    r.locationName ||
-    r.vendor_name ||
-    r.party ||
-    r.documentNo ||
-    "—";
+function normalizeBlockRow(r, side = "sell") {
+  const qty = Number(r.quantity ?? r.qty ?? 0) || 0;
 
-  const partySell =
-    r.sellCustomerName ||
-    r.billCustomerName ||
-    r.locationName ||
-    r.customer_name ||
-    r.party ||
-    r.documentNo ||
-    "—";
+  const blockVal =
+    r.block != null
+      ? Number(r.block)
+      : r.blockNo != null
+      ? Number(r.blockNo)
+      : r.block_no != null
+      ? Number(r.block_no)
+      : null;
 
-  const blockVal = r.block != null ? Number(r.block) : null;
+  const locName = r.locationName || r.location_name || r.locName || null;
 
-  // Location fields (best-effort, from both block + joined location)
-  const locName = r.locationName || r.location_name || r.location || "";
-
-  const locCity = r.locationCity || r.city || "";
+  const locCity = r.locationCity || r.location_city || r.city || null;
 
   const locPostCode =
     r.locationPostCode ||
+    r.location_post_code ||
     r.postCode ||
     r.post_code ||
-    r.zip ||
-    r.postalCode ||
-    "";
+    null;
 
   const locCountry =
     r.locationCountryCode ||
-    r.countryRegionCode ||
+    r.location_country_code ||
     r.countryCode ||
     r.country ||
-    "";
+    null;
 
-  // Human-friendly label used everywhere in UI
-  const locationLabel =
-    [locPostCode, locCity].filter(Boolean).join(" ") || locName || "—";
+  const locationLabel = [locPostCode, locCity, locCountry]
+    .filter(Boolean)
+    .join(" · ");
 
-  // Coordinates (if your backend joins them from Locations)
-  const rawLat =
-    r.locationLat ?? r.locationLatitude ?? r.lat ?? r.latitude ?? null;
-
-  const rawLon =
-    r.locationLon ?? r.locationLongitude ?? r.lon ?? r.longitude ?? null;
-
-  const locLat =
-    rawLat === null || rawLat === undefined || rawLat === ""
-      ? null
-      : Number(rawLat);
-
-  const locLon =
-    rawLon === null || rawLon === undefined || rawLon === ""
-      ? null
-      : Number(rawLon);
-
-  // 🔎 DEBUG: see what we got per row (you can keep or remove later)
-  console.log("[normalizeBlockRow]", {
-    side,
-    documentNo: r.documentNo,
-    locationLabel,
-    rawLat,
-    rawLon,
-    locLat,
-    locLon,
-  });
+  const locLat = Number(r.locationLat ?? r.location_lat ?? r.lat ?? null);
+  const locLon = Number(r.locationLon ?? r.location_lon ?? r.lon ?? null);
 
   const region =
     r.locationRegion ||
-    r.buyVendorRegion ||
-    r.sellCustomerRegion ||
-    r.vendorRegion ||
-    r.customerRegion ||
     r.region ||
+    (side === "buy"
+      ? r.buyVendorRegion || r.vendorRegion
+      : r.sellCustomerRegion || r.customerRegion) ||
     null;
 
-  const qty = Number(r.quantity) || 0;
+  // lineValue + dueDate (needed for factoring)
+  const lineValue = Number(r.lineValue ?? r.line_value ?? 0) || 0;
+  const dueDate = r.dueDate || r.due_date || null;
 
+  // location costs (for additionalLocationCost)
+  const loadingCost =
+    Number(r.locationLoadingCost ?? r.loadingCost ?? r.loading_cost ?? 0) || 0;
+  const unloadingCost =
+    Number(
+      r.locationUnloadingCost ?? r.unloadingCost ?? r.unloading_cost ?? 0
+    ) || 0;
+  const loadingCostRisk =
+    Number(
+      r.locationLoadingCostRisk ?? r.loadingCostRisk ?? r.loading_cost_risk ?? 0
+    ) || 0;
+  const unloadingCostRisk =
+    Number(
+      r.locationUnloadingCostRisk ??
+        r.unloadingCostRisk ??
+        r.unloading_cost_risk ??
+        0
+    ) || 0;
+
+  // user/commission (used for sales commission AND purchase commission)
+  const userCreated =
+    (r.userCreated || r.user_created || r.createdBy || "")
+      .toString()
+      .toLowerCase() || null;
+  const userCommissionPercent =
+    Number(
+      r.userCommissionPercent ??
+        r.user_commission_percent ??
+        r.commissionPercent ??
+        0
+    ) || 0;
+  const userName = r.userName || r.user_name || null;
+
+  // transport fields (kept as before)
   const transportTotal =
-    Number(r.transportCost ?? r.transport_cost ?? r.transport_total ?? 0) || 0;
+    Number(r.transportTotal ?? r.transportCost ?? r.transport_total ?? 0) || 0;
+  const transportPerUnit =
+    Number(r.transportPerUnit ?? r.transport_per_unit ?? 0) || 0;
 
-  const transportPerUnit = qty > 0 ? transportTotal / qty : 0;
+  const partyBuy = r.vendor_name || r.buyVendorName || r.vendorName || null;
+
+  const partySell =
+    r.customer_name || r.sellCustomerName || r.customerName || null;
 
   return {
     lineNo: Number(
@@ -163,6 +173,21 @@ function normalizeBlockRow(r, side) {
 
     transportTotal,
     transportPerUnit,
+
+    // ✅ needed for factoring + commissions
+    lineValue,
+    dueDate,
+
+    // ✅ needed for additionalLocationCost tooltip
+    loadingCost,
+    unloadingCost,
+    loadingCostRisk,
+    unloadingCostRisk,
+
+    // ✅ needed for sales commission (sell) + purchase commission (buy)
+    userCreated,
+    userCommissionPercent,
+    userName,
 
     status: (r.status || "new").toString().toLowerCase(),
     created_at: r.createdAt || r.dateCreated || r.created_at || null,
@@ -200,18 +225,14 @@ function geoDistanceKm(lat1, lon1, lat2, lon2) {
 
 /**
  * Compute unit profit between a buy block and a sell block.
- * Formula:
- *   profit_per_t = sellPrice - buyPrice - (matrixCost + manualBase + sellBlockTransport)
- *
- * - manualBase      = baseTransportPerUnit (global input in Exchange)
- * - sellBlockTransport = s.transportPerUnit (already normalized from block)
- * - matrixCost      = optional region→region cost from matrix (if used)
+ * NOTE: Transport here is still the per-ton transport used by your matching logic.
+ * IMPORTANT: We are NOT adding location costs to transportCost/profit (per your request).
  */
 function computeProfitParts(b, s, opts = {}) {
   const {
     transportMatrix,
     baseTransportPerUnit = 0,
-    costPerKm = 0, // 👈 NEW: PLN per km
+    costPerKm = 0, // PLN per km
   } = opts;
 
   const buyPrice = Number(b.price) || 0;
@@ -255,7 +276,7 @@ function computeProfitParts(b, s, opts = {}) {
   // Base + matrix + block transport (per ton)
   let transportCost = matrixCost + baseTransportPerUnit + sellBlockTransport;
 
-  // 🔹 NEW: distance-based cost / t
+  // distance-based cost / t (this is what you already had)
   let distanceKm = null;
   if (costPerKm > 0) {
     distanceKm = geoDistanceKm(
@@ -268,9 +289,9 @@ function computeProfitParts(b, s, opts = {}) {
     if (Number.isFinite(distanceKm)) {
       const bQty = Number(b.quantity) || 0;
       const sQty = Number(s.quantity) || 0;
-      const qty = Math.min(bQty, sQty) || 1; // potential matched qty
+      const qty = Math.min(bQty, sQty) || 1;
 
-      const totalDistanceCost = distanceKm * costPerKm; // PLN
+      const totalDistanceCost = distanceKm * costPerKm; // PLN total
       const distanceCostPerTon = totalDistanceCost / qty; // PLN/t
 
       transportCost += distanceCostPerTon;
@@ -294,12 +315,11 @@ export default function Exchange() {
   const EX = t.exchange;
   const C = EX.columns;
 
-  // Optional: items catalog (not used for filtering now)
   const [itemsCatalog, setItemsCatalog] = useState([]);
   const [settings, setSettings] = useState({ transportCostPerKm: 0 });
 
   // BUY state
-  const [bItemKey, setBItemKey] = useState(""); // itemNo (e.g., "ITEM-00001")
+  const [bItemKey, setBItemKey] = useState("");
   const [bPage, setBPage] = useState(1);
   const [bLimit, setBLimit] = useState(8);
   const [bData, setBData] = useState({ data: [], total: 0, pages: 0, page: 1 });
@@ -316,7 +336,6 @@ export default function Exchange() {
   const [sSort, setSSort] = useState({ key: "lineNo", dir: "desc" });
   const [sFacets, setSFacets] = useState({ items: [] });
 
-  // refresh meta
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [errMsg, setErrMsg] = useState("");
@@ -339,7 +358,7 @@ export default function Exchange() {
     })();
   }, []);
 
-  // Load catalog once (optional)
+  // Duplicate catalog load (kept as in your file)
   useEffect(() => {
     (async () => {
       try {
@@ -353,7 +372,7 @@ export default function Exchange() {
     })();
   }, []);
 
-  // 🔹 NEW: load transportCostPerKm from settings
+  // Load transportCostPerKm from settings
   useEffect(() => {
     (async () => {
       try {
@@ -368,7 +387,6 @@ export default function Exchange() {
     })();
   }, []);
 
-  // ---- Fetch helpers: ONLY itemNo filter is used ----
   const buildParams = (side) => {
     const isBuy = side === "buy";
     const params = new URLSearchParams({
@@ -376,9 +394,8 @@ export default function Exchange() {
       limit: String(isBuy ? bLimit : sLimit),
     });
 
-    const itemKey = isBuy ? bItemKey : sItemKey; // this is itemNo
+    const itemKey = isBuy ? bItemKey : sItemKey;
     if (itemKey) {
-      // Send the param your backend expects. Keep both if unsure; extra params are usually ignored.
       params.set("itemNo", String(itemKey));
       params.set("query", String(itemKey));
     }
@@ -413,7 +430,7 @@ export default function Exchange() {
     const isBuy = side === "buy";
     const params = buildParams(side);
     params.set("page", "1");
-    params.set("limit", "10000"); // load BIG page for 'all rows' cache used by matcher
+    params.set("limit", "10000");
 
     const ep = isBuy ? ENDPOINT.buy : ENDPOINT.sell;
     const url = `${API}/api/${ep}?${params.toString()}`;
@@ -423,16 +440,13 @@ export default function Exchange() {
       const json = await safeJson(res, url);
       const norm = (json?.data || []).map((r) => normalizeBlockRow(r, side));
 
-      // cache ALL rows for the matcher
       if (isBuy) setBAllRows(norm);
       else setSAllRows(norm);
 
-      // totals
       const sum = sumUp(norm);
       if (isBuy) setBTotals(sum);
       else setSTotals(sum);
 
-      // facets: list of itemNo values present in current dataset
       const itemSet = new Set();
       for (const x of norm) {
         const name = String(x.item_name || "").trim();
@@ -476,13 +490,11 @@ export default function Exchange() {
     }
   };
 
-  // initial load
   useEffect(() => {
     reloadBoth();
     // eslint-disable-next-line
   }, []);
 
-  // refetch when only ITEM filter changes
   useEffect(() => {
     setBPage(1);
     reloadBuy().then(() => setLastUpdated(new Date()));
@@ -494,7 +506,6 @@ export default function Exchange() {
     // eslint-disable-next-line
   }, [sItemKey]);
 
-  // paging/limit per column (leave totals unchanged)
   useEffect(() => {
     fetchColumn("buy");
     // eslint-disable-next-line
@@ -510,14 +521,12 @@ export default function Exchange() {
 
   return (
     <div className="space-y-4">
-      {/* Error banner */}
       {errMsg ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {errMsg}
         </div>
       ) : null}
 
-      {/* Top status bar */}
       <div className="flex flex-wrap items-center justify-between text-xs text-slate-600">
         <div>
           {EX.topbar.lastUpdate}:{" "}
@@ -539,7 +548,6 @@ export default function Exchange() {
         </div>
       </div>
 
-      {/* Matches: Buy ↔ Sell (Hungarian-based) */}
       <div className="mt-4">
         <MatchesTable
           buyAllRows={bAllRows}
@@ -549,11 +557,12 @@ export default function Exchange() {
           locale={locale}
           stats={EX.stats}
           transportCostPerKm={settings.transportCostPerKm ?? 0}
+          factoringFeePercent={settings.factoringFeePercent ?? 0}
+          administrativeFee={settings.administrativeFee ?? 0}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* BUY column */}
         <Column
           title={C.buyTitle}
           side="buy"
@@ -576,7 +585,6 @@ export default function Exchange() {
           }}
         />
 
-        {/* SELL column */}
         <Column
           title={C.sellTitle}
           side="sell"
@@ -607,7 +615,7 @@ export default function Exchange() {
 function Column({
   title,
   side,
-  itemKey, // itemNo
+  itemKey,
   setItemKey,
   rows,
   page,
@@ -619,11 +627,10 @@ function Column({
   setSort,
   onRefresh,
   locale,
-  labels, // C
-  stats, // EX.stats
+  labels,
+  stats,
   facetsItems = [],
 }) {
-  // Filter by selected item (matches normalized `item_name`, which comes from itemNo)
   const filteredData = useMemo(() => {
     const arr = rows?.data || [];
     return itemKey
@@ -631,14 +638,12 @@ function Column({
       : arr;
   }, [rows, itemKey]);
 
-  // Sort after filtering
   const sortedData = useMemo(() => {
     const arr = [...filteredData];
     arr.sort(makeComparator(sort));
     return arr;
   }, [filteredData, sort]);
 
-  // Stable row tinting by lineNo
   const colorMap = useMemo(() => {
     const map = new Map();
     for (const r of sortedData) {
@@ -650,14 +655,11 @@ function Column({
     return map;
   }, [sortedData]);
 
-  // Totals for what’s visible (filtered)
   const viewTotals = useMemo(() => sumUp(filteredData), [filteredData]);
 
-  // keep table at least N rows tall (also respects current limit)
   const MIN_ROWS = 8;
   const targetRows = Math.max(limit, MIN_ROWS);
   const padCount = Math.max(0, targetRows - (sortedData?.length || 0));
-  // visible columns (vendor/customer removed): 7
   const COLS = 8;
 
   const onSort = (key) => {
@@ -671,10 +673,8 @@ function Column({
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      {/* Use viewTotals so chips reflect filtered rows */}
       <Header title={title} totals={viewTotals} locale={locale} stats={stats} />
 
-      {/* Column-specific filters: ONLY ITEM (itemNo) */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -688,7 +688,7 @@ function Column({
           <select
             value={itemKey}
             onChange={(e) => {
-              setItemKey(e.target.value); // e.g., "ITEM-00001"
+              setItemKey(e.target.value);
               setPage(1);
               onRefresh();
             }}
@@ -727,7 +727,6 @@ function Column({
         </button>
       </form>
 
-      {/* Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
@@ -745,7 +744,6 @@ function Column({
                 sort={sort}
                 onSort={onSort}
               />
-              {/* NEW: location column */}
               <SortableTh
                 label={labels.headers.location || "Location"}
                 sortKey="locationLabel"
@@ -803,7 +801,6 @@ function Column({
                     <span className="text-slate-400 ml-2">{r.documentNo}</span>
                   </Td>
 
-                  {/* NEW: location cell */}
                   <Td className="truncate">
                     <span className="font-medium">
                       {r.locationLabel || "—"}
@@ -816,7 +813,6 @@ function Column({
                     {fmtMoney(r.price, locale, "PLN")}
                   </Td>
                   <Td>
-                    {/* status badge as before */}
                     <span
                       className={`px-2 py-1 rounded text-xs font-semibold ${
                         r.status === "open"
@@ -846,7 +842,6 @@ function Column({
               </tr>
             )}
 
-            {/* padding rows – colSpan already uses COLS, so no change needed here */}
             {Array.from({ length: padCount }).map((_, i) => (
               <tr key={`pad-${i}`} className="border-t">
                 <td colSpan={COLS} className="px-4 py-3">
@@ -858,7 +853,6 @@ function Column({
         </table>
       </div>
 
-      {/* Footer / Pagination */}
       <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
         <div className="text-xs text-slate-500">
           {labels.footer.meta(rows.total || 0, rows.page || 1, rows.pages || 1)}
@@ -1007,7 +1001,7 @@ function paletteColorForKey(key) {
   const s = String(key ?? "__none__");
   let h = 0;
   for (let i = 0; i < s.length; i++) {
-    h = (h * 31 + s.charCodeAt(i)) >>> 0; // simple stable hash
+    h = (h * 31 + s.charCodeAt(i)) >>> 0;
   }
   return palette[h % palette.length];
 }
@@ -1021,7 +1015,7 @@ function getVal(row, key) {
     case "customer_name":
       return (row.customer_name || "").toLowerCase();
     case "item_name":
-      return (row.item_name || "").toLowerCase(); // itemNo
+      return (row.item_name || "").toLowerCase();
     case "locationLabel":
       return (row.locationLabel || "").toLowerCase();
     case "type":
@@ -1030,6 +1024,7 @@ function getVal(row, key) {
       return Number(row.quantity) || 0;
     case "price":
       return Number(row.price) || 0;
+
     case "status":
       return (row.status || "").toLowerCase();
     case "created_at":
@@ -1049,7 +1044,6 @@ function hungarian(costMatrix) {
   const nCols = costMatrix[0].length;
   const n = Math.max(nRows, nCols);
 
-  // Make matrix square with padding
   let maxCost = 0;
   for (let i = 0; i < nRows; i++) {
     for (let j = 0; j < nCols; j++) {
@@ -1113,7 +1107,6 @@ function hungarian(costMatrix) {
     } while (j0);
   }
 
-  // Build assignment for original matrix
   const assignment = Array(nRows).fill(-1);
   for (let j = 1; j <= n; j++) {
     const i = p[j];
@@ -1124,24 +1117,29 @@ function hungarian(costMatrix) {
   return assignment;
 }
 
+function daysUntil(dateLike) {
+  if (!dateLike) return 0;
+  const due = new Date(dateLike);
+  if (Number.isNaN(due.getTime())) return 0;
+  const ms = due.getTime() - Date.now();
+  return ms > 0 ? Math.ceil(ms / 86400000) : 0; // clamp at 0
+}
+
 /**
  * Hungarian-based global matcher.
- * - Runs per item_name group (so items are not mixed).
- * - Builds profit matrix from all buy/sell blocks for that item.
- * - Converts to cost matrix (maxProfit - profit) for Hungarian.
- * - Keeps only matches with positive profit and positive quantity.
  */
 function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
   const {
     itemKey = "",
     transportMatrix,
     baseTransportPerUnit = 0,
-    costPerKm = 0, // NEW
+    costPerKm = 0,
+    factoringFeePercent = 0,
+    administrativeFee = 0, // ✅ NEW
   } = options;
 
   const debugExclusions = [];
 
-  // 1) Filter: only rows for selected item (if any)
   const buysAll = (buyRows || []).filter((b) =>
     itemKey ? String(b.item_name) === String(itemKey) : true
   );
@@ -1166,7 +1164,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
     return [];
   }
 
-  // 2) Group by item_name, so we never match different items together
   const groupedBuys = new Map();
   for (const b of buysAll) {
     const key = String(b.item_name || "—");
@@ -1183,7 +1180,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
 
   const matches = [];
 
-  // 3) Run Hungarian per item_name group
   for (const [itemName, itemBuys] of groupedBuys.entries()) {
     const itemSells = groupedSells.get(itemName) || [];
     if (!itemSells.length) {
@@ -1198,17 +1194,8 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
 
     const m = itemBuys.length;
     const n = itemSells.length;
-    if (!m || !n) {
-      debugExclusions.push({
-        reason: "empty_group_after_grouping",
-        itemName,
-        buyCount: m,
-        sellCount: n,
-      });
-      continue;
-    }
+    if (!m || !n) continue;
 
-    // 3a) BUILD PROFIT MATRIX (per ton)
     const profitMatrix = Array.from({ length: m }, () => Array(n).fill(0));
     let maxProfit = -Infinity;
 
@@ -1224,7 +1211,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
       }
     }
 
-    // If all pairs are loss-making, skip this item
     if (!Number.isFinite(maxProfit) || maxProfit < 0) {
       debugExclusions.push({
         reason: "all_pairs_loss_making_for_item",
@@ -1234,8 +1220,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
       continue;
     }
 
-    // 3b) CONVERT TO COST MATRIX (Hungarian minimizes cost)
-    // cost = maxProfit - max(profit, 0)
     const costMatrix = Array.from({ length: m }, (_, i) =>
       Array.from({ length: n }, (_, j) => {
         const p = profitMatrix[i][j];
@@ -1244,53 +1228,21 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
       })
     );
 
-    // 3c) RUN HUNGARIAN
     const assignment = hungarian(costMatrix);
 
-    // 3d) BUILD MATCH OBJECTS
     for (let i = 0; i < m; i++) {
       const j = assignment[i];
       const b = itemBuys[i];
       const s = j != null && j >= 0 && j < n ? itemSells[j] : null;
-
-      if (j == null || j < 0 || j >= n || !s) {
-        debugExclusions.push({
-          reason: "no_assignment_for_buy",
-          itemName,
-          buy_lineNo: b?.lineNo ?? null,
-          buy_documentNo: b?.documentNo ?? null,
-        });
-        continue;
-      }
+      if (!s) continue;
 
       const unitProfit = profitMatrix[i][j];
-      if (unitProfit < 0) {
-        debugExclusions.push({
-          reason: "negative_unit_profit",
-          itemName,
-          buy_lineNo: b.lineNo,
-          sell_lineNo: s.lineNo,
-          buy_documentNo: b.documentNo,
-          sell_documentNo: s.documentNo,
-          unitProfit,
-        });
-        continue;
-      }
+      if (unitProfit < 0) continue;
 
       const bQty = Number(b.quantity) || 0;
       const sQty = Number(s.quantity) || 0;
       const matchedQty = Math.min(bQty, sQty);
-      if (!matchedQty) {
-        debugExclusions.push({
-          reason: "zero_matched_qty",
-          itemName,
-          buy_lineNo: b.lineNo,
-          sell_lineNo: s.lineNo,
-          buyQty: bQty,
-          sellQty: sQty,
-        });
-        continue;
-      }
+      if (!matchedQty) continue;
 
       const buyPrice = Number(b.price) || 0;
       const sellPrice = Number(s.price) || 0;
@@ -1302,8 +1254,93 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
           costPerKm,
         });
 
-      const spread = unitProfit; // profit per ton
+      // ✅ include ALL costs from BOTH locations
+      const buyLocExtra =
+        (Number(b.loadingCost) || 0) +
+        (Number(b.unloadingCost) || 0) +
+        (Number(b.loadingCostRisk) || 0) +
+        (Number(b.unloadingCostRisk) || 0);
+
+      const sellLocExtra =
+        (Number(s.loadingCost) || 0) +
+        (Number(s.unloadingCost) || 0) +
+        (Number(s.loadingCostRisk) || 0) +
+        (Number(s.unloadingCostRisk) || 0);
+
+      const additionalLocationCost = buyLocExtra + sellLocExtra;
+
+      // -------------------------
+      // ✅ FACTORING (must be computed BEFORE mainCost)
+      // -------------------------
+      const daysToDue = daysUntil(s.dueDate);
+
+      // Sales line total value (from sales block)
+      const sellLineValueTotal = Number(s.lineValue) || 0;
+
+      // Pro-rate to matched quantity
+      const sellQtyTotal = Number(s.quantity) || 0;
+      const matchedLineValue =
+        sellQtyTotal > 0 ? (sellLineValueTotal * matchedQty) / sellQtyTotal : 0;
+
+      // % from Settings
+      const feePercent = Number(factoringFeePercent) || 0;
+      const feePct = feePercent / 100;
+
+      // Final PLN
+      const factoringCost = matchedLineValue * feePct * daysToDue;
+
+      // ✅ matched sales value (already computed earlier)
+      const salesMatchedValue = matchedLineValue;
+
+      // ✅ matched purchase value
+      const buyLineValueTotal = Number(b.lineValue) || 0;
+      const buyQtyTotal = Number(b.quantity) || 0;
+      const buyMatchedValue =
+        buyQtyTotal > 0 ? (buyLineValueTotal * matchedQty) / buyQtyTotal : 0;
+      const adminFee = Number(administrativeFee) || 0;
+      const distanceTransportCost = Number.isFinite(distanceKm)
+        ? (Number(distanceKm) || 0) * (Number(costPerKm) || 0)
+        : 0;
+      const mainCost =
+        (Number(additionalLocationCost) || 0) +
+        adminFee +
+        (Number(factoringCost) || 0) +
+        (Number(distanceTransportCost) || 0); // ✅ add transport
+
+      // ✅ commission base (PLN) = matched sales value - matched buy value - main cost
+      const commissionBase =
+        (Number(salesMatchedValue) || 0) -
+        (Number(buyMatchedValue) || 0) -
+        (Number(mainCost) || 0);
+
+      // ✅ sales commission % comes from sales row (enriched from backend)
+      const salesCommissionPercent = Number(s.userCommissionPercent ?? 0) || 0;
+      const salesCommission = commissionBase * (salesCommissionPercent / 100);
+
+      // ✅ purchase commission % comes from buy row (enriched from backend)
+      const purchaseCommissionPercent =
+        Number(b.userCommissionPercent ?? 0) || 0;
+      const purchaseCommission =
+        commissionBase * (purchaseCommissionPercent / 100);
+
+      const totalCost =
+        (Number(mainCost) || 0) +
+        (Number(salesCommission) || 0) +
+        (Number(purchaseCommission) || 0);
+
+      // -------------------------
+      // ✅ MAIN COST (now factoringCost exists)
+      // -------------------------
+
+      // -------------------------
+      const costPerTon = matchedQty ? (Number(totalCost) || 0) / matchedQty : 0;
+
+      const spread =
+        (Number(sellPrice) || 0) - (Number(buyPrice) || 0) - costPerTon;
+
+      // Spread × Qty (PLN) = total profit after all costs
       const spreadNotional = matchedQty * spread;
+      // (same as: (sellPrice - buyPrice) * matchedQty - totalCost)
 
       matches.push({
         item_name: itemName,
@@ -1318,6 +1355,42 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
         fromRegion,
         toRegion,
         distanceKm,
+
+        // ✅ separate column value
+        additionalLocationCost,
+        distanceTransportCost,
+
+        // ✅ breakdown for tooltip
+        additionalLocationCostDetails: {
+          buy: {
+            loadingCost: Number(b.loadingCost) || 0,
+            unloadingCost: Number(b.unloadingCost) || 0,
+            loadingCostRisk: Number(b.loadingCostRisk) || 0,
+            unloadingCostRisk: Number(b.unloadingCostRisk) || 0,
+            total: buyLocExtra,
+          },
+          sell: {
+            loadingCost: Number(s.loadingCost) || 0,
+            unloadingCost: Number(s.unloadingCost) || 0,
+            loadingCostRisk: Number(s.loadingCostRisk) || 0,
+            unloadingCostRisk: Number(s.unloadingCostRisk) || 0,
+            total: sellLocExtra,
+          },
+          total: additionalLocationCost,
+        },
+
+        // ✅ factoring
+        factoringCost,
+        factoringFeePercentUsed: feePercent,
+        factoringDaysToDue: daysToDue,
+        factoringDueDate: s.dueDate ?? null,
+        factoringSellLineValueTotal: sellLineValueTotal,
+        factoringSellQtyTotal: sellQtyTotal,
+        factoringMatchedLineValue: matchedLineValue,
+
+        // ✅ admin + main
+        administrativeFeeUsed: adminFee,
+        mainCost,
 
         buy_lineNo: b.lineNo,
         buy_documentNo: b.documentNo,
@@ -1338,11 +1411,26 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
         buy_lon: b.locationLon ?? null,
         sell_lat: s.locationLat ?? null,
         sell_lon: s.locationLon ?? null,
+
+        salesCommission,
+        commissionPercentUsed: salesCommissionPercent,
+        commissionBase,
+        salesMatchedValue,
+        buyMatchedValue,
+        commissionUserEmail: s.userCreated ?? null,
+        commissionUserName: s.userName ?? null,
+
+        purchaseCommission,
+        purchaseCommissionPercentUsed: purchaseCommissionPercent,
+        purchaseCommissionUserEmail: b.userCreated ?? null,
+        purchaseCommissionUserName: b.userName ?? null,
+        purchaseCommissionUserEmail: b.userCreated ?? null,
+
+        totalCost,
       });
     }
   }
 
-  // 🔍 Dump all exclusions at once in console
   if (debugExclusions.length) {
     console.groupCollapsed(
       "[Exchange.match] Excluded matches (reason + context)"
@@ -1354,18 +1442,9 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
   return matches;
 }
 
-
 /* ---------- small helpers for MatchesTable ---------- */
-function fmtBlock(v) {
-  return v === 0 || v ? String(v) : "—";
-}
-
 function fmtPct(v, locale) {
   return `${fmtNum(v, locale, { maximumFractionDigits: 2 })}%`;
-}
-
-function matchKey(m) {
-  return `${m.item_name || ""}::${m.buy_lineNo || ""}::${m.sell_lineNo || ""}`;
 }
 
 /* ===================== MatchesTable ===================== */
@@ -1378,42 +1457,44 @@ function MatchesTable({
   locale,
   stats,
   transportCostPerKm,
+  factoringFeePercent,
+  administrativeFee,
 }) {
   const [sort, setSort] = useState({ key: "spread", dir: "asc" });
   const [limit, setLimit] = useState(5);
   const [page, setPage] = useState(1);
 
-  const allMatchesRaw = useMemo(
-    () =>
-      buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
-        itemKey,
-        costPerKm: transportCostPerKm, // 👈 NEW
-        // transportMatrix, baseTransportPerUnit can still go here if you use them
-      }),
-    [buyAllRows, sellAllRows, itemKey, transportCostPerKm]
-  );
+  const allMatchesRaw = useMemo(() => {
+    const res = buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
+      itemKey,
+      costPerKm: transportCostPerKm,
+      factoringFeePercent,
+      administrativeFee,
+    });
+    return Array.isArray(res) ? res : [];
+  }, [
+    buyAllRows,
+    sellAllRows,
+    itemKey,
+    transportCostPerKm,
+    factoringFeePercent,
+    administrativeFee,
+  ]);
 
   const allMatches = useMemo(() => {
-    return (allMatchesRaw || [])
+    return allMatchesRaw
       .map((m) => {
         const rowKey = `${m.item_name}|${m.buy_lineNo}|${m.sell_lineNo}`;
-
         const sell = Number(m.sell_price) || 0;
         const qty = Number(m.matchedQty) || 0;
-        const spread = Number(m.spread) || 0; // per ton, already includes distance
+        const spread = Number(m.spread) || 0;
         const spreadPct = sell ? (spread / sell) * 100 : 0;
         const spreadNotional = qty * spread;
 
-        return {
-          ...m,
-          rowKey,
-          spreadPct,
-          spreadNotional,
-        };
+        return { ...m, rowKey, spreadPct, spreadNotional };
       })
       .filter((m) => m.spread >= 0);
   }, [allMatchesRaw]);
-
 
   const sorted = useMemo(() => {
     const arr = [...allMatches];
@@ -1435,12 +1516,32 @@ function MatchesTable({
           return Number(r.spreadNotional) || 0;
         case "spreadPct":
           return Number(r.spreadPct) || 0;
+
+        // Transport (TOTAL) = km * 1kmCost (distance only)
         case "totalTransportCost":
           return Number(
             r.distanceKm && transportCostPerKm
               ? r.distanceKm * transportCostPerKm
               : 0
           );
+        case "mainCost":
+          return Number(r.mainCost ?? 0);
+
+        case "factoringCost":
+          return Number(r.factoringCost ?? 0);
+
+        // ✅ NEW separate column sorting
+        case "additionalLocationCost":
+          return Number(r.additionalLocationCost ?? 0);
+        case "salesCommission":
+          return Number(r.salesCommission ?? 0);
+
+        case "purchaseCommission":
+          return Number(r.purchaseCommission ?? 0);
+
+        case "totalCost":
+          return Number(r.totalCost ?? 0);
+
         case "transportCost":
           return Number(r.transportCost ?? 0);
         case "distanceKm":
@@ -1464,7 +1565,6 @@ function MatchesTable({
       }
     };
 
-
     arr.sort((a, b) => {
       const va = get(a, sort.key);
       const vb = get(b, sort.key);
@@ -1473,7 +1573,7 @@ function MatchesTable({
       return 0;
     });
     return arr;
-  }, [allMatches, sort]);
+  }, [allMatches, sort, transportCostPerKm]);
 
   const pages = Math.max(1, Math.ceil(sorted.length / limit));
   const curPage = Math.min(page, pages);
@@ -1529,6 +1629,9 @@ function MatchesTable({
       ? "bg-red-50 text-red-700 border border-red-200"
       : "bg-slate-100 text-slate-700 border border-slate-200";
 
+  // ✅ update col count: we added 1 new column
+  const COLS = 15;
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
       <div className="px-4 py-3 border-b bg-slate-50">
@@ -1559,50 +1662,122 @@ function MatchesTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-sm">
+      {/* ✅ horizontal scroll wrapper */}
+      <div
+        className="max-w-full overflow-x-auto overflow-y-hidden pb-2"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        {/* ✅ force table to be wider than container so it scrolls */}
+        <table className="w-max min-w-max text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <Th label={labels.headers.item} k="item_name" />
-              <Th label="Buy Location" k="buy_location" />
-              <Th label="Sell Location" k="sell_location" />
-              <Th label="Distance" k="distanceKm" className="text-right" />
-              {/* NEW: total + per-ton */}
+              <Th
+                label={labels.headers.item}
+                k="item_name"
+                className="whitespace-nowrap"
+              />
+              <Th
+                label="Buy Location"
+                k="buy_location"
+                className="whitespace-nowrap"
+              />
+              <Th
+                label="Sell Location"
+                k="sell_location"
+                className="whitespace-nowrap"
+              />
+              <Th
+                label="Distance"
+                k="distanceKm"
+                className="text-right whitespace-nowrap"
+              />
+
+              {/* Transport (distance only) */}
               <Th
                 label="Transport"
                 k="totalTransportCost"
+                className="text-right whitespace-nowrap"
+              />
+
+              {/* ✅ NEW column */}
+              <Th
+                label="Additional cost"
+                k="additionalLocationCost"
+                className="text-right whitespace-nowrap"
+              />
+
+              <Th
+                label="Koszt factoringu"
+                k="factoringCost"
+                className="text-right whitespace-nowrap"
+              />
+              <Th
+                label="Main cost"
+                k="mainCost"
+                className="text-right whitespace-nowrap"
+              />
+              <Th
+                label="Prowizja sprzedaży"
+                k="salesCommission"
+                className="text-right whitespace-nowrap"
+              />
+              <Th
+                label="Prowizja zakupu"
+                k="purchaseCommission"
                 className="text-right"
               />
+              <Th
+                label="Total cost"
+                k="totalCost"
+                className="text-right whitespace-nowrap"
+              />
+
+              {/* per ton transport cost = what Hungarian used */}
               <Th
                 label="Transport / t"
                 k="transportCost"
-                className="text-right"
+                className="text-right whitespace-nowrap"
               />
-              <Th label=" Quantity" k="matchedQty" className="text-right" />
+
+              <Th
+                label="Quantity"
+                k="matchedQty"
+                className="text-right whitespace-nowrap"
+              />
               <Th
                 label={`Buy ${labels.headers.price}`}
                 k="buy_price"
-                className="text-right"
+                className="text-right whitespace-nowrap"
               />
               <Th
                 label={`Sell ${labels.headers.price}`}
                 k="sell_price"
-                className="text-right"
+                className="text-right whitespace-nowrap"
               />
-              <Th label="Spread" k="spread" className="text-right" />
-              <Th label="Spread %" k="spreadPct" className="text-right" />
+              <Th
+                label="Spread"
+                k="spread"
+                className="text-right whitespace-nowrap"
+              />
+              <Th
+                label="Spread %"
+                k="spreadPct"
+                className="text-right whitespace-nowrap"
+              />
               <Th
                 label="Spread × Qty"
                 k="spreadNotional"
-                className="text-right"
+                className="text-right whitespace-nowrap"
               />
               <Th
                 label={`Buy ${labels.headers.lineNo || labels.headers.id}`}
                 k="buy_lineNo"
+                className="whitespace-nowrap"
               />
               <Th
                 label={`Sell ${labels.headers.lineNo || labels.headers.id}`}
                 k="sell_lineNo"
+                className="whitespace-nowrap"
               />
             </tr>
           </thead>
@@ -1611,17 +1786,19 @@ function MatchesTable({
             {pageRows.length ? (
               pageRows.map((r, i) => (
                 <tr key={`${r.rowKey}-${i}`} className="border-t">
-                  <Td className="truncate">
+                  <Td className="whitespace-nowrap">
                     <span className="font-medium">{r.item_name}</span>
                     <span className="text-slate-400 ml-2">
                       B:{r.buy_documentNo} · S:{r.sell_documentNo}
                     </span>
                   </Td>
 
-                  <Td className="truncate">{r.buy_location || "—"}</Td>
-                  <Td className="truncate">{r.sell_location || "—"}</Td>
+                  <Td className="whitespace-nowrap">{r.buy_location || "—"}</Td>
+                  <Td className="whitespace-nowrap">
+                    {r.sell_location || "—"}
+                  </Td>
 
-                  <Td className="text-right">
+                  <Td className="text-right whitespace-nowrap">
                     {Number.isFinite(r.distanceKm)
                       ? `${fmtNum(r.distanceKm, locale, {
                           maximumFractionDigits: 1,
@@ -1629,8 +1806,8 @@ function MatchesTable({
                       : "n/a"}
                   </Td>
 
-                  {/* total transport from distance only (for info) */}
-                  <Td className="text-right tabular-nums">
+                  {/* Transport = distance only */}
+                  <Td className="text-right tabular-nums whitespace-nowrap">
                     {fmtMoney(
                       Number.isFinite(r.distanceKm)
                         ? r.distanceKm * transportCostPerKm
@@ -1640,29 +1817,731 @@ function MatchesTable({
                     )}
                   </Td>
 
-                  {/* per ton transport cost = what Hungarian used */}
-                  <Td className="text-right tabular-nums">
+                  {/* ✅ NEW: Additional location cost (TOTAL PLN) */}
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      {fmtMoney(r.additionalLocationCost ?? 0, locale, "PLN")}
+
+                      <span className="relative group">
+                        <Info
+                          size={14}
+                          className="text-slate-400 hover:text-slate-700 cursor-help"
+                        />
+
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-[28rem] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="font-semibold mb-2">
+                            Additional cost – szczegóły
+                          </div>
+
+                          {(() => {
+                            const d = r.additionalLocationCostDetails || null;
+                            const buy = d?.buy || {};
+                            const sell = d?.sell || {};
+                            const buyTotal = Number(buy.total ?? 0) || 0;
+                            const sellTotal = Number(sell.total ?? 0) || 0;
+                            const total =
+                              Number(
+                                d?.total ?? r.additionalLocationCost ?? 0
+                              ) || 0;
+
+                            const Row = ({ label, value }) => (
+                              <div className="flex justify-between gap-3">
+                                <span className="text-slate-500">{label}</span>
+                                <span className="tabular-nums">
+                                  {fmtMoney(value ?? 0, locale, "PLN")}
+                                </span>
+                              </div>
+                            );
+
+                            return (
+                              <div className="space-y-2">
+                                {/* BUY */}
+                                <div className="rounded-lg border border-slate-100 p-2">
+                                  <div className="font-medium text-slate-600 mb-1">
+                                    Buy location
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Row
+                                      label="Loading cost:"
+                                      value={buy.loadingCost}
+                                    />
+                                    <Row
+                                      label="Unloading cost:"
+                                      value={buy.unloadingCost}
+                                    />
+                                    <Row
+                                      label="Loading risk:"
+                                      value={buy.loadingCostRisk}
+                                    />
+                                    <Row
+                                      label="Unloading risk:"
+                                      value={buy.unloadingCostRisk}
+                                    />
+
+                                    <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+                                      <span className="font-medium text-slate-600">
+                                        Buy total:
+                                      </span>
+                                      <span className="font-medium tabular-nums">
+                                        {fmtMoney(buyTotal, locale, "PLN")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* SELL */}
+                                <div className="rounded-lg border border-slate-100 p-2">
+                                  <div className="font-medium text-slate-600 mb-1">
+                                    Sell location
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Row
+                                      label="Loading cost:"
+                                      value={sell.loadingCost}
+                                    />
+                                    <Row
+                                      label="Unloading cost:"
+                                      value={sell.unloadingCost}
+                                    />
+                                    <Row
+                                      label="Loading risk:"
+                                      value={sell.loadingCostRisk}
+                                    />
+                                    <Row
+                                      label="Unloading risk:"
+                                      value={sell.unloadingCostRisk}
+                                    />
+
+                                    <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+                                      <span className="font-medium text-slate-600">
+                                        Sell total:
+                                      </span>
+                                      <span className="font-medium tabular-nums">
+                                        {fmtMoney(sellTotal, locale, "PLN")}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* TOTAL */}
+                                <div className="mt-1 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                                  <span className="font-semibold">
+                                    Additional cost (total)
+                                  </span>
+                                  <span className="font-semibold tabular-nums">
+                                    {fmtMoney(total, locale, "PLN")}
+                                  </span>
+                                </div>
+
+                        <div className="font-mono space-y-1">
+  <div>buy + sell</div>
+  <div>(load + unload + riskLoad + riskUnload)</div>
+</div>
+
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </span>
+                    </span>
+                  </Td>
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      {fmtMoney(r.factoringCost ?? 0, locale, "PLN")}
+
+                      <span className="relative group">
+                        <Info
+                          size={14}
+                          className="text-slate-400 hover:text-slate-700 cursor-help"
+                        />
+
+                        {/* Tooltip */}
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="font-semibold mb-2">
+                            Koszt factoringu – szczegóły
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Wartość linii (sell):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.factoringSellLineValueTotal ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Ilość (sell):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtNum(r.factoringSellQtyTotal ?? 0, locale)}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Ilość (matched):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtNum(r.matchedQty ?? 0, locale)}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Wartość (matched):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.factoringMatchedLineValue ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Opłata factoringowa:
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtNum(
+                                  r.factoringFeePercentUsed ?? 0,
+                                  locale,
+                                  {
+                                    maximumFractionDigits: 4,
+                                  }
+                                )}
+                                %
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Dni do terminu:
+                              </span>
+                              <span className="tabular-nums">
+                                {r.factoringDaysToDue ?? 0}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">Due date:</span>
+                              <span className="tabular-nums">
+                                {r.factoringDueDate
+                                  ? new Date(
+                                      r.factoringDueDate
+                                    ).toLocaleDateString(locale)
+                                  : "—"}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                              <div className="font-medium mb-1">Wzór:</div>
+                              <div className="font-mono">
+                                matchedValue × (fee% / 100) × days
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                  </Td>
+
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      <span className="font-semibold text-orange-600">
+                        {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
+                      </span>
+
+                      <span className="relative group">
+                        <Info
+                          size={14}
+                          className="text-slate-400 hover:text-slate-700 cursor-help"
+                        />
+
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="font-semibold mb-2">
+                            Main cost – details
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Additional location cost:
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.additionalLocationCost ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Opłata administracyjna:
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.administrativeFeeUsed ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Koszt factoringu:
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(r.factoringCost ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Transport (km × stawka):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.distanceTransportCost ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                              <span className="font-semibold">Total</span>
+                              <span className="font-semibold text-orange-600 tabular-nums">
+                                {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                              <div className="font-medium mb-1">Wzór:</div>
+                              <div className="font-mono">
+                                additional + adminFee + factoring + transport
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                  </Td>
+
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      {fmtMoney(r.salesCommission ?? 0, locale, "PLN")}
+
+                      <span className="relative group">
+                        <Info
+                          size={14}
+                          className="text-slate-400 hover:text-slate-700 cursor-help"
+                        />
+
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="font-semibold mb-2">
+                            Prowizja sprzedaży – szczegóły
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Wartość sprzedaży (matched):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.salesMatchedValue ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Wartość zakupu (matched):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.buyMatchedValue ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">Main cost:</span>
+                              <span className="tabular-nums">
+                                {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+                              <span className="font-medium text-slate-600">
+                                Podstawa prowizji:
+                              </span>
+                              <span className="font-medium tabular-nums">
+                                {fmtMoney(r.commissionBase ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Prowizja % (User):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtNum(r.commissionPercentUsed ?? 0, locale, {
+                                  maximumFractionDigits: 4,
+                                })}
+                                %
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                User (sales):
+                              </span>
+                              <span className="tabular-nums">
+                                {r.commissionUserName
+                                  ? `${r.commissionUserName} · `
+                                  : ""}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                              <span className="font-semibold">
+                                Prowizja (PLN)
+                              </span>
+                              <span className="font-semibold tabular-nums">
+                                {fmtMoney(
+                                  r.salesCommission ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                              <div className="font-medium mb-1">Wzór:</div>
+                              <div className="font-mono">
+                                (sprzedaż − zakup − mainCost) × (prow% / 100)
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                  </Td>
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      {fmtMoney(r.purchaseCommission ?? 0, locale, "PLN")}
+
+                      <span className="relative group">
+                        <Info
+                          size={14}
+                          className="text-slate-400 hover:text-slate-700 cursor-help"
+                        />
+
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="font-semibold mb-2">
+                            Prowizja zakupu – szczegóły
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Wartość sprzedaży (matched):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.salesMatchedValue ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Wartość zakupu (matched):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.buyMatchedValue ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">Main cost:</span>
+                              <span className="tabular-nums">
+                                {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+                              <span className="font-medium text-slate-600">
+                                Podstawa prowizji:
+                              </span>
+                              <span className="font-medium tabular-nums">
+                                {fmtMoney(r.commissionBase ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Prowizja % (buy):
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtNum(
+                                  r.purchaseCommissionPercentUsed ?? 0,
+                                  locale,
+                                  { maximumFractionDigits: 4 }
+                                )}
+                                %
+                              </span>
+                            </div>
+
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                User (buy):
+                              </span>
+                              <span className="tabular-nums">
+                                {r.purchaseCommissionUserName
+                                  ? `${r.purchaseCommissionUserName} · `
+                                  : ""}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                              <span className="font-semibold">
+                                Prowizja (PLN)
+                              </span>
+                              <span className="font-semibold tabular-nums">
+                                {fmtMoney(
+                                  r.purchaseCommission ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                              <div className="font-medium mb-1">Wzór:</div>
+                              <div className="font-mono">
+                                (sprzedaż − zakup − mainCost) × (prow% / 100)
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                  </Td>
+
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    <span className="inline-flex items-center justify-end gap-2">
+                      <span className="font-semibold text-red-600">
+                        {fmtMoney(r.totalCost ?? 0, locale, "PLN")}
+                      </span>
+
+                      <span className="relative group">
+                        <Info
+                          size={14}
+                          className="text-slate-400 hover:text-slate-700 cursor-help"
+                        />
+
+                        <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="font-semibold mb-2">
+                            Total cost – szczegóły
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">Main cost:</span>
+                              <span className="tabular-nums">
+                                {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Prowizja sprzedaży:
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.salesCommission ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+                            <div className="flex justify-between gap-3">
+                              <span className="text-slate-500">
+                                Prowizja zakupu:
+                              </span>
+                              <span className="tabular-nums">
+                                {fmtMoney(
+                                  r.purchaseCommission ?? 0,
+                                  locale,
+                                  "PLN"
+                                )}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                              <span className="font-semibold">Total</span>
+                              <span className="font-semibold text-red-600 tabular-nums">
+                                {fmtMoney(r.totalCost ?? 0, locale, "PLN")}
+                              </span>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                              <div className="font-medium mb-1">Wzór:</div>
+                              <div className="font-mono">
+                                mainCost + prowizjaSprzedazy + prowizjaZakupu
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </span>
+                    </span>
+                  </Td>
+
+                  {/* per ton transport cost */}
+                  <Td className="text-right tabular-nums whitespace-nowrap">
                     {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
                   </Td>
 
-                  <Td className="text-right">{fmtNum(r.matchedQty, locale)}</Td>
-                  <Td className="text-right tabular-nums">
+                  <Td className="text-right whitespace-nowrap">
+                    {fmtNum(r.matchedQty, locale)}
+                  </Td>
+                  <Td className="text-right tabular-nums whitespace-nowrap">
                     {fmtMoney(r.buy_price, locale, "PLN")}
                   </Td>
-                  <Td className="text-right tabular-nums">
+                  <Td className="text-right tabular-nums whitespace-nowrap">
                     {fmtMoney(r.sell_price, locale, "PLN")}
                   </Td>
 
-                  <Td className="text-right">
-                    <span
-                      className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
-                        r.spread
-                      )}`}
-                    >
-                      {fmtMoney(r.spread, locale, "PLN")}
-                    </span>
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    {(() => {
+                      const qty = Number(r.matchedQty) || 0;
+                      const sell = Number(r.sell_price) || 0;
+                      const buy = Number(r.buy_price) || 0;
+                      const totalCost = Number(r.totalCost) || 0;
+
+                      const costPerTon = qty ? totalCost / qty : 0;
+                      const spread = Number(r.spread) || 0;
+
+                      return (
+                        <span className="inline-flex items-center justify-end gap-2">
+                          <span
+                            className={`px-2 py-1 rounded-lg text-xs ${spreadClass(
+                              spread
+                            )}`}
+                          >
+                            {fmtMoney(spread, locale, "PLN")}
+                          </span>
+
+                          <span className="relative group">
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+
+                            <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                              <div className="font-semibold mb-2">
+                                Spread – kalkulacja
+                              </div>
+
+                              <div className="space-y-1">
+                                <div className="flex justify-between gap-3">
+                                  <span className="text-slate-500">
+                                    Sell price (PLN/t):
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {fmtMoney(sell, locale, "PLN")}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between gap-3">
+                                  <span className="text-slate-500">
+                                    Buy price (PLN/t):
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {fmtMoney(buy, locale, "PLN")}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between gap-3">
+                                  <span className="text-slate-500">
+                                    Matched qty:
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {fmtNum(qty, locale)}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between gap-3">
+                                  <span className="text-slate-500">
+                                    Total cost (PLN):
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {fmtMoney(totalCost, locale, "PLN")}
+                                  </span>
+                                </div>
+
+                                <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+                                  <span className="font-medium text-slate-600">
+                                    Cost / t:
+                                  </span>
+                                  <span className="font-medium tabular-nums">
+                                    {fmtMoney(costPerTon, locale, "PLN")}
+                                  </span>
+                                </div>
+
+                                <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                                  <span className="font-semibold">
+                                    Spread (PLN/t)
+                                  </span>
+                                  <span className="font-semibold tabular-nums">
+                                    {fmtMoney(spread, locale, "PLN")}
+                                  </span>
+                                </div>
+
+                                <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                                  <div className="font-medium mb-1">Wzór:</div>
+                                  <div className="font-mono">
+                                    sell − buy − (totalCost / qty)
+                                  </div>
+                                  <div className="font-mono mt-1">
+                                    {fmtMoney(sell, locale, "PLN")} −{" "}
+                                    {fmtMoney(buy, locale, "PLN")} − (
+                                    {fmtMoney(totalCost, locale, "PLN")} /{" "}
+                                    {fmtNum(qty, locale)})
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </span>
+                        </span>
+                      );
+                    })()}
                   </Td>
-                  <Td className="text-right">
+
+                  <Td className="text-right whitespace-nowrap">
                     <span
                       className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
                         r.spread
@@ -1671,7 +2550,8 @@ function MatchesTable({
                       {fmtPct(r.spreadPct, locale)}
                     </span>
                   </Td>
-                  <Td className="text-right">
+
+                  <Td className="text-right whitespace-nowrap">
                     <span
                       className={`inline-block px-2 py-1 rounded text-xs font-semibold tabular-nums ${spreadClass(
                         r.spread
@@ -1680,13 +2560,18 @@ function MatchesTable({
                       {fmtMoney(r.spreadNotional, locale, "PLN")}
                     </span>
                   </Td>
-                  <Td className="font-mono">{r.buy_lineNo}</Td>
-                  <Td className="font-mono">{r.sell_lineNo}</Td>
+
+                  <Td className="font-mono whitespace-nowrap">
+                    {r.buy_lineNo}
+                  </Td>
+                  <Td className="font-mono whitespace-nowrap">
+                    {r.sell_lineNo}
+                  </Td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={13} className="p-6 text-center text-slate-500">
+                <td colSpan={COLS} className="p-6 text-center text-slate-500">
                   No matches for current data/filters.
                 </td>
               </tr>

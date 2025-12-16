@@ -84,12 +84,21 @@ export default function Locations() {
       phoneNo: P?.details?.phoneNo || "Phone",
       minQty: P?.details?.minQty || "Min Qty",
       maxQty: P?.details?.maxQty || "Max Qty",
-      // NEW cost labels (with fallbacks)
+
+      // Costs
       additionalCost: P?.details?.additionalCost || "Additional cost",
       loadingCost: P?.details?.loadingCost || "Loading cost",
       unloadingCost: P?.details?.unloadingCost || "Unloading cost",
+
+      // ✅ NEW: Risk costs (PLN)
+      loadingCostRisk:
+        P?.details?.loadingCostRisk || "Ryzyko kosztu załadunku",
+      unloadingCostRisk:
+        P?.details?.unloadingCostRisk || "Ryzyko kosztu rozładunku",
+
       latitude: P?.details?.latitude || "Latitude",
-  longitude: P?.details?.longitude || "Longitude",
+      longitude: P?.details?.longitude || "Longitude",
+
       active: P?.details?.active || "Active",
       created: P?.details?.created || "Created",
       updated: P?.details?.updated || "Updated",
@@ -115,10 +124,22 @@ export default function Locations() {
         phoneNo: P?.modal?.fields?.phoneNo || "Phone No.",
         minQty: P?.modal?.fields?.minQty || "Min Qty (int)",
         maxQty: P?.modal?.fields?.maxQty || "Max Qty (int)",
-        // NEW cost fields (with fallbacks)
-        additionalCost: P?.modal?.fields?.additionalCost || "Additional Cost",
+
+        // Costs
+        additionalCost:
+          P?.modal?.fields?.additionalCost || "Additional Cost",
         loadingCost: P?.modal?.fields?.loadingCost || "Loading Cost",
-        unloadingCost: P?.modal?.fields?.unloadingCost || "Unloading Cost",
+        unloadingCost:
+          P?.modal?.fields?.unloadingCost || "Unloading Cost",
+
+        // ✅ NEW: Risk costs (PLN)
+        loadingCostRisk:
+          P?.modal?.fields?.loadingCostRisk ||
+          "Ryzyko kosztu załadunku",
+        unloadingCostRisk:
+          P?.modal?.fields?.unloadingCostRisk ||
+          "Ryzyko kosztu rozładunku",
+
         active: P?.modal?.fields?.active || "Active",
       },
       required: P?.modal?.required || "Please fill required fields.",
@@ -238,7 +259,8 @@ export default function Locations() {
       return (v ?? "").toString().toLowerCase();
     };
     arr.sort((a, b) => {
-      const av = get(a), bv = get(b);
+      const av = get(a),
+        bv = get(b);
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
       return 0;
@@ -277,84 +299,83 @@ export default function Locations() {
     }
   };
 
+  const geocodeLocation = async (loc) => {
+    const id = loc.id || loc._id;
 
-const geocodeLocation = async (loc) => {
-  const id = loc.id || loc._id;
-
-  if (!id) {
-    console.warn("[Geocode] Location has no ID:", loc);
-    return;
-  }
-
-  console.log("[Geocode] Starting geocode for location:", {
-    id,
-    no: loc.no,
-    name: loc.name,
-    address: loc.address,
-    postCode: loc.postCode,
-    city: loc.city,
-    region: loc.region,
-    country: loc.country,
-  });
-
-  setGeoLoadingId(id);
-
-  try {
-    const url = `${API}/api/mlocations/${id}/geocode`;
-    console.log("[Geocode] Fetching:", url);
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    console.log("[Geocode] Response status:", res.status);
-
-    // Read raw text for debugging, then try to parse JSON
-    const raw = await res.text();
-    console.log("[Geocode] Raw response body:", raw);
-
-    let json = {};
-    try {
-      json = raw ? JSON.parse(raw) : {};
-    } catch (e) {
-      console.error("[Geocode] Failed to parse JSON:", e);
-    }
-
-    if (!res.ok) {
-      console.error("[Geocode] Backend returned error:", json);
-      showNotice("error", json.message || L.alerts.requestFail);
+    if (!id) {
+      console.warn("[Geocode] Location has no ID:", loc);
       return;
     }
 
-    console.log("[Geocode] Parsed JSON:", json);
-
-    const updated = json.location || json;
-    console.log("[Geocode] Updated location from server:", updated);
-
-    // Update the relevant row in state
-    setData((prev) => {
-      console.log("[Geocode] Previous data state:", prev);
-      const next = {
-        ...prev,
-        data: prev.data.map((d) => {
-          const key = d.id || d._id;
-          return key === (updated.id || updated._id) ? { ...d, ...updated } : d;
-        }),
-      };
-      console.log("[Geocode] Next data state:", next);
-      return next;
+    console.log("[Geocode] Starting geocode for location:", {
+      id,
+      no: loc.no,
+      name: loc.name,
+      address: loc.address,
+      postCode: loc.postCode,
+      city: loc.city,
+      region: loc.region,
+      country: loc.country,
     });
 
-    showNotice("success", json.message || "Location geocoded");
-  } catch (e) {
-    console.error("[Geocode] Network or runtime error:", e);
-    showNotice("error", L.alerts.requestFail);
-  } finally {
-    console.log("[Geocode] Done for location id:", id);
-    setGeoLoadingId(null);
-  }
-};
+    setGeoLoadingId(id);
+
+    try {
+      const url = `${API}/api/mlocations/${id}/geocode`;
+      console.log("[Geocode] Fetching:", url);
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      console.log("[Geocode] Response status:", res.status);
+
+      // Read raw text for debugging, then try to parse JSON
+      const raw = await res.text();
+      console.log("[Geocode] Raw response body:", raw);
+
+      let json = {};
+      try {
+        json = raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        console.error("[Geocode] Failed to parse JSON:", e);
+      }
+
+      if (!res.ok) {
+        console.error("[Geocode] Backend returned error:", json);
+        showNotice("error", json.message || L.alerts.requestFail);
+        return;
+      }
+
+      console.log("[Geocode] Parsed JSON:", json);
+
+      const updated = json.location || json;
+      console.log("[Geocode] Updated location from server:", updated);
+
+      // Update the relevant row in state
+      setData((prev) => {
+        console.log("[Geocode] Previous data state:", prev);
+        const next = {
+          ...prev,
+          data: prev.data.map((d) => {
+            const key = d.id || d._id;
+            return key === (updated.id || updated._id) ? { ...d, ...updated } : d;
+          }),
+        };
+        console.log("[Geocode] Next data state:", next);
+        return next;
+      });
+
+      showNotice("success", json.message || "Location geocoded");
+    } catch (e) {
+      console.error("[Geocode] Network or runtime error:", e);
+      showNotice("error", L.alerts.requestFail);
+    } finally {
+      console.log("[Geocode] Done for location id:", id);
+      setGeoLoadingId(null);
+    }
+  };
 
   // ---------- UI ----------
   return (
@@ -366,7 +387,10 @@ const geocodeLocation = async (loc) => {
       )}
 
       {/* Search & Filters */}
-      <form onSubmit={onSearch} className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm">
+      <form
+        onSubmit={onSearch}
+        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[260px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -456,12 +480,24 @@ const geocodeLocation = async (loc) => {
 
         {/* Filter chips */}
         <div className="mt-2 flex flex-wrap items-center gap-1">
-          {country && <Chip label={`${L.table.country}: ${country}`} onClear={() => setCountry("")} />}
-          {region && <Chip label={`${L.table.region}: ${region}`} onClear={() => setRegion("")} />}
+          {country && (
+            <Chip
+              label={`${L.table.country}: ${country}`}
+              onClear={() => setCountry("")}
+            />
+          )}
+          {region && (
+            <Chip
+              label={`${L.table.region}: ${region}`}
+              onClear={() => setRegion("")}
+            />
+          )}
           {active !== "" && (
             <Chip
               label={`${L.table.status}: ${
-                active === "true" ? L.controls.statuses.active : L.controls.statuses.inactive
+                active === "true"
+                  ? L.controls.statuses.active
+                  : L.controls.statuses.inactive
               }`}
               onClear={() => setActive("")}
             />
@@ -476,19 +512,41 @@ const geocodeLocation = async (loc) => {
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <Th />
-                <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>{L.table.no}</SortableTh>
-                <SortableTh id="name" {...{ sortBy, sortDir, onSort }}>{L.table.name}</SortableTh>
-                <SortableTh id="city" {...{ sortBy, sortDir, onSort }}>{L.table.city}</SortableTh>
-                <SortableTh id="region" {...{ sortBy, sortDir, onSort }}>{L.table.region}</SortableTh>
-                <SortableTh id="country" {...{ sortBy, sortDir, onSort }}>{L.table.country}</SortableTh>
-                <SortableTh id="minQty" {...{ sortBy, sortDir, onSort }} className="text-right">
+                <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.no}
+                </SortableTh>
+                <SortableTh id="name" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.name}
+                </SortableTh>
+                <SortableTh id="city" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.city}
+                </SortableTh>
+                <SortableTh id="region" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.region}
+                </SortableTh>
+                <SortableTh id="country" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.country}
+                </SortableTh>
+                <SortableTh
+                  id="minQty"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-right"
+                >
                   {L.table.minQty}
                 </SortableTh>
-                <SortableTh id="maxQty" {...{ sortBy, sortDir, onSort }} className="text-right">
+                <SortableTh
+                  id="maxQty"
+                  {...{ sortBy, sortDir, onSort }}
+                  className="text-right"
+                >
                   {L.table.maxQty}
                 </SortableTh>
-                <SortableTh id="active" {...{ sortBy, sortDir, onSort }}>{L.table.status}</SortableTh>
-                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>{L.table.created}</SortableTh>
+                <SortableTh id="active" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.status}
+                </SortableTh>
+                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
+                  {L.table.created}
+                </SortableTh>
                 <Th className="text-right">{L.table.actions}</Th>
               </tr>
             </thead>
@@ -513,11 +571,17 @@ const geocodeLocation = async (loc) => {
                       <Td className="w-8">
                         <button
                           className="p-1 rounded hover:bg-slate-100"
-                          onClick={() => setExpandedId((id) => (id === key ? null : key))}
+                          onClick={() =>
+                            setExpandedId((id) => (id === key ? null : key))
+                          }
                           aria-label={L.a11y.toggleDetails}
                           title={L.a11y.toggleDetails}
                         >
-                          {expandedId === key ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          {expandedId === key ? (
+                            <ChevronDown size={16} />
+                          ) : (
+                            <ChevronRight size={16} />
+                          )}
                         </button>
                       </Td>
                       <Td className="font-mono">{r.no}</Td>
@@ -532,8 +596,12 @@ const geocodeLocation = async (loc) => {
                       </Td>
                       <Td className="text-right">{fmtInt(r.minQty)}</Td>
                       <Td className="text-right">{fmtInt(r.maxQty)}</Td>
-                      <Td>{activeChip(r.active)}</Td>
-                      <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}</Td>
+                      <Td>{activeChip(r.active, L)}</Td>
+                      <Td>
+                        {r.createdAt
+                          ? new Date(r.createdAt).toLocaleDateString(locale)
+                          : L.table.dash}
+                      </Td>
                       <Td>
                         <div className="flex justify-end gap-2 pr-3">
                           <button
@@ -561,29 +629,62 @@ const geocodeLocation = async (loc) => {
                       <tr key={`${key}-details`}>
                         <td colSpan={11} className="bg-slate-50 border-t">
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                            <KV label={L.details.id} icon={Hash}>{key}</KV>
-                            <KV label={L.details.no} icon={Hash}>{r.no}</KV>
-                            <KV label={L.details.name} icon={Building2}>{r.name || L.table.dash}</KV>
-                            <KV label={L.details.name2} icon={Building2}>{r.name2 || L.table.dash}</KV>
-                            <KV label={L.details.address} icon={MapPin}>{r.address || L.table.dash}</KV>
-                            <KV label={L.details.address2} icon={MapPin}>{r.address2 || L.table.dash}</KV>
-                            <KV label={L.details.city} icon={MapPin}>{r.city || L.table.dash}</KV>
-                            <KV label={L.details.region} icon={MapPin}>{r.region || L.table.dash}</KV>
-                            <KV label={L.details.postCode} icon={MapPin}>{r.postCode || L.table.dash}</KV>
-                            <KV label={L.details.country} icon={Globe}>{r.country || L.table.dash}</KV>
+                            <KV label={L.details.id} icon={Hash}>
+                              {key}
+                            </KV>
+                            <KV label={L.details.no} icon={Hash}>
+                              {r.no}
+                            </KV>
+                            <KV label={L.details.name} icon={Building2}>
+                              {r.name || L.table.dash}
+                            </KV>
+                            <KV label={L.details.name2} icon={Building2}>
+                              {r.name2 || L.table.dash}
+                            </KV>
+                            <KV label={L.details.address} icon={MapPin}>
+                              {r.address || L.table.dash}
+                            </KV>
+                            <KV label={L.details.address2} icon={MapPin}>
+                              {r.address2 || L.table.dash}
+                            </KV>
+                            <KV label={L.details.city} icon={MapPin}>
+                              {r.city || L.table.dash}
+                            </KV>
+                            <KV label={L.details.region} icon={MapPin}>
+                              {r.region || L.table.dash}
+                            </KV>
+                            <KV label={L.details.postCode} icon={MapPin}>
+                              {r.postCode || L.table.dash}
+                            </KV>
+                            <KV label={L.details.country} icon={Globe}>
+                              {r.country || L.table.dash}
+                            </KV>
+
                             <KV label={L.details.latitude} icon={MapPin}>
-  {typeof r.lat === "number" ? r.lat.toFixed(6) : L.table.dash}
-</KV>
-<KV label={L.details.longitude} icon={MapPin}>
-  {typeof r.lon === "number" ? r.lon.toFixed(6) : L.table.dash}
-</KV>
+                              {typeof r.lat === "number"
+                                ? r.lat.toFixed(6)
+                                : L.table.dash}
+                            </KV>
+                            <KV label={L.details.longitude} icon={MapPin}>
+                              {typeof r.lon === "number"
+                                ? r.lon.toFixed(6)
+                                : L.table.dash}
+                            </KV>
 
-                            <KV label={L.details.email} icon={Mail}>{r.email || L.table.dash}</KV>
-                            <KV label={L.details.phoneNo} icon={Phone}>{r.phoneNo || L.table.dash}</KV>
-                            <KV label={L.details.minQty} icon={ArrowDown01}>{fmtInt(r.minQty)}</KV>
-                            <KV label={L.details.maxQty} icon={ArrowUp01}>{fmtInt(r.maxQty)}</KV>
+                            <KV label={L.details.email} icon={Mail}>
+                              {r.email || L.table.dash}
+                            </KV>
+                            <KV label={L.details.phoneNo} icon={Phone}>
+                              {r.phoneNo || L.table.dash}
+                            </KV>
+                            <KV label={L.details.minQty} icon={ArrowDown01}>
+                              {fmtInt(r.minQty)}
+                            </KV>
+                            <KV label={L.details.maxQty} icon={ArrowUp01}>
+                              {fmtInt(r.maxQty)}
+                            </KV>
 
-                            {/* NEW: costs */}
+                            {/* costs */}
                             <KV label={L.details.additionalCost} icon={AlignLeft}>
                               {fmtDec(r.additionalCost)}
                             </KV>
@@ -594,46 +695,61 @@ const geocodeLocation = async (loc) => {
                               {fmtDec(r.unloadingCost)}
                             </KV>
 
-                         <KV label={L.details.active} icon={ToggleRight}>{activeChip(r.active)}</KV>
-<KV label={L.details.created} icon={Calendar}>
-  {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
-</KV>
-<KV label={L.details.updated} icon={Calendar}>
-  {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
-</KV>
+                            {/* ✅ NEW risk costs */}
+                            <KV label={L.details.loadingCostRisk} icon={AlignLeft}>
+                              {fmtDec(r.loadingCostRisk)}
+                            </KV>
+                            <KV
+                              label={L.details.unloadingCostRisk}
+                              icon={AlignLeft}
+                            >
+                              {fmtDec(r.unloadingCostRisk)}
+                            </KV>
 
-{/* NEW: geocode action row */}
-<div className="md:col-span-3 flex items-center justify-between gap-2">
-  <span className="text-xs text-slate-500">
-    Use Azure Maps to geocode this address and save coordinates.
-  </span>
-<button
-  type="button"
-  onClick={() => {
-    console.log("[Geocode] Button clicked for key:", key);
-    geocodeLocation(r);
-  }}
-  disabled={geoLoadingId === key}
-  className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
->
-  {geoLoadingId === key ? (
-    <span>Geocoding…</span>
-  ) : (
-    <>
-      <MapPin size={14} />
-      <span>Geocode address</span>
-    </>
-  )}
-</button>
+                            <KV label={L.details.active} icon={ToggleRight}>
+                              {activeChip(r.active, L)}
+                            </KV>
+                            <KV label={L.details.created} icon={Calendar}>
+                              {r.createdAt
+                                ? new Date(r.createdAt).toLocaleString(locale)
+                                : L.table.dash}
+                            </KV>
+                            <KV label={L.details.updated} icon={Calendar}>
+                              {r.updatedAt
+                                ? new Date(r.updatedAt).toLocaleString(locale)
+                                : L.table.dash}
+                            </KV>
 
-</div>
+                            {/* geocode action row */}
+                            <div className="md:col-span-3 flex items-center justify-between gap-2">
+                              <span className="text-xs text-slate-500">
+                                Use Azure Maps to geocode this address and save coordinates.
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  console.log("[Geocode] Button clicked for key:", key);
+                                  geocodeLocation(r);
+                                }}
+                                disabled={geoLoadingId === key}
+                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
+                              >
+                                {geoLoadingId === key ? (
+                                  <span>Geocoding…</span>
+                                ) : (
+                                  <>
+                                    <MapPin size={14} />
+                                    <span>Geocode address</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
 
-<div className="md:col-span-3">
-  <KV label={L.details.description} icon={AlignLeft}>
-    {r.description || L.table.dash}
-  </KV>
-</div>
-
+                            <div className="md:col-span-3">
+                              <KV label={L.details.description} icon={AlignLeft}>
+                                {r.description || L.table.dash}
+                              </KV>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -648,7 +764,9 @@ const geocodeLocation = async (loc) => {
 
         {/* Footer / Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
-          <div className="text-xs text-slate-500">{L.footer.meta(data.total, data.page, data.pages)}</div>
+          <div className="text-xs text-slate-500">
+            {L.footer.meta(data.total, data.page, data.pages)}
+          </div>
           <div className="flex items-center gap-2">
             <select
               className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
@@ -747,7 +865,13 @@ function Chip({ label, onClear, clearTitle = "Clear" }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">
       {label}
-      <button type="button" onClick={onClear} className="rounded-full p-0.5 hover:bg-white" title={clearTitle} aria-label={clearTitle}>
+      <button
+        type="button"
+        onClick={onClear}
+        className="rounded-full p-0.5 hover:bg-white"
+        title={clearTitle}
+        aria-label={clearTitle}
+      >
         <X size={12} className="text-slate-500" />
       </button>
     </span>
@@ -757,12 +881,16 @@ function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
   const wrap =
-    isSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800";
+    isSuccess
+      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+      : "bg-red-50 border-red-200 text-red-800";
   return (
     <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
-      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">✕</button>
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
+        ✕
+      </button>
     </div>
   );
 }
@@ -780,18 +908,19 @@ function Modal({ children, onClose, title = "Location", fullscreen = false, back
 
   // backdrop: "dim" | "transparent" | "blur" | "none"
   let backdropNode = null;
-  if (backdrop === "dim") backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
-  else if (backdrop === "transparent") backdropNode = <div className="absolute inset-0" onClick={onClose} />;
-  else if (backdrop === "blur") backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+  if (backdrop === "dim")
+    backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+  else if (backdrop === "transparent")
+    backdropNode = <div className="absolute inset-0" onClick={onClose} />;
+  else if (backdrop === "blur")
+    backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
     isFull ? "w-screen h-screen max-w-none rounded-none" : "w-full max-w-4xl rounded-2xl",
   ].join(" ");
 
-  const bodyCls = isFull
-    ? "p-4 h-[calc(100vh-52px)] overflow-auto"
-    : "p-4 max-h-[75vh] overflow-auto";
+  const bodyCls = isFull ? "p-4 h-[calc(100vh-52px)] overflow-auto" : "p-4 max-h-[75vh] overflow-auto";
 
   return (
     <div
@@ -816,7 +945,12 @@ function Modal({ children, onClose, title = "Location", fullscreen = false, back
             >
               {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
-            <button onClick={onClose} className="p-2 rounded hover:bg-slate-100" title="Close" aria-label="Close">
+            <button
+              onClick={onClose}
+              className="p-2 rounded hover:bg-slate-100"
+              title="Close"
+              aria-label="Close"
+            >
               <X size={18} />
             </button>
           </div>
@@ -827,15 +961,17 @@ function Modal({ children, onClose, title = "Location", fullscreen = false, back
   );
 }
 
-
 /* ---------- Helpers ---------- */
 function activeChip(on, L) {
-  const txt = on ? (L?.controls?.statuses?.active || "Active") : (L?.controls?.statuses?.inactive || "Inactive");
+  const txt = on
+    ? L?.controls?.statuses?.active || "Active"
+    : L?.controls?.statuses?.inactive || "Inactive";
   return (
     <span
       className={`px-2 py-1 rounded text-xs font-semibold ${
-        on ? "bg-green-50 text-green-700 border border-green-200"
-           : "bg-slate-100 text-slate-700 border border-slate-200"
+        on
+          ? "bg-green-50 text-green-700 border border-green-200"
+          : "bg-slate-100 text-slate-700 border border-slate-200"
       }`}
     >
       {String(txt).toUpperCase()}
@@ -846,11 +982,13 @@ function fmtInt(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n.toLocaleString() : "0";
 }
-// NEW: decimal formatter with 2 fraction digits
 function fmtDec(v) {
   const n = Number(v ?? 0);
   if (!Number.isFinite(n)) return "0.00";
-  return new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  return new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
 /* ---------- Form ---------- */
@@ -871,16 +1009,14 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
   const [maxQty, setMaxQty] = useState(initial?.maxQty ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
 
-  // NEW: costs
-  const [additionalCost, setAdditionalCost] = useState(
-    initial?.additionalCost ?? ""
-  );
-  const [loadingCost, setLoadingCost] = useState(
-    initial?.loadingCost ?? ""
-  );
-  const [unloadingCost, setUnloadingCost] = useState(
-    initial?.unloadingCost ?? ""
-  );
+  // costs
+  const [additionalCost, setAdditionalCost] = useState(initial?.additionalCost ?? "");
+  const [loadingCost, setLoadingCost] = useState(initial?.loadingCost ?? "");
+  const [unloadingCost, setUnloadingCost] = useState(initial?.unloadingCost ?? "");
+
+  // ✅ NEW: risk costs (PLN)
+  const [loadingCostRisk, setLoadingCostRisk] = useState(initial?.loadingCostRisk ?? "");
+  const [unloadingCostRisk, setUnloadingCostRisk] = useState(initial?.unloadingCostRisk ?? "");
 
   const submit = (e) => {
     e.preventDefault();
@@ -902,10 +1038,15 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
       phoneNo: phoneNo.trim(),
       minQty: minQty === "" ? null : Number(minQty),
       maxQty: maxQty === "" ? null : Number(maxQty),
-      // NEW: costs -> numbers or null when empty
+
       additionalCost: additionalCost === "" ? null : Number(additionalCost),
       loadingCost: loadingCost === "" ? null : Number(loadingCost),
       unloadingCost: unloadingCost === "" ? null : Number(unloadingCost),
+
+      // ✅ NEW
+      loadingCostRisk: loadingCostRisk === "" ? null : Number(loadingCostRisk),
+      unloadingCostRisk: unloadingCostRisk === "" ? null : Number(unloadingCostRisk),
+
       active: Boolean(active),
     };
     onSubmit(payload);
@@ -921,6 +1062,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             onChange={(e) => setNo(e.target.value)}
           />
         </Field>
+
         <Field label={L.modal.fields.country} icon={Globe}>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -936,6 +1078,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             onChange={(e) => setName(e.target.value)}
           />
         </Field>
+
         <Field label={L.modal.fields.name2} icon={Building2}>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -951,6 +1094,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             onChange={(e) => setAddress(e.target.value)}
           />
         </Field>
+
         <Field label={L.modal.fields.address2} icon={MapPin}>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -966,6 +1110,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             onChange={(e) => setCity(e.target.value)}
           />
         </Field>
+
         <Field label={L.modal.fields.region} icon={MapPin}>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1023,7 +1168,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
           />
         </Field>
 
-        {/* NEW: costs */}
+        {/* costs */}
         <Field label={L.modal.fields.additionalCost} icon={AlignLeft}>
           <input
             type="number"
@@ -1035,6 +1180,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             placeholder="0.00"
           />
         </Field>
+
         <Field label={L.modal.fields.loadingCost} icon={AlignLeft}>
           <input
             type="number"
@@ -1046,6 +1192,7 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             placeholder="0.00"
           />
         </Field>
+
         <Field label={L.modal.fields.unloadingCost} icon={AlignLeft}>
           <input
             type="number"
@@ -1054,6 +1201,31 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
             value={unloadingCost}
             onChange={(e) => setUnloadingCost(e.target.value)}
+            placeholder="0.00"
+          />
+        </Field>
+
+        {/* ✅ NEW: risk costs */}
+        <Field label={L.modal.fields.loadingCostRisk} icon={AlignLeft}>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            value={loadingCostRisk}
+            onChange={(e) => setLoadingCostRisk(e.target.value)}
+            placeholder="0.00"
+          />
+        </Field>
+
+        <Field label={L.modal.fields.unloadingCostRisk} icon={AlignLeft}>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+            value={unloadingCostRisk}
+            onChange={(e) => setUnloadingCostRisk(e.target.value)}
             placeholder="0.00"
           />
         </Field>
@@ -1078,7 +1250,10 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
         >
           {L.modal.cancel}
         </button>
-        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+        <button
+          type="submit"
+          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+        >
           {isEdit ? L.modal.save : L.modal.add}
         </button>
       </div>

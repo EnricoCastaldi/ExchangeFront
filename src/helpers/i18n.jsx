@@ -443,15 +443,25 @@ transportUnits: {
   },
 },
 
-    settings: {
-      title: "Ustawienia ogólne",
-      transportCostPerKm: "Domyślna stawka kosztu transportu za 1 km (PLN)",
-      placeholder: "np. 1.75",
-      updated: "Zapisano ustawienia.",
-      failed: "Nie udało się zapisać.",
-      loadFail: "Błąd ładowania ustawień.",
-      validation: "Wprowadź poprawną, nieujemną kwotę.",
-    },
+settings: {
+  title: "Ustawienia ogólne",
+  transportCostPerKm: "Domyślna stawka kosztu transportu za 1 km (PLN)",
+
+  // ✅ NEW
+  administrativeFee: "Opłata administracyjna (PLN)",
+  factoringFeePercent: "Opłaty factoringowej (%)",
+
+  // (optional but recommended – used by current UI)
+  placeholderKm: "np. 1.75",
+  placeholderPln: "np. 15.00",
+  placeholderPct: "np. 2.50",
+  save: "Zapisz",
+
+  updated: "Zapisano ustawienia.",
+  failed: "Nie udało się zapisać.",
+  loadFail: "Błąd ładowania ustawień.",
+  validation: "Wprowadź poprawną, nieujemną kwotę.",
+},
 
     drivers: {
   title: "Kierowcy",
@@ -3132,15 +3142,25 @@ salesOfferLines: {
   },
 },
 
-    settings: {
-      title: "General setup",
-      transportCostPerKm: "Default transport cost per 1 km (PLN)",
-      placeholder: "e.g. 1.75",
-      updated: "Settings saved.",
-      failed: "Failed to save.",
-      loadFail: "Failed to load settings.",
-      validation: "Enter a valid, non-negative amount.",
-    },
+   settings: {
+  title: "General setup",
+  transportCostPerKm: "Default transport cost per 1 km (PLN)",
+
+  // ✅ NEW
+  administrativeFee: "Administrative fee (PLN)",
+  factoringFeePercent: "Factoring fee (%)",
+
+  // (optional but recommended – used by current UI)
+  placeholderKm: "e.g. 1.75",
+  placeholderPln: "e.g. 15.00",
+  placeholderPct: "e.g. 2.50",
+  save: "Save",
+
+  updated: "Settings saved.",
+  failed: "Failed to save.",
+  loadFail: "Failed to load settings.",
+  validation: "Enter a valid, non-negative amount.",
+},
 
     purchaseOfferLines: {
   locale: "en-US",

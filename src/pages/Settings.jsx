@@ -1,6 +1,13 @@
 // src/pages/Settings.jsx
 import React, { useEffect, useState } from "react";
-import { Save, AlertTriangle, CheckCircle2, DollarSign, GaugeCircle } from "lucide-react";
+import {
+  Save,
+  AlertTriangle,
+  CheckCircle2,
+  DollarSign,
+  GaugeCircle,
+  Percent,
+} from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
 const API =
@@ -13,20 +20,46 @@ export default function Settings() {
   const { t } = useI18n();
   const L = {
     title: t?.settings?.title || "General setup",
-    fieldLabel:
-      t?.settings?.transportCostPerKm || "Domyślna stawka kosztu transportu za 1 km (PLN)",
-    placeholder: t?.settings?.placeholder || "np. 1.75",
-    // Prefer settings.save, then common.save, then a sensible default
-    save: t?.settings?.save || t?.common?.save || (t?.locale === "pl-PL" ? "Zapisz" : "Save"),
+
+    transportCostPerKm:
+      t?.settings?.transportCostPerKm ||
+      "Domyślna stawka kosztu transportu za 1 km (PLN)",
+
+    administrativeFee:
+      t?.settings?.administrativeFee || "Opłata administracyjna (PLN)",
+
+    factoringFeePercent:
+      t?.settings?.factoringFeePercent || "% opłaty factoringowej (%)",
+
+    placeholderPln: t?.settings?.placeholderPln || "np. 15.00",
+    placeholderKm: t?.settings?.placeholderKm || "np. 1.75",
+    placeholderPct: t?.settings?.placeholderPct || "np. 2.5",
+
+    save:
+      t?.settings?.save ||
+      t?.common?.save ||
+      (t?.locale === "pl-PL" ? "Zapisz" : "Save"),
+
     loading: t?.common?.loading || "Loading…",
     updated: t?.settings?.updated || "Zapisano ustawienia.",
     failed: t?.settings?.failed || "Nie udało się zapisać.",
+    validation:
+      t?.settings?.validation || "Wprowadź poprawną, nieujemną wartość.",
+    loadFail: t?.settings?.loadFail || "Błąd ładowania ustawień.",
   };
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+
+  // Separate saving states (per-field)
+  const [savingKm, setSavingKm] = useState(false);
+  const [savingAdmin, setSavingAdmin] = useState(false);
+  const [savingFact, setSavingFact] = useState(false);
+
   const [notice, setNotice] = useState(null);
-  const [value, setValue] = useState("");
+
+  const [transportCostPerKm, setTransportCostPerKm] = useState("");
+  const [administrativeFee, setAdministrativeFee] = useState("");
+  const [factoringFeePercent, setFactoringFeePercent] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -35,10 +68,16 @@ export default function Settings() {
         const res = await fetch(`${API}/api/settings`);
         const json = await res.json();
         if (!mounted) return;
-        const v = json?.transportCostPerKm ?? 0;
-        setValue(String(Number(v).toFixed(2)));
+
+        const v1 = Number(json?.transportCostPerKm ?? 0);
+        const v2 = Number(json?.administrativeFee ?? 0);
+        const v3 = Number(json?.factoringFeePercent ?? 0);
+
+        setTransportCostPerKm(String(v1.toFixed(2)));
+        setAdministrativeFee(String(v2.toFixed(2)));
+        setFactoringFeePercent(String(v3.toFixed(2)));
       } catch {
-        setNotice({ type: "error", text: t?.settings?.loadFail || "Błąd ładowania ustawień." });
+        setNotice({ type: "error", text: L.loadFail });
       } finally {
         if (mounted) setLoading(false);
       }
@@ -46,6 +85,7 @@ export default function Settings() {
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
 
   // Auto-hide toast after 2.5s
@@ -55,35 +95,82 @@ export default function Settings() {
     return () => clearTimeout(id);
   }, [notice]);
 
-  const onSave = async (e) => {
-    e.preventDefault();
-    const num = Number(value);
-    if (!Number.isFinite(num) || num < 0) {
-      setNotice({
-        type: "error",
-        text: t?.settings?.validation || "Wprowadź poprawną, nieujemną kwotę.",
-      });
-      return;
-    }
+  const savePartial = async (partial, setSaving) => {
     setSaving(true);
     try {
+      // We can send only 1 field, but your backend currently REQUIRES all three fields.
+      // So we first GET current settings, merge, then PUT the full object.
+      const currentRes = await fetch(`${API}/api/settings`);
+      const current = await currentRes.json();
+
+      const payload = {
+        transportCostPerKm: Number(current?.transportCostPerKm ?? 0),
+        administrativeFee: Number(current?.administrativeFee ?? 0),
+        factoringFeePercent: Number(current?.factoringFeePercent ?? 0),
+        ...partial,
+      };
+
+      // validate non-negative
+      for (const k of ["transportCostPerKm", "administrativeFee", "factoringFeePercent"]) {
+        const n = Number(payload[k]);
+        if (!Number.isFinite(n) || n < 0) {
+          throw new Error(L.validation);
+        }
+        payload[k] = n;
+      }
+
       const res = await fetch(`${API}/api/settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transportCostPerKm: num }),
+        body: JSON.stringify(payload),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Save failed");
       }
+
       const json = await res.json();
-      setValue(String(Number(json.transportCostPerKm ?? num).toFixed(2)));
+      setTransportCostPerKm(String(Number(json.transportCostPerKm ?? payload.transportCostPerKm).toFixed(2)));
+      setAdministrativeFee(String(Number(json.administrativeFee ?? payload.administrativeFee).toFixed(2)));
+      setFactoringFeePercent(String(Number(json.factoringFeePercent ?? payload.factoringFeePercent).toFixed(2)));
+
       setNotice({ type: "success", text: L.updated });
-    } catch (err) {
-      setNotice({ type: "error", text: L.failed });
+    } catch (e) {
+      setNotice({ type: "error", text: e?.message || L.failed });
     } finally {
       setSaving(false);
     }
+  };
+
+  const onSaveKm = async (e) => {
+    e.preventDefault();
+    const n = Number(transportCostPerKm);
+    if (!Number.isFinite(n) || n < 0) {
+      setNotice({ type: "error", text: L.validation });
+      return;
+    }
+    await savePartial({ transportCostPerKm: n }, setSavingKm);
+  };
+
+  const onSaveAdmin = async (e) => {
+    e.preventDefault();
+    const n = Number(administrativeFee);
+    if (!Number.isFinite(n) || n < 0) {
+      setNotice({ type: "error", text: L.validation });
+      return;
+    }
+    await savePartial({ administrativeFee: n }, setSavingAdmin);
+  };
+
+  const onSaveFact = async (e) => {
+    e.preventDefault();
+    const n = Number(factoringFeePercent);
+    if (!Number.isFinite(n) || n < 0) {
+      setNotice({ type: "error", text: L.validation });
+      return;
+    }
+    await savePartial({ factoringFeePercent: n }, setSavingFact);
   };
 
   return (
@@ -96,44 +183,125 @@ export default function Settings() {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold mb-3">{L.title}</h2>
+
         {loading ? (
           <p className="text-sm text-slate-500">{L.loading}</p>
         ) : (
-          <form onSubmit={onSave} className="space-y-4">
-            <Field label={L.fieldLabel} icon={GaugeCircle}>
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={value}
-                    onChange={(e) => {
-                      setValue(e.target.value);
-                      if (notice) setNotice(null);
-                    }}
-                    placeholder={L.placeholder}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
-                  />
-                  <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
-                    <DollarSign size={14} />
-                  </span>
-                </div>
+          <div className="space-y-4">
+            {/* Transport cost per km */}
+            <form onSubmit={onSaveKm} className="space-y-2">
+              <Field label={L.transportCostPerKm} icon={GaugeCircle}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={transportCostPerKm}
+                      onChange={(e) => {
+                        setTransportCostPerKm(e.target.value);
+                        if (notice) setNotice(null);
+                      }}
+                      placeholder={L.placeholderKm}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                      <DollarSign size={14} />
+                    </span>
+                  </div>
 
-                {/* Save on the same line */}
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
-                  title={L.save}
-                  aria-label={L.save}
-                >
-                  <Save size={20} />
-                  <span className="hidden sm:inline">{L.save}</span>
-                </button>
-              </div>
-            </Field>
-          </form>
+                  <button
+                    type="submit"
+                    disabled={savingKm}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    title={L.save}
+                    aria-label={L.save}
+                  >
+                    <Save size={20} />
+                    <span className="hidden sm:inline">
+                      {savingKm ? "…" : L.save}
+                    </span>
+                  </button>
+                </div>
+              </Field>
+            </form>
+
+            {/* Administrative fee */}
+            <form onSubmit={onSaveAdmin} className="space-y-2">
+              <Field label={L.administrativeFee} icon={DollarSign}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={administrativeFee}
+                      onChange={(e) => {
+                        setAdministrativeFee(e.target.value);
+                        if (notice) setNotice(null);
+                      }}
+                      placeholder={L.placeholderPln}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                      <DollarSign size={14} />
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingAdmin}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    title={L.save}
+                    aria-label={L.save}
+                  >
+                    <Save size={20} />
+                    <span className="hidden sm:inline">
+                      {savingAdmin ? "…" : L.save}
+                    </span>
+                  </button>
+                </div>
+              </Field>
+            </form>
+
+            {/* Factoring fee percent */}
+            <form onSubmit={onSaveFact} className="space-y-2">
+              <Field label={L.factoringFeePercent} icon={Percent}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={factoringFeePercent}
+                      onChange={(e) => {
+                        setFactoringFeePercent(e.target.value);
+                        if (notice) setNotice(null);
+                      }}
+                      placeholder={L.placeholderPct}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                      <Percent size={14} />
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingFact}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    title={L.save}
+                    aria-label={L.save}
+                  >
+                    <Save size={20} />
+                    <span className="hidden sm:inline">
+                      {savingFact ? "…" : L.save}
+                    </span>
+                  </button>
+                </div>
+              </Field>
+            </form>
+          </div>
         )}
       </div>
     </div>
@@ -156,10 +324,13 @@ function Field({ label, icon: Icon, children }) {
 function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
-  const wrap =
-    isSuccess ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-800";
+  const wrap = isSuccess
+    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+    : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
       <button onClick={onClose} className="text-slate-500 hover:text-slate-700">

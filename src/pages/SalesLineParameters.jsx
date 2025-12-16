@@ -200,267 +200,412 @@ export default function SalesLineParameters() {
     }
   };
 
-  // ---------- UI ----------
-  return (
-    <div className="space-y-4">
-      {notice && (
-        <Toast type={notice.type} onClose={() => setNotice(null)}>
-          {notice.text}
-        </Toast>
-      )}
 
-      {/* Header + Search */}
+    // =========================
+  // Bulk selection + delete
+  // =========================
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedCount = selectedIds.length;
+
+  const currentPageIds = useMemo(() => {
+    return (rows || []).map((r) => r?.id || r?._id).filter(Boolean);
+  }, [rows]);
+
+  const allOnPageSelected = useMemo(() => {
+    if (!currentPageIds.length) return false;
+    for (const id of currentPageIds) if (!selectedSet.has(id)) return false;
+    return true;
+  }, [currentPageIds, selectedSet]);
+
+  const toggleOne = (id) => {
+    if (!id) return;
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return Array.from(s);
+    });
+  };
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (allOnPageSelected) {
+        for (const id of currentPageIds) s.delete(id);
+      } else {
+        for (const id of currentPageIds) s.add(id);
+      }
+      return Array.from(s);
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const onBulkDelete = async () => {
+    const ids = Array.from(selectedSet);
+    if (!ids.length) return;
+
+    if (!window.confirm(`Delete ${ids.length} selected parameter(s)?`)) return;
+
+    try {
+      const res = await fetch(`${API}/api/sales-line-parameters/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showNotice("error", json?.message || L.alerts.requestFail);
+        return;
+      }
+
+      showNotice("success", `Deleted ${json?.deleted ?? 0}.`);
+      clearSelection();
+      if (expandedId && selectedSet.has(expandedId)) setExpandedId(null);
+      fetchData();
+    } catch (e) {
+      showNotice("error", e?.message || L.alerts.requestFail);
+    }
+  };
 
 
-      <form
-        onSubmit={onSearch}
-        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
-      >
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 min-w-[260px]">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={L.controls.searchPlaceholder}
-              className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
-            />
-            <button
-              type="submit"
-              title={L.controls.searchBtn}
-              aria-label={L.controls.searchBtn}
-              className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
-            >
-              <Search size={14} />
-            </button>
-          </div>
+return (
+  <div className="space-y-4">
+    {notice && (
+      <Toast type={notice.type} onClose={() => setNotice(null)}>
+        {notice.text}
+      </Toast>
+    )}
+
+    {/* Header + Search */}
+    <form
+      onSubmit={onSearch}
+      className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
+    >
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-[260px]">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={L.controls.searchPlaceholder}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 text-sm outline-none focus:border-slate-300"
+          />
+          <button
+            type="submit"
+            title={L.controls.searchBtn}
+            aria-label={L.controls.searchBtn}
+            className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
+          >
+            <Search size={14} />
+          </button>
+        </div>
+
+        {/* bulk actions */}
+        <div className="ml-auto flex items-center gap-2">
+          {selectedCount > 0 && (
+            <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600">
+              <span className="rounded-full bg-slate-900/90 px-2 py-1 font-semibold text-white">
+                Selected: {selectedCount}
+              </span>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onBulkDelete}
+            disabled={selectedCount === 0}
+            className={[
+              "inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-sm",
+              selectedCount === 0
+                ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                : "bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30",
+            ].join(" ")}
+            title="Delete selected"
+          >
+            <Trash2 size={16} />
+            Delete selected
+          </button>
 
           <button
             type="button"
             onClick={() => {
               setEditing(null);
               setOpen(true);
-              fetchParamOptions(); // refresh available params
+              fetchParamOptions();
             }}
-            className="ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
           >
             <Plus size={16} />
             {L.controls.addBtn}
           </button>
         </div>
-      </form>
+      </div>
+    </form>
 
-      {/* Table */}
-      <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
+    {/* Table */}
+    <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-slate-50 text-slate-600">
+            <tr>
+              <Th />
+
+              {/* selection */}
+              <Th className="w-10">
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  onChange={toggleSelectAllOnPage}
+                  aria-label="Select all on this page"
+                />
+              </Th>
+
+              <SortableTh
+                id="documentNo"
+                {...{ sortBy, sortDir, onSort }}
+                title={SORT_TOOLTIP}
+              >
+                {L.table.documentNo}
+              </SortableTh>
+
+              <SortableTh
+                id="documentLineNo"
+                {...{ sortBy, sortDir, onSort }}
+                title={SORT_TOOLTIP}
+              >
+                {L.table.documentLineNo}
+              </SortableTh>
+
+              <SortableTh
+                id="paramCode"
+                {...{ sortBy, sortDir, onSort }}
+                title={SORT_TOOLTIP}
+              >
+                {L.table.paramCode}
+              </SortableTh>
+
+              <SortableTh
+                id="paramValue"
+                {...{ sortBy, sortDir, onSort }}
+                title={SORT_TOOLTIP}
+              >
+                {L.table.paramValue}
+              </SortableTh>
+
+              <SortableTh
+                id="createdAt"
+                {...{ sortBy, sortDir, onSort }}
+                title={SORT_TOOLTIP}
+              >
+                {L.table.created}
+              </SortableTh>
+
+              <Th className="text-right">{L.table.actions}</Th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
               <tr>
-                <Th />
-                <SortableTh id="documentNo" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
-                  {L.table.documentNo}
-                </SortableTh>
-                <SortableTh
-                  id="documentLineNo"
-                  {...{ sortBy, sortDir, onSort }}
-                  title={SORT_TOOLTIP}
-                >
-                  {L.table.documentLineNo}
-                </SortableTh>
-                <SortableTh id="paramCode" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
-                  {L.table.paramCode}
-                </SortableTh>
-                <SortableTh id="paramValue" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
-                  {L.table.paramValue}
-                </SortableTh>
-                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
-                  {L.table.created}
-                </SortableTh>
-                <Th className="text-right">{L.table.actions}</Th>
+                <td colSpan={8} className="p-6 text-center text-slate-500">
+                  {L.table.loading}
+                </td>
               </tr>
-            </thead>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="p-6 text-center text-slate-500">
+                  {L.table.empty}
+                </td>
+              </tr>
+            ) : (
+              rows.flatMap((r) => {
+                const key = r.id || r._id;
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={10} className="p-6 text-center text-slate-500">
-                    {L.table.loading}
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="p-6 text-center text-slate-500">
-                    {L.table.empty}
-                  </td>
-                </tr>
-              ) : (
-                rows.flatMap((r) => {
-                  const key = r.id || r._id;
-                  const mainRow = (
-                    <tr key={key} className="border-t">
-                      <Td className="w-8">
+                const mainRow = (
+                  <tr key={key} className="border-t">
+                    <Td className="w-8">
+                      <button
+                        className="p-1 rounded hover:bg-slate-100"
+                        onClick={() =>
+                          setExpandedId((id) => (id === key ? null : key))
+                        }
+                        aria-label={L.a11y.toggleDetails}
+                        title={L.a11y.toggleDetails}
+                        type="button"
+                      >
+                        {expandedId === key ? (
+                          <ChevronDown size={16} />
+                        ) : (
+                          <ChevronRight size={16} />
+                        )}
+                      </button>
+                    </Td>
+
+                    {/* select */}
+                    <Td className="w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedSet.has(key)}
+                        onChange={() => toggleOne(key)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Select ${r.paramCode}`}
+                      />
+                    </Td>
+
+                    <Td className="font-mono">{r.documentNo}</Td>
+                    <Td className="font-mono">{r.documentLineNo}</Td>
+                    <Td className="font-mono">{r.paramCode}</Td>
+                    <Td>{r.paramValue ?? L.table.dash}</Td>
+                    <Td>
+                      {r.createdAt
+                        ? new Date(r.createdAt).toLocaleDateString(locale)
+                        : L.table.dash}
+                    </Td>
+                    <Td>
+                      <div className="flex justify-end gap-2 pr-3">
                         <button
-                          className="p-1 rounded hover:bg-slate-100"
-                          onClick={() =>
-                            setExpandedId((id) => (id === key ? null : key))
-                          }
-                          aria-label={L.a11y.toggleDetails}
-                          title={L.a11y.toggleDetails}
+                          className="p-2 rounded-lg hover:bg-slate-100"
+                          onClick={() => {
+                            setEditing(r);
+                            setOpen(true);
+                          }}
+                          type="button"
                         >
-                          {expandedId === key ? (
-                            <ChevronDown size={16} />
-                          ) : (
-                            <ChevronRight size={16} />
-                          )}
+                          <Pencil size={16} />
                         </button>
-                      </Td>
-                      <Td className="font-mono">{r.documentNo}</Td>
-                      <Td className="font-mono">{r.documentLineNo}</Td>
-                      <Td className="font-mono">{r.paramCode}</Td>
-                      <Td>{r.paramValue ?? L.table.dash}</Td>
-                      <Td>
-                        {r.createdAt
-                          ? new Date(r.createdAt).toLocaleDateString(locale)
-                          : L.table.dash}
-                      </Td>
-                      <Td>
-                        <div className="flex justify-end gap-2 pr-3">
-                          <button
-                            className="p-2 rounded-lg hover:bg-slate-100"
-                            onClick={() => {
-                              setEditing(r);
-                              setOpen(true);
-                            }}
-                          >
-                            <Pencil size={16} />
-                          </button>
-                          <button
-                            className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
-                            onClick={() => onDelete(key)}
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                        <button
+                          className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                          onClick={() => onDelete(key)}
+                          type="button"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </Td>
+                  </tr>
+                );
+
+                const detailsRow =
+                  expandedId === key ? (
+                    <tr key={`${key}-details`}>
+                      <td colSpan={8} className="bg-slate-50 border-t">
+                        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                          <KV label={L.details.id} icon={Hash}>
+                            {key}
+                          </KV>
+                          <KV label={L.details.documentNo} icon={Hash}>
+                            {r.documentNo}
+                          </KV>
+                          <KV label={L.details.documentLineNo} icon={ListOrdered}>
+                            {r.documentLineNo}
+                          </KV>
+                          <KV label={L.details.paramCode} icon={SlidersHorizontal}>
+                            {r.paramCode}
+                          </KV>
+                          <KV label={L.details.paramValue} icon={SlidersHorizontal}>
+                            {r.paramValue ?? L.table.dash}
+                          </KV>
+                          <KV label={L.details.created} icon={Calendar}>
+                            {r.createdAt
+                              ? new Date(r.createdAt).toLocaleString(locale)
+                              : L.table.dash}
+                          </KV>
+                          <KV label={L.details.updated} icon={Calendar}>
+                            {r.updatedAt
+                              ? new Date(r.updatedAt).toLocaleString(locale)
+                              : L.table.dash}
+                          </KV>
                         </div>
-                      </Td>
+                      </td>
                     </tr>
-                  );
+                  ) : null;
 
-                  const detailsRow =
-                    expandedId === key ? (
-                      <tr key={`${key}-details`}>
-                        <td colSpan={10} className="bg-slate-50 border-t">
-                          <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                            <KV label={L.details.id} icon={Hash}>
-                              {key}
-                            </KV>
-                            <KV label={L.details.documentNo} icon={Hash}>
-                              {r.documentNo}
-                            </KV>
-                            <KV
-                              label={L.details.documentLineNo}
-                              icon={ListOrdered}
-                            >
-                              {r.documentLineNo}
-                            </KV>
-                            <KV
-                              label={L.details.paramCode}
-                              icon={SlidersHorizontal}
-                            >
-                              {r.paramCode}
-                            </KV>
-                            <KV
-                              label={L.details.paramValue}
-                              icon={SlidersHorizontal}
-                            >
-                              {r.paramValue ?? L.table.dash}
-                            </KV>
-                            <KV label={L.details.created} icon={Calendar}>
-                              {r.createdAt
-                                ? new Date(r.createdAt).toLocaleString(locale)
-                                : L.table.dash}
-                            </KV>
-                            <KV label={L.details.updated} icon={Calendar}>
-                              {r.updatedAt
-                                ? new Date(r.updatedAt).toLocaleString(locale)
-                                : L.table.dash}
-                            </KV>
-                          </div>
-                        </td>
-                      </tr>
-                    ) : null;
-
-                  return [mainRow, detailsRow].filter(Boolean);
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer / Pagination */}
-        <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
-          <div className="text-xs text-slate-500">
-            {L.footer.meta(data.total, data.page, data.pages)}
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-            >
-              {[10, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {L.footer.perPage(n)}
-                </option>
-              ))}
-            </select>
-            <button
-              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={data.page <= 1}
-            >
-              {L.footer.prev}
-            </button>
-            <button
-              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-              onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
-              disabled={data.page >= (data.pages || 1)}
-            >
-              {L.footer.next}
-            </button>
-          </div>
-        </div>
+                return [mainRow, detailsRow].filter(Boolean);
+              })
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* Modal */}
-      {open && (
-        <Modal
-          title={editing ? L.modal.titleEdit : L.modal.titleNew}
-          onClose={() => {
+      {/* Footer / Pagination */}
+      <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
+        <div className="text-xs text-slate-500">
+          {L.footer.meta(data.total, data.page, data.pages)}
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
+            value={limit}
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            {[10, 20, 50, 100].map((n) => (
+              <option key={n} value={n}>
+                {L.footer.perPage(n)}
+              </option>
+            ))}
+          </select>
+          <button
+            className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={data.page <= 1}
+            type="button"
+          >
+            {L.footer.prev}
+          </button>
+          <button
+            className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+            onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
+            disabled={data.page >= (data.pages || 1)}
+            type="button"
+          >
+            {L.footer.next}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Modal */}
+    {open && (
+      <Modal
+        title={editing ? L.modal.titleEdit : L.modal.titleNew}
+        onClose={() => {
+          setOpen(false);
+          setEditing(null);
+        }}
+      >
+        <SLPForm
+          initial={editing}
+          onCancel={() => {
             setOpen(false);
             setEditing(null);
           }}
-        >
-          <SLPForm
-            initial={editing}
-            onCancel={() => {
-              setOpen(false);
-              setEditing(null);
-            }}
-            onSubmit={handleSubmit}
-            L={L}
-            paramOptions={paramOptions}
-            paramLoading={paramLoading}
-            paramError={paramError}
-            selectPlaceholder={SELECT_PARAM}
-            emptyHint={EMPTY_USES_DEFAULT}
-          />
-        </Modal>
-      )}
-    </div>
-  );
+          onSubmit={handleSubmit}
+          L={L}
+          paramOptions={paramOptions}
+          paramLoading={paramLoading}
+          paramError={paramError}
+          selectPlaceholder={SELECT_PARAM}
+          emptyHint={EMPTY_USES_DEFAULT}
+        />
+      </Modal>
+    )}
+  </div>
+);
+
 }
 
 /* ---------- Tiny atoms ---------- */

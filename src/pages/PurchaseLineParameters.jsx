@@ -256,6 +256,78 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
     }
   };
 
+
+    // =========================
+  // Bulk selection + delete
+  // =========================
+  const [selectedIds, setSelectedIds] = useState([]);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const selectedCount = selectedIds.length;
+
+  const currentPageIds = useMemo(() => {
+    return (rows || []).map((r) => r?.id || r?._id).filter(Boolean);
+  }, [rows]);
+
+  const allOnPageSelected = useMemo(() => {
+    if (!currentPageIds.length) return false;
+    for (const id of currentPageIds) if (!selectedSet.has(id)) return false;
+    return true;
+  }, [currentPageIds, selectedSet]);
+
+  const toggleOne = (id) => {
+    if (!id) return;
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return Array.from(s);
+    });
+  };
+
+  const toggleSelectAllOnPage = () => {
+    setSelectedIds((prev) => {
+      const s = new Set(prev);
+      if (allOnPageSelected) {
+        for (const id of currentPageIds) s.delete(id);
+      } else {
+        for (const id of currentPageIds) s.add(id);
+      }
+      return Array.from(s);
+    });
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+
+  const onBulkDelete = async () => {
+    const ids = Array.from(selectedSet);
+    if (!ids.length) return;
+
+    if (!window.confirm(`Delete ${ids.length} selected parameter(s)?`)) return;
+
+    try {
+      const res = await fetch(`${API}/api/purchase-line-parameters/bulk-delete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showNotice("error", json?.message || L.alerts.requestFail);
+        return;
+      }
+
+      showNotice("success", `Deleted ${json?.deleted ?? 0}.`);
+      clearSelection();
+      if (expandedId && selectedSet.has(expandedId)) setExpandedId(null);
+      fetchData();
+    } catch (e) {
+      showNotice("error", e?.message || L.alerts.requestFail);
+    }
+  };
+
+
   // ---------- UI ----------
   return (
     <div className="space-y-4">
@@ -289,18 +361,52 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(null);
-              setOpen(true);
-              fetchParamOptions(); // refresh available params
-            }}
-            className="ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
-          >
-            <Plus size={16} />
-            {L.controls.addBtn}
-          </button>
+          {/* bulk actions */}
+          <div className="ml-auto flex items-center gap-2">
+            {selectedCount > 0 && (
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600">
+                <span className="rounded-full bg-slate-900/90 px-2 py-1 font-semibold text-white">
+                  Selected: {selectedCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={onBulkDelete}
+              disabled={selectedCount === 0}
+              className={[
+                "inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-sm",
+                selectedCount === 0
+                  ? "cursor-not-allowed bg-slate-200 text-slate-500"
+                  : "bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30",
+              ].join(" ")}
+              title="Delete selected"
+            >
+              <Trash2 size={16} />
+              Delete selected
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(null);
+                setOpen(true);
+                fetchParamOptions(); // refresh available params
+              }}
+              className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            >
+              <Plus size={16} />
+              {L.controls.addBtn}
+            </button>
+          </div>
         </div>
       </form>
 
@@ -311,9 +417,25 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <Th />
-                <SortableTh id="documentNo" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
+
+                {/* selection column */}
+                <Th className="w-10">
+                  <input
+                    type="checkbox"
+                    checked={allOnPageSelected}
+                    onChange={toggleSelectAllOnPage}
+                    aria-label="Select all on this page"
+                  />
+                </Th>
+
+                <SortableTh
+                  id="documentNo"
+                  {...{ sortBy, sortDir, onSort }}
+                  title={SORT_TOOLTIP}
+                >
                   {L.table.documentNo}
                 </SortableTh>
+
                 <SortableTh
                   id="documentLineNo"
                   {...{ sortBy, sortDir, onSort }}
@@ -321,15 +443,31 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
                 >
                   {L.table.documentLineNo}
                 </SortableTh>
-                <SortableTh id="paramCode" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
+
+                <SortableTh
+                  id="paramCode"
+                  {...{ sortBy, sortDir, onSort }}
+                  title={SORT_TOOLTIP}
+                >
                   {L.table.paramCode}
                 </SortableTh>
-                <SortableTh id="paramValue" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
+
+                <SortableTh
+                  id="paramValue"
+                  {...{ sortBy, sortDir, onSort }}
+                  title={SORT_TOOLTIP}
+                >
                   {L.table.paramValue}
                 </SortableTh>
-                <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }} title={SORT_TOOLTIP}>
+
+                <SortableTh
+                  id="createdAt"
+                  {...{ sortBy, sortDir, onSort }}
+                  title={SORT_TOOLTIP}
+                >
                   {L.table.created}
                 </SortableTh>
+
                 <Th className="text-right">{L.table.actions}</Th>
               </tr>
             </thead>
@@ -337,19 +475,20 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="p-6 text-center text-slate-500">
+                  <td colSpan={8} className="p-6 text-center text-slate-500">
                     {L.table.loading}
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="p-6 text-center text-slate-500">
+                  <td colSpan={8} className="p-6 text-center text-slate-500">
                     {L.table.empty}
                   </td>
                 </tr>
               ) : (
                 rows.flatMap((r) => {
                   const key = r.id || r._id;
+
                   const mainRow = (
                     <tr key={key} className="border-t">
                       <Td className="w-8">
@@ -368,6 +507,18 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
                           )}
                         </button>
                       </Td>
+
+                      {/* select */}
+                      <Td className="w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedSet.has(key)}
+                          onChange={() => toggleOne(key)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Select ${r.paramCode}`}
+                        />
+                      </Td>
+
                       <Td className="font-mono">{r.documentNo}</Td>
                       <Td className="font-mono">{r.documentLineNo}</Td>
                       <Td className="font-mono">{r.paramCode}</Td>
@@ -402,7 +553,7 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
                   const detailsRow =
                     expandedId === key ? (
                       <tr key={`${key}-details`}>
-                        <td colSpan={10} className="bg-slate-50 border-t">
+                        <td colSpan={8} className="bg-slate-50 border-t">
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
                             <KV label={L.details.id} icon={Hash}>
                               {key}
@@ -410,22 +561,13 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
                             <KV label={L.details.documentNo} icon={Hash}>
                               {r.documentNo}
                             </KV>
-                            <KV
-                              label={L.details.documentLineNo}
-                              icon={ListOrdered}
-                            >
+                            <KV label={L.details.documentLineNo} icon={ListOrdered}>
                               {r.documentLineNo}
                             </KV>
-                            <KV
-                              label={L.details.paramCode}
-                              icon={SlidersHorizontal}
-                            >
+                            <KV label={L.details.paramCode} icon={SlidersHorizontal}>
                               {r.paramCode}
                             </KV>
-                            <KV
-                              label={L.details.paramValue}
-                              icon={SlidersHorizontal}
-                            >
+                            <KV label={L.details.paramValue} icon={SlidersHorizontal}>
                               {r.paramValue ?? L.table.dash}
                             </KV>
                             <KV label={L.details.created} icon={Calendar}>
@@ -515,6 +657,7 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
       )}
     </div>
   );
+
 }
 
 /* ---------- Tiny atoms ---------- */
