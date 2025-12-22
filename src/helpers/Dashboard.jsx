@@ -33,6 +33,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import Locations from "../pages/Locations";
 import Transports from "../pages/Transports";
 import DefaultTransports from "../pages/DefaultTransports";
+import PurchaseAgreements from "../pages/PurchaseAgreements";
 
 import DefaultLocations from "../pages/DefaultLocations";
 import DefaultItemParameters from "../pages/DefaultItemParameters";
@@ -67,7 +68,8 @@ const HEADER_ICONS = {
   BUYERS: UsersIcon,
   ITEM: Sprout,
   VENDORS: Building2,
-  AGREEMENTS: FileText,
+  PURCHASE_AGREEMENTS: FileText,
+  SALES_AGREEMENTS: FileText,
   BUY: ShoppingCart,
   PURCHASE_LINE_PARAMETERS: SlidersHorizontal,
   PURCHASE_OFFER_LINES: FileText,
@@ -98,7 +100,8 @@ const PATH_TO_KEY = {
   "/app/items": "ITEM",
   "/app/default-item": "DEFAULT_ITEM_PARAMETERS",
   "/app/vendors": "VENDORS",
-  "/app/agreements": "AGREEMENTS",
+  "/app/agreements": "SALES_AGREEMENTS",
+  "/app/purchase-agreements": "PURCHASE_AGREEMENTS",
   "/app/buy": "BUY",
   "/app/purchase-line-parameters": "PURCHASE_LINE_PARAMETERS",
   "/app/purchase-offer-lines-blocks": "PURCHASE_OFFER_LINE_BLOCKS",
@@ -278,6 +281,7 @@ export default function Dashboard({ onLogout }) {
             <Route path="speditors" element={<Speditors />} />
             <Route path="default-locations" element={<DefaultLocations />} />
             <Route path="agreements" element={<Agreements />} />
+            <Route path="purchase-agreements" element={<PurchaseAgreements />} />
             <Route path="vendors" element={<Vendors />} />
             <Route path="buy" element={<Buy />} />
             <Route

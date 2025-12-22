@@ -115,7 +115,9 @@ const MENU_REGISTRY = {
   },
 
   PARAMETERS: { key: "PARAMETERS", icon: SlidersHorizontal, to: "/app/parameters" },
-  AGREEMENTS: { key: "AGREEMENTS", icon: FileText, to: "/app/agreements" },
+  SALES_AGREEMENTS: { key: "SALES_AGREEMENTS", icon: FileText, to: "/app/agreements" },
+  PURCHASE_AGREEMENTS: { key: "PURCHASE_AGREEMENTS", icon: FileText, to: "/app/purchase-agreements" },
+
   SETTINGS: { key: "SETTINGS", icon: SettingsIcon, to: "/app/settings" },
   // BUY
   BUY: { key: "BUY", icon: ShoppingCart, to: "/app/buy" },
@@ -196,7 +198,8 @@ const GROUPS = [
     key: "TRADING",
     titleKey: "TRADING",
     items: [
-      "AGREEMENTS",
+      "SALES_AGREEMENTS",
+      "PURCHASE_AGREEMENTS",
       "BUY",
       "BUY_MAIN",
       "PURCHASE_OFFER_LINES",

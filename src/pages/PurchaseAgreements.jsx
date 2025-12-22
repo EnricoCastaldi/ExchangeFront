@@ -1,4 +1,3 @@
-// Agreements.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../helpers/i18n";
 import {
@@ -40,25 +39,12 @@ const API =
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
 
-const getByPath = (obj, path) =>
-  path.split(".").reduce((acc, k) => (acc ? acc[k] : undefined), obj);
-
-const tr = (A, path, fallback) => {
-  const v = path ? getByPath(A || {}, path) : undefined;
-  return v == null || v === "" ? fallback : v;
-};
-
-/* ============================
-  Main page
-============================ */
-export default function Agreements() {
+export default function PurchaseAgreements() {
   const { t, locale } = useI18n();
-  const A = t.agreements || {};
-  const UI = A.ui || {};
-  const DETAILS = A.details || {};
-  const MODAL = A.modal || {};
-  const LINES = A.lines || {};
 
+  // Primary translations for this page
+  // fallback to t.agreements so UI still works even if keys missing
+  const A = t.purchaseAgreements || t.agreements || {};
   const COL_COUNT = 11;
 
   // filters / paging
@@ -92,7 +78,7 @@ export default function Agreements() {
   const [openForm, setOpenForm] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // agreement lines UI
+  // lines UI
   const [lineModalOpen, setLineModalOpen] = useState(false);
   const [lineEditing, setLineEditing] = useState(null);
   const [lineAgreement, setLineAgreement] = useState(null);
@@ -114,17 +100,18 @@ export default function Agreements() {
         sortBy,
         sortDir,
       });
+
       if (q) params.set("q", q);
       if (type) params.set("type", type);
       if (signed) params.set("signed", signed);
       if (validFrom) params.set("validFrom", validFrom);
       if (validTo) params.set("validTo", validTo);
 
-      const res = await fetch(`${API}/api/agreements?${params.toString()}`);
+      const res = await fetch(`${API}/api/purchase-agreements?${params.toString()}`);
       const json = await res.json();
       setData(json);
     } catch {
-      showNotice("error", A?.alerts?.loadFail || "Failed to load agreements.");
+      showNotice("error", A?.alerts?.loadFail || "Failed to load purchase agreements.");
     } finally {
       setLoading(false);
     }
@@ -151,13 +138,13 @@ export default function Agreements() {
   };
 
   const onDelete = async (id) => {
-    if (!window.confirm(A?.alerts?.deleteConfirm || "Delete this agreement?")) return;
+    if (!window.confirm(A?.alerts?.deleteConfirm || "Delete this purchase agreement?")) return;
     try {
-      const res = await fetch(`${API}/api/agreements/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/purchase-agreements/${id}`, { method: "DELETE" });
 
       if (res.status === 204) {
         if (expandedId === id) setExpandedId(null);
-        showNotice("success", A?.alerts?.deleted || "Agreement deleted.");
+        showNotice("success", A?.alerts?.deleted || "Purchase agreement deleted.");
         fetchData();
         return;
       }
@@ -169,6 +156,11 @@ export default function Agreements() {
     }
   };
 
+  const getByPath = (obj, path) => {
+    if (!path) return undefined;
+    return path.split(".").reduce((acc, k) => (acc ? acc[k] : undefined), obj);
+  };
+
   // client sort on current page
   const rows = useMemo(() => {
     const arr = [...(data?.data || [])];
@@ -176,8 +168,8 @@ export default function Agreements() {
 
     const keyMap = {
       no: "no",
-      customerNo: "customer.no",
-      customerName: "customer.name",
+      vendorNo: "vendor.no",
+      vendorName: "vendor.name",
       type: "type",
       description: "description",
       documentDate: "documentDate",
@@ -208,7 +200,9 @@ export default function Agreements() {
 
   const handleSubmit = async (form) => {
     const isEdit = Boolean(editing?._id);
-    const url = isEdit ? `${API}/api/agreements/${editing._id}` : `${API}/api/agreements`;
+    const url = isEdit
+      ? `${API}/api/purchase-agreements/${editing._id}`
+      : `${API}/api/purchase-agreements`;
     const method = isEdit ? "PUT" : "POST";
 
     try {
@@ -226,9 +220,8 @@ export default function Agreements() {
 
       showNotice(
         "success",
-        isEdit ? (A?.alerts?.updated || "Agreement updated.") : (A?.alerts?.created || "Agreement created.")
+        isEdit ? (A?.alerts?.updated || "Updated.") : (A?.alerts?.created || "Created.")
       );
-
       setOpenForm(false);
       setEditing(null);
       fetchData();
@@ -260,7 +253,7 @@ export default function Agreements() {
         sortBy: "lineNo",
         sortDir: "asc",
       });
-      const res = await fetch(`${API}/api/agreement-lines?${params.toString()}`);
+      const res = await fetch(`${API}/api/purchase-agreement-lines?${params.toString()}`);
       const json = await res.json();
       setLinesCache(agreementId, {
         loading: false,
@@ -269,7 +262,7 @@ export default function Agreements() {
       });
     } catch {
       setLinesCache(agreementId, { loading: false, data: [], total: 0 });
-      showNotice("error", LINES?.alerts?.loadFail || "Failed to load lines.");
+      showNotice("error", A?.lines?.loadFail || "Failed to load lines");
     }
   };
 
@@ -290,9 +283,10 @@ export default function Agreements() {
   const saveLine = async (agreement, payload, existingLine) => {
     const isEdit = Boolean(existingLine?.id || existingLine?._id);
     const url = isEdit
-      ? `${API}/api/agreement-lines/${existingLine.id || existingLine._id}`
-      : `${API}/api/agreement-lines`;
+      ? `${API}/api/purchase-agreement-lines/${existingLine.id || existingLine._id}`
+      : `${API}/api/purchase-agreement-lines`;
     const method = isEdit ? "PUT" : "POST";
+
     const body = isEdit ? payload : { ...payload, agreementId: agreement._id };
 
     try {
@@ -309,7 +303,9 @@ export default function Agreements() {
 
       showNotice(
         "success",
-        isEdit ? (LINES?.alerts?.updated || "Line updated.") : (LINES?.alerts?.created || "Line added.")
+        isEdit
+          ? (A?.lines?.toastUpdated || "Line updated")
+          : (A?.lines?.toastAdded || "Line added")
       );
 
       await fetchLines(agreement._id);
@@ -321,11 +317,11 @@ export default function Agreements() {
   };
 
   const deleteLine = async (agreementId, lineId) => {
-    if (!window.confirm(LINES?.alerts?.deleteConfirm || "Delete this line?")) return;
+    if (!window.confirm(A?.lines?.confirmDelete || "Delete this line?")) return;
     try {
-      const res = await fetch(`${API}/api/agreement-lines/${lineId}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/purchase-agreement-lines/${lineId}`, { method: "DELETE" });
       if (res.status === 204) {
-        showNotice("success", LINES?.alerts?.deleted || "Line deleted.");
+        showNotice("success", A?.lines?.toastDeleted || "Line deleted");
         await fetchLines(agreementId);
       } else {
         const json = await res.json().catch(() => ({}));
@@ -336,22 +332,23 @@ export default function Agreements() {
     }
   };
 
+  const typeLabel = (key) => {
+    const map = A?.types || {};
+    return map?.[key] || key;
+  };
+
   return (
     <div className="p-4 md:p-6">
-      {/* Notice */}
       {notice && (
         <div className="mb-3">
-          <Toast type={notice.type} onClose={() => setNotice(null)} A={A}>
+          <Toast type={notice.type} onClose={() => setNotice(null)}>
             {notice.text}
           </Toast>
         </div>
       )}
 
       {/* Controls */}
-      <form
-        onSubmit={onSearch}
-        className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm"
-      >
+      <form onSubmit={onSearch} className="rounded-2xl border border-slate-200 bg-white/70 p-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -364,30 +361,28 @@ export default function Agreements() {
             <button
               type="submit"
               className="absolute right-1.5 top-1.5 inline-flex h-6 w-6 items-center justify-center rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
-              title={UI?.search || "Search"}
-              aria-label={UI?.search || "Search"}
+              title={A?.labels?.search || "Search"}
+              aria-label={A?.labels?.search || "Search"}
             >
               <Search size={14} />
             </button>
           </div>
 
-          {/* Add button */}
           <button
             type="button"
             onClick={onAddClick}
-            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700"
           >
             <Plus size={16} />
             {A?.addBtn || "New agreement"}
           </button>
 
-          {/* Mobile Filters toggle */}
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
             className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50 md:hidden"
             aria-expanded={showFilters}
-            aria-controls="agreements-filters-panel"
+            aria-controls="purchase-agreements-filters-panel"
           >
             <SlidersHorizontal size={16} className="opacity-70" />
             {A?.filters || "Filters"}
@@ -399,9 +394,8 @@ export default function Agreements() {
           </button>
         </div>
 
-        {/* Filters Row */}
         <div
-          id="agreements-filters-panel"
+          id="purchase-agreements-filters-panel"
           className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
             showFilters ? "grid" : "hidden md:grid"
           }`}
@@ -415,11 +409,9 @@ export default function Agreements() {
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
             <option value="">{A?.allTypes || "All types"}</option>
-            <option value="owz">{tr(A, "types.owz", "OWZ")}</option>
-            <option value="umowa_ramowa">{tr(A, "types.umowa_ramowa", "Framework agreement")}</option>
-            <option value="umowa_jednorazowa">{tr(A, "types.umowa_jednorazowa", "One-off agreement")}</option>
-            <option value="umowa_cykliczna">{tr(A, "types.umowa_cykliczna", "Recurring agreement")}</option>
-            <option value="fixed_term">{tr(A, "types.fixed_term", "Fixed term")}</option>
+            <option value="owz">{typeLabel("owz")}</option>
+            <option value="framework_agreement">{typeLabel("framework_agreement")}</option>
+            <option value="fixed_term">{typeLabel("fixed_term")}</option>
           </select>
 
           <select
@@ -430,7 +422,7 @@ export default function Agreements() {
             }}
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           >
-            <option value="">{A?.allSigned || "All sign states"}</option>
+            <option value="">{A?.allSigned || "All"}</option>
             <option value="true">{A?.signedYes || "Signed"}</option>
             <option value="false">{A?.signedNo || "Not signed"}</option>
           </select>
@@ -475,11 +467,11 @@ export default function Agreements() {
                 <SortableTh A={A} id="no" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
                   {A?.cols?.no || "No."}
                 </SortableTh>
-                <SortableTh A={A} id="customerNo" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
-                  {A?.cols?.customerNo || "Customer No."}
+                <SortableTh A={A} id="vendorNo" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
+                  {A?.cols?.vendorNo || "Vendor No."}
                 </SortableTh>
-                <SortableTh A={A} id="customerName" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
-                  {A?.cols?.customerName || "Customer Name"}
+                <SortableTh A={A} id="vendorName" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
+                  {A?.cols?.vendorName || "Vendor Name"}
                 </SortableTh>
                 <SortableTh A={A} id="type" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
                   {A?.cols?.type || "Type"}
@@ -488,10 +480,10 @@ export default function Agreements() {
                   {A?.cols?.description || "Description"}
                 </SortableTh>
                 <SortableTh A={A} id="documentDate" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
-                  {A?.cols?.documentDate || "Document date"}
+                  {A?.cols?.documentDate || "Document Date"}
                 </SortableTh>
                 <SortableTh A={A} id="validityDate" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
-                  {A?.cols?.validityDate || "Validity date"}
+                  {A?.cols?.validityDate || "Validity Date"}
                 </SortableTh>
                 <SortableTh A={A} id="signed" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
                   {A?.cols?.signed || "Signed"}
@@ -499,7 +491,7 @@ export default function Agreements() {
                 <SortableTh A={A} id="createdAt" sortBy={sortBy} sortDir={sortDir} onSort={onSort}>
                   {A?.cols?.createdAt || "Created"}
                 </SortableTh>
-                <th className="px-4 py-3 text-right">{A?.cols?.actions || ""}</th>
+                <th className="px-4 py-3 text-right">{A?.cols?.actions || "Actions"}</th>
               </tr>
             </thead>
 
@@ -513,7 +505,7 @@ export default function Agreements() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={COL_COUNT} className="px-4 py-10 text-center text-slate-500">
-                    {A?.empty || "No agreements."}
+                    {A?.empty || "No purchase agreements."}
                   </td>
                 </tr>
               ) : (
@@ -530,8 +522,8 @@ export default function Agreements() {
                               setExpandedId(open ? null : r._id);
                               if (!open && r.type === "fixed_term") await fetchLines(r._id);
                             }}
-                            aria-label={UI?.expand || "Expand"}
-                            title={UI?.expand || "Expand"}
+                            aria-label={A?.labels?.expand || "Expand"}
+                            title={A?.labels?.expand || "Expand"}
                           >
                             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                           </button>
@@ -541,8 +533,8 @@ export default function Agreements() {
                           <NoBadge value={r.no} />
                         </Td>
 
-                        <Td className="text-slate-700">{r?.customer?.no || "—"}</Td>
-                        <Td className="text-slate-700">{r?.customer?.name || "—"}</Td>
+                        <Td className="text-slate-700">{r?.vendor?.no || "—"}</Td>
+                        <Td className="text-slate-700">{r?.vendor?.name || "—"}</Td>
 
                         <Td>{typeChip(r.type, A)}</Td>
                         <Td className="max-w-[260px] truncate" title={r.description || ""}>
@@ -581,7 +573,7 @@ export default function Agreements() {
                       {open && (
                         <tr>
                           <td colSpan={COL_COUNT} className="bg-slate-50/40 px-4 py-4">
-                            <ExpandedAgreement
+                            <ExpandedPurchaseAgreement
                               row={r}
                               locale={locale}
                               A={A}
@@ -604,11 +596,9 @@ export default function Agreements() {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
           <div className="text-xs text-slate-500">
-            {A?.footer?.meta
-              ? A.footer.meta(data?.total ?? 0, data?.page ?? page, data?.pages ?? 1)
-              : `Total: ${(data?.total ?? 0).toLocaleString(locale)} • Page ${data?.page ?? page} of ${
-                  data?.pages || 1
-                }`}
+            {`Total: ${(data?.total ?? 0).toLocaleString(locale)} • Page ${data?.page ?? page} of ${
+              data?.pages || 1
+            }`}
           </div>
 
           <div className="flex items-center gap-2">
@@ -622,7 +612,7 @@ export default function Agreements() {
             >
               {[10, 20, 50, 100].map((n) => (
                 <option key={n} value={n}>
-                  {A?.footer?.perPage ? A.footer.perPage(n) : `${n} / page`}
+                  {`${n} / page`}
                 </option>
               ))}
             </select>
@@ -631,7 +621,6 @@ export default function Agreements() {
               className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={(data?.page ?? page) <= 1}
-              type="button"
             >
               {A?.prev || "Prev"}
             </button>
@@ -640,7 +629,6 @@ export default function Agreements() {
               className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
               onClick={() => setPage((p) => Math.min(data?.pages || 1, p + 1))}
               disabled={(data?.page ?? page) >= (data?.pages || 1)}
-              type="button"
             >
               {A?.next || "Next"}
             </button>
@@ -651,15 +639,19 @@ export default function Agreements() {
       {/* Agreement Form Modal */}
       {openForm && (
         <Modal
-          title={editing ? (MODAL?.editTitle || "Edit agreement") : (MODAL?.addTitle || "Add agreement")}
-          onClose={() => setOpenForm(false)}
           A={A}
+          title={
+            editing
+              ? (A?.modals?.edit || "Edit Purchase Agreement")
+              : (A?.modals?.add || "Add Purchase Agreement")
+          }
+          onClose={() => setOpenForm(false)}
         >
-          <AgreementForm
+          <PurchaseAgreementForm
+            A={A}
             initial={editing}
             onCancel={() => setOpenForm(false)}
             onSubmit={handleSubmit}
-            A={A}
           />
         </Modal>
       )}
@@ -667,10 +659,11 @@ export default function Agreements() {
       {/* Line Modal */}
       {lineModalOpen && lineAgreement && (
         <Modal
+          A={A}
           title={
             lineEditing
-              ? (LINES?.modal?.editTitle || "Edit line")
-              : (LINES?.modal?.addTitle || "Add line")
+              ? (A?.lines?.modalEdit || "Edit Line")
+              : (A?.lines?.modalAdd || "Add Line")
           }
           onClose={() => {
             setLineModalOpen(false);
@@ -678,9 +671,9 @@ export default function Agreements() {
             setLineAgreement(null);
           }}
           fullscreen
-          A={A}
         >
-          <AgreementLineForm
+          <PurchaseAgreementLineForm
+            A={A}
             agreement={lineAgreement}
             initial={lineEditing}
             onCancel={() => {
@@ -695,8 +688,6 @@ export default function Agreements() {
                 setLineEditing(null);
               }
             }}
-            A={A}
-            locale={locale}
           />
         </Modal>
       )}
@@ -707,52 +698,47 @@ export default function Agreements() {
 /* ============================
   Expanded details
 ============================ */
-function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine, linesState }) {
-  const c = row?.customer || null;
-
-  const DETAILS = A.details || {};
-  const LINES = A.lines || {};
-  const UI = A.ui || {};
-
-  const canFixedTerm = Boolean(c?.owzSigned) && Boolean(c?.umowaRamowaSigned);
+function ExpandedPurchaseAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine, linesState }) {
+  const v = row?.vendor || null;
+  const canFixedTerm = Boolean(v?.owzSigned) && Boolean(v?.frameworkAgreementSigned);
 
   return (
     <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-      <Section title={DETAILS?.agreement || "Agreement"}>
-        <KV label={DETAILS?.labels?.no || "No."} icon={Hash}>
+      <Section title={A?.sections?.agreement || "Purchase Agreement"}>
+        <KV label={A?.labels?.no || "No."} icon={Hash}>
           <NoBadge value={row.no} />
         </KV>
-        <KV label={DETAILS?.labels?.type || "Type"} icon={Tag}>
+        <KV label={A?.labels?.type || "Type"} icon={Tag}>
           {typeChip(row.type, A)}
         </KV>
-        <KV label={DETAILS?.labels?.description || "Description"} icon={FileText}>
+        <KV label={A?.labels?.description || "Description"} icon={FileText}>
           {row.description || "—"}
         </KV>
-        <KV label={DETAILS?.labels?.documentDate || "Document date"} icon={Calendar}>
+        <KV label={A?.labels?.documentDate || "Document Date"} icon={Calendar}>
           {formatDate(row.documentDate, locale)}
         </KV>
-        <KV label={DETAILS?.labels?.validityDate || "Validity date"} icon={Calendar}>
+        <KV label={A?.labels?.validityDate || "Validity Date"} icon={Calendar}>
           {formatDate(row.validityDate, locale)}
         </KV>
-        <KV label={DETAILS?.labels?.signed || "Signed"} icon={ShieldCheck}>
+        <KV label={A?.labels?.signed || "Signed"} icon={ShieldCheck}>
           {signedChip(row.signed, A)}
         </KV>
       </Section>
 
-      <Section title={DETAILS?.documents || "Documents"}>
-        <KV label={DETAILS?.labels?.documentUrl || "Document URL"} icon={LinkIcon}>
+      <Section title={A?.sections?.documents || "Documents"}>
+        <KV label={A?.labels?.documentUrl || "Document URL"} icon={LinkIcon}>
           {row.documentUrl ? (
             <a className="text-sky-700 hover:underline" href={row.documentUrl} target="_blank" rel="noreferrer">
-              {DETAILS?.openLink || UI?.open || "Open"}
+              {A?.labels?.open || "Open"}
             </a>
           ) : (
             "—"
           )}
         </KV>
-        <KV label={DETAILS?.labels?.signedDocumentUrl || "Signed document URL"} icon={LinkIcon}>
+        <KV label={A?.labels?.signedDocumentUrl || "Signed Doc URL"} icon={LinkIcon}>
           {row.signedDocumentUrl ? (
             <a className="text-sky-700 hover:underline" href={row.signedDocumentUrl} target="_blank" rel="noreferrer">
-              {DETAILS?.openLink || UI?.open || "Open"}
+              {A?.labels?.open || "Open"}
             </a>
           ) : (
             "—"
@@ -760,45 +746,52 @@ function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine
         </KV>
       </Section>
 
-      <Section title={DETAILS?.customer || "Customer (snapshot)"}>
-        <KV label={DETAILS?.labels?.customerNo || "Customer No."} icon={Building2}>
-          {c?.no || "—"}
+      <Section title={A?.sections?.vendorSnapshot || "Vendor (snapshot)"}>
+        <KV label={A?.cols?.vendorNo || "Vendor No."} icon={Building2}>
+          {v?.no || "—"}
         </KV>
-        <KV label={DETAILS?.labels?.name || "Name"} icon={UserCircle2}>
-          {c?.name || "—"}
+        <KV label={A?.cols?.vendorName || "Vendor Name"} icon={UserCircle2}>
+          {v?.name || "—"}
         </KV>
-        <KV label={DETAILS?.labels?.nip || "NIP"} icon={IdCard}>
-          {c?.nip || "—"}
+        <KV label="NIP" icon={IdCard}>
+          {v?.nip || "—"}
         </KV>
-        <KV label={DETAILS?.labels?.phone || "Phone"} icon={Phone}>
-          {c?.phoneNo || "—"}
+        <KV label={A?.labels?.phone || "Phone"} icon={Phone}>
+          {v?.phoneNo || "—"}
         </KV>
-        <KV label={DETAILS?.labels?.email || "Email"} icon={Mail}>
-          {c?.email || "—"}
+        <KV label={A?.labels?.email || "Email"} icon={Mail}>
+          {v?.email || "—"}
         </KV>
-        <KV label={DETAILS?.labels?.region || "Region"} icon={MapPin}>
-          {[c?.postCode, c?.city, c?.region, c?.countryRegionCode].filter(Boolean).join(" • ") || "—"}
+        <KV label={A?.labels?.region || "Region"} icon={MapPin}>
+          {[v?.postCode, v?.city, v?.region, v?.countryRegionCode].filter(Boolean).join(" • ") || "—"}
         </KV>
 
         <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
             <Lock size={14} className="text-slate-400" />
-            {DETAILS?.flagsTitle || "Agreement flags"}
+            {A?.sections?.flags || "Agreement flags"}
           </div>
 
           <div className="space-y-1 text-sm">
             <div className="flex items-center justify-between">
-              <span>{DETAILS?.flags?.owzSigned || "OWZ Signed"}</span>
-              <BoolIcon value={!!c?.owzSigned} variant="danger" A={A} />
+              <span>{A?.labels?.owzSigned || "OWZ Signed"}</span>
+              <BoolIcon value={!!v?.owzSigned} variant="danger" yesText={A?.labels?.yes} noText={A?.labels?.no} />
             </div>
+
             <div className="flex items-center justify-between">
-              <span>{DETAILS?.flags?.umowaRamowaSigned || "Framework agreement signed"}</span>
-              <BoolIcon value={!!c?.umowaRamowaSigned} variant="danger" A={A} />
+              <span>{A?.labels?.frameworkAgreementSigned || "Framework Agreement Signed"}</span>
+              <BoolIcon
+                value={!!v?.frameworkAgreementSigned}
+                variant="danger"
+                yesText={A?.labels?.yes}
+                noText={A?.labels?.no}
+              />
             </div>
+
             <div className="pt-2 text-xs text-slate-500">
-              {DETAILS?.flags?.fixedTermAvailable || "Fixed term available"}:{" "}
+              {A?.labels?.fixedTermAvailable || "Fixed Term available"}:{" "}
               <span className="font-semibold">
-                {canFixedTerm ? (DETAILS?.yes || UI?.yes || "YES") : (DETAILS?.no || UI?.no || "NO")}
+                {canFixedTerm ? (A?.labels?.yes || "YES") : (A?.labels?.no || "NO")}
               </span>
             </div>
           </div>
@@ -812,15 +805,16 @@ function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine
             <div className="flex items-center justify-between gap-2 border-b bg-slate-50 px-4 py-3">
               <div className="flex items-center gap-2 font-semibold text-slate-800">
                 <Layers size={18} />
-                {LINES?.title || "Lines"}
+                {A?.sections?.lines || "Lines"}
               </div>
+
               <button
                 type="button"
                 onClick={onAddLine}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700"
+                className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
               >
                 <Plus size={16} />
-                {LINES?.addBtn || "Add line"}
+                {A?.lines?.addLine || "Add line"}
               </button>
             </div>
 
@@ -828,17 +822,17 @@ function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine
               <table className="min-w-full text-sm">
                 <thead className="bg-white text-slate-600">
                   <tr className="border-b">
-                    <Th>{LINES?.cols?.lineNo || "Line No."}</Th>
-                    <Th>{LINES?.cols?.status || "Status"}</Th>
-                    <Th>{LINES?.cols?.type || "Type"}</Th>
-                    <Th>{LINES?.cols?.item || "Item"}</Th>
-                    <Th>{LINES?.cols?.uom || "UOM"}</Th>
-                    <Th className="text-right">{LINES?.cols?.unitPrice || "Unit price"}</Th>
-                    <Th className="text-right">{LINES?.cols?.qty || "Qty"}</Th>
-                    <Th className="text-right">{LINES?.cols?.transport || "Transport"}</Th>
-                    <Th className="text-right">{LINES?.cols?.lineValue || "Line value"}</Th>
-                    <Th>{LINES?.cols?.updatedAt || "Updated"}</Th>
-                    <Th className="text-right">{LINES?.cols?.actions || "Actions"}</Th>
+                    <Th>{A?.lines?.headers?.lineNo || "Line No."}</Th>
+                    <Th>{A?.lines?.headers?.status || "Status"}</Th>
+                    <Th>{A?.lines?.headers?.type || "Type"}</Th>
+                    <Th>{A?.lines?.headers?.item || "Item"}</Th>
+                    <Th>{A?.lines?.headers?.uom || "UOM"}</Th>
+                    <Th className="text-right">{A?.lines?.headers?.unitPrice || "Unit Price"}</Th>
+                    <Th className="text-right">{A?.lines?.headers?.qty || "Qty"}</Th>
+                    <Th className="text-right">{A?.lines?.headers?.transport || "Transport"}</Th>
+                    <Th className="text-right">{A?.lines?.headers?.lineValue || "Line Value"}</Th>
+                    <Th>{A?.lines?.headers?.updatedAt || "Updated"}</Th>
+                    <Th className="text-right">{A?.lines?.headers?.actions || "Actions"}</Th>
                   </tr>
                 </thead>
 
@@ -846,13 +840,13 @@ function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine
                   {linesState.loading ? (
                     <tr>
                       <td colSpan={11} className="px-4 py-6 text-center text-slate-500">
-                        {LINES?.loading || "Loading lines..."}
+                        {A?.lines?.loading || "Loading lines..."}
                       </td>
                     </tr>
                   ) : (linesState.data || []).length === 0 ? (
                     <tr>
                       <td colSpan={11} className="px-4 py-8 text-center text-slate-500">
-                        {LINES?.empty || "No lines."}
+                        {A?.lines?.empty || "No lines."}
                       </td>
                     </tr>
                   ) : (
@@ -911,27 +905,15 @@ function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine
 }
 
 /* ============================
-  Agreement form (tabs + style)
+  Agreement form
 ============================ */
-function AgreementForm({ initial, onSubmit, onCancel, A }) {
+function PurchaseAgreementForm({ A, initial, onSubmit, onCancel }) {
   const isEdit = Boolean(initial?._id);
+  const [tab, setTab] = useState("vendor");
 
-  const FORM = A.form || {};
-  const TABS_TXT = A.tabs || {};
-
-  const TABS = [
-    { id: "customer", label: TABS_TXT?.customer || "Customer", Icon: Building2 },
-    { id: "basics", label: TABS_TXT?.basics || "Basics", Icon: FileText },
-    { id: "dates", label: TABS_TXT?.dates || "Dates", Icon: Calendar },
-    { id: "links", label: TABS_TXT?.links || "Documents", Icon: LinkIcon },
-  ];
-
-  const [tab, setTab] = useState(TABS[0].id);
-
-  // fields
   const [no, setNo] = useState(initial?.no || "");
-  const [customerId, setCustomerId] = useState(initial?.customerId || "");
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [vendorId, setVendorId] = useState(initial?.vendorId || "");
+  const [selectedVendor, setSelectedVendor] = useState(null);
 
   const [type, setType] = useState(initial?.type || "owz");
   const [description, setDescription] = useState(initial?.description || "");
@@ -946,36 +928,36 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
   const [signed, setSigned] = useState(Boolean(initial?.signed));
   const [errors, setErrors] = useState({});
 
-  const snapshot = isEdit ? initial?.customer : selectedCustomer;
-  const canFixedTerm = Boolean(snapshot?.owzSigned) && Boolean(snapshot?.umowaRamowaSigned);
+  const snapshot = isEdit ? initial?.vendor : selectedVendor;
+  const canFixedTerm = Boolean(snapshot?.owzSigned) && Boolean(snapshot?.frameworkAgreementSigned);
 
   useEffect(() => {
-    if (type === "fixed_term" && !canFixedTerm) setType("umowa_ramowa");
+    if (type === "fixed_term" && !canFixedTerm) setType("framework_agreement");
     // eslint-disable-next-line
   }, [canFixedTerm]);
 
-  const pickCustomer = (c) => {
-    setCustomerId(c._id);
-    setSelectedCustomer(c);
+  const pickVendor = (v) => {
+    setVendorId(v._id);
+    setSelectedVendor(v);
   };
 
   const submit = (e) => {
     e.preventDefault();
     const errs = {};
-    if (!isEdit && !customerId) errs.customerId = FORM?.errors?.required || "Required";
-    if (!type) errs.type = FORM?.errors?.required || "Required";
+    if (!isEdit && !vendorId) errs.vendorId = A?.labels?.required || "Required";
+    if (!type) errs.type = A?.labels?.required || "Required";
 
     const urlRe = /^https?:\/\/\S+/i;
-    if (documentUrl && !urlRe.test(documentUrl)) errs.documentUrl = FORM?.errors?.invalidUrl || "Invalid URL";
+    if (documentUrl && !urlRe.test(documentUrl)) errs.documentUrl = A?.labels?.invalidUrl || "Invalid URL";
     if (signedDocumentUrl && !urlRe.test(signedDocumentUrl))
-      errs.signedDocumentUrl = FORM?.errors?.invalidUrl || "Invalid URL";
+      errs.signedDocumentUrl = A?.labels?.invalidUrl || "Invalid URL";
 
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
     onSubmit({
       no: no || undefined,
-      customerId: isEdit ? undefined : customerId,
+      vendorId: isEdit ? undefined : vendorId,
       type,
       description,
       documentDate: documentDate || null,
@@ -986,82 +968,122 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
     });
   };
 
+  const typeLabel = (key) => (A?.types?.[key] || key);
+
   return (
     <form onSubmit={submit} className="space-y-4">
       {/* Tabs */}
       <div className="flex flex-wrap gap-2">
-        {TABS.map(({ id, label, Icon }) => {
-          const active = tab === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setTab(id)}
-              className={[
-                "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm border",
-                active ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          );
-        })}
+        <button
+          type="button"
+          onClick={() => setTab("vendor")}
+          className={[
+            "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm border",
+            tab === "vendor"
+              ? "bg-slate-900 text-white border-slate-900"
+              : "bg-white border-slate-200 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          <Building2 size={16} />
+          {A?.labels?.tabVendor || "Vendor"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab("basics")}
+          className={[
+            "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm border",
+            tab === "basics"
+              ? "bg-slate-900 text-white border-slate-900"
+              : "bg-white border-slate-200 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          <FileText size={16} />
+          {A?.labels?.tabBasics || "Basics"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab("dates")}
+          className={[
+            "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm border",
+            tab === "dates"
+              ? "bg-slate-900 text-white border-slate-900"
+              : "bg-white border-slate-200 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          <Calendar size={16} />
+          {A?.labels?.tabDates || "Dates"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setTab("links")}
+          className={[
+            "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm border",
+            tab === "links"
+              ? "bg-slate-900 text-white border-slate-900"
+              : "bg-white border-slate-200 hover:bg-slate-50",
+          ].join(" ")}
+        >
+          <LinkIcon size={16} />
+          {A?.labels?.tabDocuments || "Documents"}
+        </button>
       </div>
 
-      {/* Customer tab */}
-      {tab === "customer" && (
+      {/* Vendor tab */}
+      {tab === "vendor" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           {!isEdit ? (
             <>
-              <Field label={FORM?.labels?.selectCustomer || "Select customer"} icon={Building2} error={errors.customerId}>
-                <CustomerPicker
-                  valueId={customerId}
-                  onPick={pickCustomer}
-                  placeholder={FORM?.placeholders?.customerSearch || "Search customer..."}
+              <Field label={A?.labels?.selectVendor || "Select vendor"} icon={Building2} error={errors.vendorId}>
+                <VendorPicker
+                  valueId={vendorId}
+                  onPick={pickVendor}
+                  placeholder={A?.labels?.vendorSearchPh || "Search vendor..."}
                 />
               </Field>
 
-              {selectedCustomer ? (
-                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
-                  <Section title={FORM?.labels?.customerSnapshotPreview || "Customer snapshot preview"} className="md:col-span-2">
-                    <KV label={FORM?.labels?.customerNo || "No."} icon={Hash}>
-                      <NoBadge value={selectedCustomer.no} />
+              {selectedVendor ? (
+                <div className="mt-3">
+                  <Section title={A?.sections?.vendorPreview || "Vendor snapshot preview"}>
+                    <KV label={A?.labels?.no || "No."} icon={Hash}>
+                      <NoBadge value={selectedVendor.no} />
                     </KV>
-                    <KV label={FORM?.labels?.customerName || "Name"} icon={UserCircle2}>
-                      {selectedCustomer.name || "—"}
+                    <KV label={A?.cols?.vendorName || "Name"} icon={UserCircle2}>
+                      {selectedVendor.name || "—"}
                     </KV>
-                    <KV label={FORM?.labels?.customerNip || "NIP"} icon={IdCard}>
-                      {selectedCustomer.nip || "—"}
+                    <KV label="NIP" icon={IdCard}>
+                      {selectedVendor.nip || "—"}
                     </KV>
-                    <KV label={FORM?.labels?.customerPhone || "Phone"} icon={Phone}>
-                      {selectedCustomer.phoneNo || "—"}
+                    <KV label={A?.labels?.phone || "Phone"} icon={Phone}>
+                      {selectedVendor.phoneNo || "—"}
                     </KV>
-                    <KV label={FORM?.labels?.customerEmail || "Email"} icon={Mail}>
-                      {selectedCustomer.email || "—"}
+                    <KV label={A?.labels?.email || "Email"} icon={Mail}>
+                      {selectedVendor.email || "—"}
                     </KV>
-                    <KV label={FORM?.labels?.customerAddress || "Address"} icon={MapPin}>
-                      {[selectedCustomer.address, selectedCustomer.postCode, selectedCustomer.city]
+                    <KV label={A?.labels?.address || "Address"} icon={MapPin}>
+                      {[selectedVendor.address, selectedVendor.postCode, selectedVendor.city]
                         .filter(Boolean)
                         .join(", ") || "—"}
                     </KV>
 
                     <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="text-xs font-semibold text-slate-600 mb-2">
-                        {FORM?.labels?.flagsTitle || "Agreement flags"}
+                        {A?.sections?.flags || "Agreement flags"}
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm">{FORM?.labels?.owzSigned || "OWZ Signed"}</span>
-                        <BoolIcon value={!!selectedCustomer?.owzSigned} variant="danger" A={A} />
+                        <span className="text-sm">{A?.labels?.owzSigned || "OWZ Signed"}</span>
+                        <BoolIcon value={!!selectedVendor?.owzSigned} variant="danger" yesText={A?.labels?.yes} noText={A?.labels?.no} />
                       </div>
                       <div className="mt-1 flex items-center justify-between">
-                        <span className="text-sm">{FORM?.labels?.umowaRamowaSigned || "Framework agreement signed"}</span>
-                        <BoolIcon value={!!selectedCustomer?.umowaRamowaSigned} variant="danger" A={A} />
+                        <span className="text-sm">{A?.labels?.frameworkAgreementSigned || "Framework Agreement Signed"}</span>
+                        <BoolIcon value={!!selectedVendor?.frameworkAgreementSigned} variant="danger" yesText={A?.labels?.yes} noText={A?.labels?.no} />
                       </div>
                       <div className="mt-2 text-xs text-slate-500">
-                        {FORM?.labels?.fixedTermAvailable || "Fixed term available"}:{" "}
+                        {A?.labels?.fixedTermAvailable || "Fixed Term available"}:{" "}
                         <span className="font-semibold">
-                          {canFixedTerm ? (FORM?.yes || "YES") : (FORM?.no || "NO")}
+                          {canFixedTerm ? (A?.labels?.yes || "YES") : (A?.labels?.no || "NO")}
                         </span>
                       </div>
                     </div>
@@ -1069,7 +1091,7 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
                 </div>
               ) : (
                 <div className="mt-2 text-sm text-slate-500">
-                  {FORM?.hints?.pickCustomer || "Pick a customer to unlock agreement types."}
+                  {A?.labels?.pickVendorHint || "Pick a vendor to unlock agreement types."}
                 </div>
               )}
             </>
@@ -1077,53 +1099,43 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
             <>
               <div className="mb-2 flex items-center gap-2 text-sm text-slate-700">
                 <Lock size={16} className="text-slate-500" />
-                {FORM?.hints?.customerLocked || "Customer is locked after creation (snapshot stored in agreement)."}
+                {A?.labels?.vendorLocked || "Vendor is locked after creation (snapshot stored in agreement)."}
               </div>
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Section title={FORM?.labels?.customerSnapshot || "Customer snapshot"} className="md:col-span-2">
-                  <KV label={FORM?.labels?.customerNo || "No."} icon={Hash}>
-                    <NoBadge value={initial?.customer?.no} />
-                  </KV>
-                  <KV label={FORM?.labels?.customerName || "Name"} icon={UserCircle2}>
-                    {initial?.customer?.name || "—"}
-                  </KV>
-                  <KV label={FORM?.labels?.customerNip || "NIP"} icon={IdCard}>
-                    {initial?.customer?.nip || "—"}
-                  </KV>
-                  <KV label={FORM?.labels?.customerPhone || "Phone"} icon={Phone}>
-                    {initial?.customer?.phoneNo || "—"}
-                  </KV>
-                  <KV label={FORM?.labels?.customerEmail || "Email"} icon={Mail}>
-                    {initial?.customer?.email || "—"}
-                  </KV>
-                  <KV label={FORM?.labels?.customerAddress || "Address"} icon={MapPin}>
-                    {[initial?.customer?.address, initial?.customer?.postCode, initial?.customer?.city]
-                      .filter(Boolean)
-                      .join(", ") || "—"}
-                  </KV>
+              <Section title={A?.sections?.vendorSnapshot || "Vendor snapshot"}>
+                <KV label={A?.labels?.no || "No."} icon={Hash}>
+                  <NoBadge value={initial?.vendor?.no} />
+                </KV>
+                <KV label={A?.cols?.vendorName || "Name"} icon={UserCircle2}>
+                  {initial?.vendor?.name || "—"}
+                </KV>
+                <KV label="NIP" icon={IdCard}>
+                  {initial?.vendor?.nip || "—"}
+                </KV>
+                <KV label={A?.labels?.phone || "Phone"} icon={Phone}>
+                  {initial?.vendor?.phoneNo || "—"}
+                </KV>
+                <KV label={A?.labels?.email || "Email"} icon={Mail}>
+                  {initial?.vendor?.email || "—"}
+                </KV>
+                <KV label={A?.labels?.address || "Address"} icon={MapPin}>
+                  {[initial?.vendor?.address, initial?.vendor?.postCode, initial?.vendor?.city]
+                    .filter(Boolean)
+                    .join(", ") || "—"}
+                </KV>
 
-                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="text-xs font-semibold text-slate-600 mb-2">
-                      {FORM?.labels?.flagsTitle || "Agreement flags"}
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">{FORM?.labels?.owzSigned || "OWZ Signed"}</span>
-                      <BoolIcon value={!!initial?.customer?.owzSigned} variant="danger" A={A} />
-                    </div>
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-sm">{FORM?.labels?.umowaRamowaSigned || "Framework agreement signed"}</span>
-                      <BoolIcon value={!!initial?.customer?.umowaRamowaSigned} variant="danger" A={A} />
-                    </div>
-                    <div className="mt-2 text-xs text-slate-500">
-                      {FORM?.labels?.fixedTermAvailable || "Fixed term available"}:{" "}
-                      <span className="font-semibold">
-                        {canFixedTerm ? (FORM?.yes || "YES") : (FORM?.no || "NO")}
-                      </span>
-                    </div>
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-xs font-semibold text-slate-600 mb-2">{A?.sections?.flags || "Agreement flags"}</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{A?.labels?.owzSigned || "OWZ Signed"}</span>
+                    <BoolIcon value={!!initial?.vendor?.owzSigned} variant="danger" yesText={A?.labels?.yes} noText={A?.labels?.no} />
                   </div>
-                </Section>
-              </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-sm">{A?.labels?.frameworkAgreementSigned || "Framework Agreement Signed"}</span>
+                    <BoolIcon value={!!initial?.vendor?.frameworkAgreementSigned} variant="danger" yesText={A?.labels?.yes} noText={A?.labels?.no} />
+                  </div>
+                </div>
+              </Section>
             </>
           )}
         </div>
@@ -1133,49 +1145,47 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
       {tab === "basics" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label={FORM?.labels?.no || "No."} icon={Hash}>
+            <Field label={A?.labels?.no || "No."} icon={Hash}>
               <input
                 value={no}
                 onChange={(e) => setNo(e.target.value)}
-                placeholder={FORM?.placeholders?.no || "AGR0000001"}
+                placeholder="PAGR0000001"
                 disabled
                 className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none"
               />
             </Field>
 
-            <Field label={FORM?.labels?.type || "Type"} icon={Tag} error={errors.type}>
+            <Field label={A?.labels?.type || "Type"} icon={Tag} error={errors.type}>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
               >
-                <option value="owz">{tr(A, "types.owz", "OWZ")}</option>
-                <option value="umowa_ramowa">{tr(A, "types.umowa_ramowa", "Framework agreement")}</option>
-                <option value="umowa_jednorazowa">{tr(A, "types.umowa_jednorazowa", "One-off agreement")}</option>
-                <option value="umowa_cykliczna">{tr(A, "types.umowa_cykliczna", "Recurring agreement")}</option>
-                {canFixedTerm && <option value="fixed_term">{tr(A, "types.fixed_term", "Fixed term")}</option>}
+                <option value="owz">{typeLabel("owz")}</option>
+                <option value="framework_agreement">{typeLabel("framework_agreement")}</option>
+                {canFixedTerm && <option value="fixed_term">{typeLabel("fixed_term")}</option>}
               </select>
 
               {!canFixedTerm && (
                 <div className="mt-1 text-xs text-slate-500">
-                  {FORM?.hints?.fixedTermRule ||
-                    "Fixed term appears only when customer has: OWZ Signed = true and Framework agreement signed = true."}
+                  {A?.labels?.fixedTermHint ||
+                    "Fixed Term appears only when vendor has: OWZ Signed = true and Framework Agreement Signed = true."}
                 </div>
               )}
             </Field>
           </div>
 
-          <Field label={FORM?.labels?.description || "Description"} icon={FileText}>
+          <Field label={A?.labels?.description || "Description"} icon={FileText}>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-300"
-              placeholder={FORM?.placeholders?.description || ""}
+              placeholder={A?.labels?.optional || "Optional"}
             />
           </Field>
 
-          <Field label={FORM?.labels?.signed || "Signed"} icon={ShieldCheck}>
+          <Field label={A?.labels?.signed || "Signed"} icon={ShieldCheck}>
             <label className="inline-flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -1183,7 +1193,7 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
                 onChange={(e) => setSigned(e.target.checked)}
                 className="h-4 w-4 rounded border-slate-300"
               />
-              {signed ? (A?.signed?.yes || "Signed") : (A?.signed?.no || "Not signed")}
+              {signed ? (A?.signedYes || "Signed") : (A?.signedNo || "Not signed")}
             </label>
           </Field>
         </div>
@@ -1193,7 +1203,7 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
       {tab === "dates" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label={FORM?.labels?.documentDate || "Document date"} icon={Calendar}>
+            <Field label={A?.labels?.documentDate || "Document Date"} icon={Calendar}>
               <input
                 type="date"
                 value={documentDate}
@@ -1202,7 +1212,7 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
               />
             </Field>
 
-            <Field label={FORM?.labels?.validityDate || "Validity date"} icon={Calendar}>
+            <Field label={A?.labels?.validityDate || "Validity Date"} icon={Calendar}>
               <input
                 type="date"
                 value={validityDate}
@@ -1217,25 +1227,21 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
       {/* Links tab */}
       {tab === "links" && (
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
-          <Field label={FORM?.labels?.documentUrl || "Document URL"} icon={LinkIcon} error={errors.documentUrl}>
+          <Field label={A?.labels?.documentUrl || "Document URL"} icon={LinkIcon} error={errors.documentUrl}>
             <input
               value={documentUrl}
               onChange={(e) => setDocumentUrl(e.target.value)}
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-              placeholder={FORM?.placeholders?.url || "https://..."}
+              placeholder="https://..."
             />
           </Field>
 
-          <Field
-            label={FORM?.labels?.signedDocumentUrl || "Signed document URL"}
-            icon={LinkIcon}
-            error={errors.signedDocumentUrl}
-          >
+          <Field label={A?.labels?.signedDocumentUrl || "Signed Document URL"} icon={LinkIcon} error={errors.signedDocumentUrl}>
             <input
               value={signedDocumentUrl}
               onChange={(e) => setSignedDocumentUrl(e.target.value)}
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
-              placeholder={FORM?.placeholders?.url || "https://..."}
+              placeholder="https://..."
             />
           </Field>
         </div>
@@ -1249,14 +1255,14 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
           className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm hover:bg-slate-50"
         >
           <X size={16} />
-          {FORM?.actions?.cancel || "Cancel"}
+          {A?.labels?.cancel || "Cancel"}
         </button>
         <button
           type="submit"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700"
         >
           <CheckCircle2 size={16} />
-          {isEdit ? (FORM?.actions?.save || "Save") : (FORM?.actions?.create || "Create")}
+          {isEdit ? (A?.labels?.save || "Save") : (A?.labels?.create || "Create")}
         </button>
       </div>
     </form>
@@ -1264,11 +1270,10 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
 }
 
 /* ============================
-  Agreement Line Form
+  Line Form
 ============================ */
-function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }) {
+function PurchaseAgreementLineForm({ A, agreement, initial, onSubmit, onCancel }) {
   const isEdit = Boolean(initial?.id || initial?._id);
-  const LINES = A.lines || {};
 
   const [status, setStatus] = useState(initial?.status || "open");
 
@@ -1295,8 +1300,8 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
   const lineValue = useMemo(() => {
     const up = Number(unitPrice || 0);
     const q = Number(qty || 0);
-    const trn = Number(transport || 0);
-    const v = up * q + trn;
+    const tr = Number(transport || 0);
+    const v = up * q + tr;
     return Number.isFinite(v) ? v : 0;
   }, [unitPrice, qty, transport]);
 
@@ -1315,8 +1320,9 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
     e.preventDefault();
 
     const resolvedItemId = itemId || itemPick?.id || itemPick?._id || "";
+
     const errs = {};
-    if (!resolvedItemId) errs.itemId = (LINES?.form?.errors?.required || "Required");
+    if (!resolvedItemId) errs.itemId = A?.labels?.required || "Required";
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
@@ -1330,52 +1336,55 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
     });
   };
 
+  const statusLabels = A?.lines?.statusLabels || {};
+  const optLabel = (k, fallback) => statusLabels?.[k] || fallback;
+
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          <Field label={LINES?.form?.labels?.agreement || "Agreement"} icon={Hash}>
+          <Field label={A?.lines?.labels?.agreement || A?.labels?.agreement || "Agreement"} icon={Hash}>
             <input
-              value={`${agreement.no} (${agreement?.customer?.no || "—"} — ${agreement?.customer?.name || "—"})`}
+              value={`${agreement.no} (${agreement?.vendor?.no || "—"} — ${agreement?.vendor?.name || "—"})`}
               disabled
               className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none"
             />
           </Field>
 
-          <Field label={LINES?.form?.labels?.status || "Status"} icon={Tag}>
+          <Field label={A?.lines?.headers?.status || "Status"} icon={Tag}>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
               className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
             >
-              <option value="open">{LINES?.statuses?.open || "Open"}</option>
-              <option value="closed">{LINES?.statuses?.closed || "Closed"}</option>
-              <option value="canceled">{LINES?.statuses?.canceled || "Canceled"}</option>
+              <option value="open">{optLabel("open", "Open")}</option>
+              <option value="closed">{optLabel("closed", "Closed")}</option>
+              <option value="canceled">{optLabel("canceled", "Canceled")}</option>
             </select>
           </Field>
         </div>
 
-        <Field label={LINES?.form?.labels?.item || "Item"} icon={Package} error={errors.itemId}>
+        <Field label={A?.lines?.headers?.item || A?.labels?.item || "Item"} icon={Package} error={errors.itemId}>
           <ItemPicker
             valueId={itemId}
             onPick={pickItem}
-            placeholder={LINES?.form?.placeholders?.itemSearch || "Search item..."}
+            placeholder={A?.lines?.itemSearchPh || A?.labels?.itemSearchPh || "Search item..."}
           />
           {itemPick && (
             <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
               <div className="font-semibold">{itemPick.no}</div>
               <div className="text-xs text-slate-600">{itemPick.description || "—"}</div>
               <div className="mt-1 text-xs text-slate-500">
-                {LINES?.form?.labels?.type || "Type"}: {itemPick.type || "—"} •{" "}
-                {LINES?.form?.labels?.uom || "UOM"}: {itemPick.baseUnitOfMeasure || "—"} •{" "}
-                {LINES?.form?.labels?.defaultPrice || "Default price"}: {itemPick.unitPrice ?? "—"}
+                {A?.lines?.labels?.itemMetaPrefix || "Type"}: {itemPick.type || "—"} •{" "}
+                {A?.lines?.headers?.uom || "UOM"}: {itemPick.baseUnitOfMeasure || "—"} •{" "}
+                {A?.lines?.labels?.defaultPrice || "Default price"}: {itemPick.unitPrice ?? "—"}
               </div>
             </div>
           )}
         </Field>
 
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <Field label={LINES?.form?.labels?.uom || "UOM"} icon={Layers}>
+          <Field label={A?.lines?.headers?.uom || "UOM"} icon={Layers}>
             <input
               value={uom}
               onChange={(e) => setUom(e.target.value)}
@@ -1383,7 +1392,7 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
             />
           </Field>
 
-          <Field label={LINES?.form?.labels?.unitPrice || "Unit price"} icon={BadgeDollarSign}>
+          <Field label={A?.lines?.headers?.unitPrice || "Unit Price"} icon={BadgeDollarSign}>
             <input
               type="number"
               step="0.01"
@@ -1393,7 +1402,7 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
             />
           </Field>
 
-          <Field label={LINES?.form?.labels?.qty || "Qty"} icon={Percent}>
+          <Field label={A?.lines?.headers?.qty || "Qty"} icon={Percent}>
             <input
               type="number"
               step="0.01"
@@ -1403,7 +1412,7 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
             />
           </Field>
 
-          <Field label={LINES?.form?.labels?.transport || "Transport"} icon={Truck}>
+          <Field label={A?.lines?.headers?.transport || "Transport"} icon={Truck}>
             <input
               type="number"
               step="0.01"
@@ -1415,9 +1424,13 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-3">
-          <div className="text-xs font-semibold text-slate-600 mb-1">{LINES?.form?.labels?.lineValue || "Line value"}</div>
-          <div className="text-lg font-bold text-slate-900">{fmtMoney(lineValue, locale)}</div>
-          <div className="text-xs text-slate-500">{LINES?.form?.hints?.lineValueRule || "unitPrice * qty + transport"}</div>
+          <div className="text-xs font-semibold text-slate-600 mb-1">
+            {A?.lines?.headers?.lineValue || "Line Value"}
+          </div>
+          <div className="text-lg font-bold text-slate-900">{lineValue.toFixed(2)}</div>
+          <div className="text-xs text-slate-500">
+            {A?.lines?.labels?.lineValueHint || "unitPrice * qty + transport"}
+          </div>
         </div>
       </div>
 
@@ -1428,14 +1441,14 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
           className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm hover:bg-slate-50"
         >
           <X size={16} />
-          {LINES?.form?.actions?.cancel || "Cancel"}
+          {A?.labels?.cancel || "Cancel"}
         </button>
         <button
           type="submit"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-medium text-white hover:bg-red-700"
         >
           <CheckCircle2 size={16} />
-          {isEdit ? (LINES?.form?.actions?.save || "Save line") : (LINES?.form?.actions?.add || "Add line")}
+          {isEdit ? (A?.lines?.saveLine || "Save line") : (A?.lines?.addLine || "Add line")}
         </button>
       </div>
     </form>
@@ -1443,9 +1456,9 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
 }
 
 /* ============================
-  Customer Picker (typeahead)
+  Vendor Picker (typeahead)
 ============================ */
-function CustomerPicker({ valueId, onPick, placeholder = "Search..." }) {
+function VendorPicker({ valueId, onPick, placeholder = "Search..." }) {
   const [input, setInput] = useState("");
   const [opts, setOpts] = useState([]);
   const [open, setOpen] = useState(false);
@@ -1459,7 +1472,7 @@ function CustomerPicker({ valueId, onPick, placeholder = "Search..." }) {
   const load = async (q) => {
     try {
       const params = new URLSearchParams({ q: q || "", page: "1", limit: "10" });
-      const res = await fetch(`${API}/api/mcustomers?${params.toString()}`);
+      const res = await fetch(`${API}/api/mvendors?${params.toString()}`);
       const json = await res.json();
       setOpts(Array.isArray(json.data) ? json.data : []);
     } catch {
@@ -1471,7 +1484,6 @@ function CustomerPicker({ valueId, onPick, placeholder = "Search..." }) {
     setInput(v);
     setOpen(true);
     setHover(-1);
-
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => load(v), 200);
   };
@@ -1640,8 +1652,7 @@ function ItemPicker({ valueId, onPick, placeholder = "Search..." }) {
 /* ============================
   UI helpers
 ============================ */
-function Toast({ type = "success", children, onClose, A }) {
-  const UI = (A && A.ui) || {};
+function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
   const wrap = isSuccess
@@ -1651,20 +1662,14 @@ function Toast({ type = "success", children, onClose, A }) {
     <div className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm ${wrap}`}>
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
-      <button
-        onClick={onClose}
-        className="text-slate-500 hover:text-slate-700"
-        aria-label={UI?.close || "Close"}
-        title={UI?.close || "Close"}
-      >
+      <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
         ✕
       </button>
     </div>
   );
 }
 
-function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim", A }) {
-  const UI = (A && A.ui) || {};
+function Modal({ A, children, onClose, title, fullscreen = false, backdrop = "dim" }) {
   const [isFull, setIsFull] = useState(Boolean(fullscreen));
 
   useEffect(() => {
@@ -1678,8 +1683,6 @@ function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim",
 
   let backdropNode = null;
   if (backdrop === "dim") backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
-  else if (backdrop === "transparent") backdropNode = <div className="absolute inset-0" onClick={onClose} />;
-  else if (backdrop === "blur") backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
@@ -1689,35 +1692,25 @@ function Modal({ children, onClose, title, fullscreen = false, backdrop = "dim",
   const bodyCls = isFull ? "p-4 h-[calc(100vh-52px)] overflow-auto" : "p-4 max-h-[80vh] overflow-auto";
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title || "Modal"}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       {backdropNode}
       <div className={containerCls}>
-        <div
-          className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur"
-          onDoubleClick={() => setIsFull((v) => !v)}
-        >
+        <div className="flex items-center justify-between px-4 py-3 border-b sticky top-0 bg-white/80 backdrop-blur">
           <h3 className="font-semibold truncate pr-2">{title}</h3>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setIsFull((v) => !v)}
               className="p-2 rounded hover:bg-slate-100"
-              title={isFull ? (UI?.restore || "Restore") : (UI?.expand || "Expand")}
-              aria-label={isFull ? (UI?.restore || "Restore") : (UI?.expand || "Expand")}
-              type="button"
+              title={isFull ? (A?.labels?.restore || "Restore") : (A?.labels?.expand || "Expand")}
+              aria-label={isFull ? (A?.labels?.restore || "Restore") : (A?.labels?.expand || "Expand")}
             >
               {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
             <button
               onClick={onClose}
               className="p-2 rounded hover:bg-slate-100"
-              title={UI?.close || "Close"}
-              aria-label={UI?.close || "Close"}
-              type="button"
+              title={A?.labels?.close || "Close"}
+              aria-label={A?.labels?.close || "Close"}
             >
               <X size={18} />
             </button>
@@ -1770,17 +1763,16 @@ function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
 }
 
-function SortableTh({ id, sortBy, sortDir, onSort, children, className = "", A }) {
+function SortableTh({ A, id, sortBy, sortDir, onSort, children, className = "" }) {
   const active = sortBy === id;
   const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
-  const UI = (A && A.ui) || {};
   return (
     <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
       <button
         type="button"
         onClick={() => onSort(id)}
         className="inline-flex items-center gap-1 rounded px-1 -mx-1 hover:bg-slate-50"
-        title={UI?.sort || "Sort"}
+        title={A?.labels?.sort || "Sort"}
       >
         <span>{children}</span>
         <span className={`text-xs ${active ? "opacity-100" : "opacity-60"}`}>
@@ -1816,48 +1808,39 @@ function NoBadge({ value }) {
 }
 
 function signedChip(v, A) {
+  const yes = A?.signedYes || "Signed";
+  const no = A?.signedNo || "Not signed";
   return (
     <span
       className={`px-2 py-1 rounded text-xs font-semibold border ${
         v ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-50 text-slate-700 border-slate-200"
       }`}
     >
-      {v ? (A?.signed?.yes || "Signed") : (A?.signed?.no || "Not signed")}
+      {v ? yes : no}
     </span>
   );
 }
 
 function typeChip(v, A) {
+  const types = A?.types || {};
   const map = {
-    owz: { label: tr(A, "types.owz", "OWZ"), cls: "bg-slate-50 text-slate-700 border-slate-200" },
-    umowa_ramowa: {
-      label: tr(A, "types.umowa_ramowa", "Framework agreement"),
+    owz: { label: types.owz || "OWZ", cls: "bg-slate-50 text-slate-700 border-slate-200" },
+    framework_agreement: {
+      label: types.framework_agreement || "Framework Agreement",
       cls: "bg-sky-50 text-sky-700 border-sky-200",
     },
-    umowa_jednorazowa: {
-      label: tr(A, "types.umowa_jednorazowa", "One-off agreement"),
-      cls: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    },
-    umowa_cykliczna: {
-      label: tr(A, "types.umowa_cykliczna", "Recurring agreement"),
-      cls: "bg-violet-50 text-violet-700 border-violet-200",
-    },
-    fixed_term: {
-      label: tr(A, "types.fixed_term", "Fixed term"),
-      cls: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    },
+    fixed_term: { label: types.fixed_term || "Fixed Term", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
   };
   const x = map[v] || { label: v || "—", cls: "bg-slate-50 text-slate-700 border-slate-200" };
   return <span className={`px-2 py-1 rounded text-xs font-semibold border ${x.cls}`}>{x.label}</span>;
 }
 
-function BoolIcon({ value, variant = "default", A }) {
-  const UI = (A && A.ui) || {};
+function BoolIcon({ value, variant = "default", yesText = "Yes", noText = "No" }) {
   const base = "inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs";
 
   if (value) {
     return (
-      <span className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"} title={UI?.yes || "Yes"}>
+      <span className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"} title={yesText || "Yes"}>
         ✓
       </span>
     );
@@ -1869,7 +1852,7 @@ function BoolIcon({ value, variant = "default", A }) {
       : " border-slate-200 bg-slate-50 text-slate-400";
 
   return (
-    <span className={base + falseClass} title={UI?.no || "No"}>
+    <span className={base + falseClass} title={noText || "No"}>
       ✕
     </span>
   );
@@ -1877,22 +1860,15 @@ function BoolIcon({ value, variant = "default", A }) {
 
 function lineStatusChip(v, A) {
   const s = String(v || "open").toLowerCase();
-  const LINES = (A && A.lines) || {};
+  const labels = A?.lines?.statusLabels || {};
+  const text = labels[s] || s;
+
   const map = {
     open: "bg-sky-50 text-sky-700 border-sky-200",
     closed: "bg-emerald-50 text-emerald-700 border-emerald-200",
     canceled: "bg-red-50 text-red-700 border-red-200",
   };
-  const labelMap = {
-    open: LINES?.statuses?.open || "Open",
-    closed: LINES?.statuses?.closed || "Closed",
-    canceled: LINES?.statuses?.canceled || "Canceled",
-  };
-  return (
-    <span className={`px-2 py-1 rounded text-xs font-semibold border ${map[s] || map.open}`}>
-      {labelMap[s] || s}
-    </span>
-  );
+  return <span className={`px-2 py-1 rounded text-xs font-semibold border ${map[s] || map.open}`}>{text}</span>;
 }
 
 function fmtMoney(n, locale) {
@@ -1900,9 +1876,8 @@ function fmtMoney(n, locale) {
   if (!Number.isFinite(v)) return "—";
   return v.toLocaleString(locale || "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-
 function fmtNum(n, locale) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "—";
-  return v.toLocaleString(locale || "de-DE", { maximumFractionDigits: 2 });
+  return v.toLocaleString(locale || "de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

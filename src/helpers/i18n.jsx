@@ -31,7 +31,8 @@ const T = {
       DEFAULT_LOCATIONS: "DOMYŚLNE LOKALIZACJE",
       VENDORS: "DOSTAWCY",
       PURCHASE_LINE_PARAMETERS: "PARAM.WIERSZA ZAKUPU",
-      AGREEMENTS: "UMOWY",
+      SALES_AGREEMENTS: "UMOWY SPRZEDAŻY",
+      PURCHASE_AGREEMENTS: "UMOWY ZAKUPU",
       BUY: "ZAKUP",
       SELL: "SPRZEDAŻ",
       SALES_OFFER_LINES: "WIER. OFERT SPRZEDAŻY",
@@ -979,92 +980,568 @@ purchaseOfferLines: {
 },
 
 
-    agreements: {
-      title: "Umowy",
-      controls: {
-        searchPlaceholder: "Szukaj: numer lub opis",
-        searchBtn: "Szukaj",
-        addBtn: "Nowa umowa",
-        filters: "Filtry",
-        allTypes: "Wszystkie typy",
-        allSigned: "Wszystkie statusy podpisu",
-      },
-      types: {
-        owz: "OWZ",
-        umowa_ramowa: "Umowa ramowa",
-        umowa_jednorazowa: "Umowa jednorazowa",
-        umowa_cykliczna: "Umowa cykliczna",
-      },
-      signedLabels: {
-        yes: "Podpisana",
-        no: "Niepodpisana",
-      },
-      table: {
-        no: "Nr",
+// PL
+agreements: {
+  title: "UMOWY SPRZEDAŻY",
+
+  searchPh: "Szukaj: numer lub opis",
+  addBtn: "Nowa umowa",
+  filters: "Filtry",
+  allTypes: "Wszystkie typy",
+  allSigned: "Wszystkie statusy podpisu",
+  validFrom: "Ważna od",
+  validTo: "Ważna do",
+  signedYes: "Podpisana",
+  signedNo: "Niepodpisana",
+
+  edit: "Edytuj",
+  delete: "Usuń",
+
+  cols: {
+    no: "Nr",
+    customerNo: "Nr klienta",
+    customerName: "Nazwa klienta",
+    type: "Typ",
+    description: "Opis",
+    documentDate: "Data dokumentu",
+    validityDate: "Data ważności",
+    signed: "Podpis",
+    createdAt: "Utworzono",
+    actions: "",
+  },
+
+  loading: "Ładowanie…",
+  empty: "Brak umów",
+
+  types: {
+    owz: "OWZ",
+    umowa_ramowa: "Umowa ramowa",
+    umowa_jednorazowa: "Umowa jednorazowa",
+    umowa_cykliczna: "Umowa cykliczna",
+    fixed_term: "Terminowa",
+  },
+
+  signed: {
+    yes: "Podpisana",
+    no: "Niepodpisana",
+  },
+
+  alerts: {
+    loadFail: "Nie udało się wczytać umów.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć tę umowę?",
+    deleted: "Umowa została usunięta.",
+    created: "Utworzono umowę.",
+    updated: "Zaktualizowano umowę.",
+    fixErrors: "Popraw zaznaczone pola.",
+  },
+
+  footer: {
+    meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+  },
+
+  prev: "Wstecz",
+  next: "Dalej",
+
+  ui: {
+    search: "Szukaj",
+    sort: "Sortuj",
+    expand: "Rozwiń",
+    open: "Otwórz",
+    close: "Zamknij",
+    restore: "Przywróć",
+    yes: "Tak",
+    no: "Nie",
+  },
+
+  modal: {
+    addTitle: "Dodaj umowę",
+    editTitle: "Edytuj umowę",
+  },
+
+  tabs: {
+    customer: "Klient",
+    basics: "Podstawowe",
+    dates: "Daty",
+    links: "Dokumenty",
+  },
+
+  details: {
+    agreement: "Umowa",
+    documents: "Dokumenty",
+    customer: "Klient (zrzut danych)",
+
+    openLink: "Otwórz",
+
+    labels: {
+      no: "Nr",
+      type: "Typ",
+      description: "Opis",
+      documentDate: "Data dokumentu",
+      validityDate: "Data ważności",
+      signed: "Podpis",
+      documentUrl: "Link do dokumentu",
+      signedDocumentUrl: "Link do podpisanego dokumentu",
+      customerNo: "Nr klienta",
+      name: "Nazwa",
+      nip: "NIP",
+      phone: "Telefon",
+      email: "E-mail",
+      region: "Region",
+    },
+
+    flagsTitle: "Flagi umów",
+    flags: {
+      owzSigned: "OWZ podpisane",
+      umowaRamowaSigned: "Umowa ramowa podpisana",
+      fixedTermAvailable: "Terminowa dostępna",
+    },
+    yes: "TAK",
+    no: "NIE",
+  },
+
+  form: {
+    errors: {
+      required: "Wymagane",
+      invalidUrl: "Nieprawidłowy URL",
+    },
+
+    labels: {
+      selectCustomer: "Wybierz klienta",
+      customerSnapshotPreview: "Podgląd danych klienta",
+      customerSnapshot: "Dane klienta (zrzut)",
+      customerNo: "Nr",
+      customerName: "Nazwa",
+      customerNip: "NIP",
+      customerPhone: "Telefon",
+      customerEmail: "E-mail",
+      customerAddress: "Adres",
+      flagsTitle: "Flagi umów",
+      owzSigned: "OWZ podpisane",
+      umowaRamowaSigned: "Umowa ramowa podpisana",
+      fixedTermAvailable: "Terminowa dostępna",
+
+      no: "Nr",
+      type: "Typ",
+      description: "Opis",
+      signed: "Podpis",
+      documentDate: "Data dokumentu",
+      validityDate: "Data ważności",
+      documentUrl: "Link do dokumentu",
+      signedDocumentUrl: "Link do podpisanego dokumentu",
+    },
+
+    placeholders: {
+      no: "AGR0000001",
+      description: "Opcjonalnie",
+      url: "https://...",
+      customerSearch: "Szukaj klienta...",
+    },
+
+    hints: {
+      pickCustomer: "Wybierz klienta, aby odblokować typy umów.",
+      customerLocked: "Klient jest zablokowany po utworzeniu (zapisany zrzut w umowie).",
+      fixedTermRule:
+        "Terminowa pojawia się tylko gdy klient ma: OWZ podpisane = true oraz Umowa ramowa podpisana = true.",
+    },
+
+    actions: {
+      cancel: "Anuluj",
+      save: "Zapisz",
+      create: "Utwórz",
+    },
+
+    yes: "TAK",
+    no: "NIE",
+  },
+
+  lines: {
+    title: "Pozycje",
+    addBtn: "Dodaj pozycję",
+
+    cols: {
+      lineNo: "Nr pozycji",
+      status: "Status",
+      type: "Typ",
+      item: "Towar",
+      uom: "JM",
+      unitPrice: "Cena jedn.",
+      qty: "Ilość",
+      transport: "Transport",
+      lineValue: "Wartość",
+      updatedAt: "Zaktualizowano",
+      actions: "Akcje",
+    },
+
+    loading: "Ładowanie pozycji…",
+    empty: "Brak pozycji.",
+
+    statuses: {
+      open: "Otwarta",
+      closed: "Zamknięta",
+      canceled: "Anulowana",
+    },
+
+    modal: {
+      addTitle: "Dodaj pozycję",
+      editTitle: "Edytuj pozycję",
+    },
+
+    alerts: {
+      loadFail: "Nie udało się wczytać pozycji.",
+      deleteConfirm: "Usunąć tę pozycję?",
+      deleted: "Pozycja została usunięta.",
+      created: "Dodano pozycję.",
+      updated: "Zaktualizowano pozycję.",
+    },
+
+    form: {
+      errors: { required: "Wymagane" },
+
+      labels: {
+        agreement: "Umowa",
+        status: "Status",
+        item: "Towar",
         type: "Typ",
-        description: "Opis",
-        documentDate: "Data dokumentu",
-        validityDate: "Data ważności",
-        signed: "Podpis",
-        created: "Utworzono",
-        actions: "",
-        loading: "Ładowanie…",
-        empty: "Brak umów",
-        dash: "—",
+        uom: "JM",
+        unitPrice: "Cena jedn.",
+        qty: "Ilość",
+        transport: "Transport",
+        lineValue: "Wartość pozycji",
+        defaultPrice: "Domyślna cena",
       },
-      details: {
-        no: "Nr",
-        type: "Typ",
-        description: "Opis",
-        documentDate: "Data dokumentu",
-        validityDate: "Data ważności",
-        documentUrl: "Link do dokumentu",
-        signedDocumentUrl: "Link do podpisanego dokumentu",
-        signed: "Podpisana",
+
+      placeholders: {
+        itemSearch: "Szukaj towaru...",
       },
-      modal: {
-        title: "Umowa",
+
+      hints: {
+        lineValueRule: "cena * ilość + transport",
+      },
+
+      actions: {
         cancel: "Anuluj",
-        save: "Zapisz zmiany",
-        add: "Utwórz umowę",
-        tabs: {
-          basics: "Podstawowe",
-          dates: "Daty",
-          links: "Dokumenty",
-        },
-        fields: {
-          no: "Nr",
-          type: "Typ",
-          description: "Opis",
-          documentDate: "Data dokumentu",
-          validityDate: "Data ważności",
-          documentUrl: "URL dokumentu",
-          signedDocumentUrl: "URL podpisanego dokumentu",
-          signed: "Podpisana",
-        },
-        autoNumberHelp: "Nadawane automatycznie (AGR + 7 cyfr).",
-      },
-      alerts: {
-        loadFail: "Nie udało się wczytać umów.",
-        requestFail: "Żądanie nie powiodło się.",
-        deleteConfirm: "Usunąć tę umowę?",
-        deleted: "Umowa została usunięta.",
-        created: "Utworzono umowę.",
-        updated: "Zaktualizowano umowę.",
-        fixErrors: "Popraw zaznaczone pola.",
-      },
-      footer: {
-        meta: (total, page, pages) =>
-          `Razem: ${total} • Strona ${page} z ${pages || 1}`,
-        perPage: (n) => `${n} / stronę`,
-        prev: "Wstecz",
-        next: "Dalej",
-      },
-      a11y: {
-        toggleDetails: "Pokaż/ukryj szczegóły",
-        sort: "Sortuj",
+        add: "Dodaj pozycję",
+        save: "Zapisz pozycję",
       },
     },
+  },
+},
+
+
+// ✅ PURCHASE AGREEMENTS (NEW)
+purchaseAgreements: {
+  title: "UMOWY ZAKUPU",
+
+  searchPh: "Szukaj: numer lub opis",
+  addBtn: "Nowa umowa",
+  filters: "Filtry",
+  allTypes: "Wszystkie typy",
+  allSigned: "Wszystkie statusy podpisu",
+  validFrom: "Ważna od",
+  validTo: "Ważna do",
+  signedYes: "Podpisana",
+  signedNo: "Niepodpisana",
+
+  edit: "Edytuj",
+  delete: "Usuń",
+
+  cols: {
+    no: "Nr",
+    vendorNo: "Nr dostawcy",
+    vendorName: "Nazwa dostawcy",
+    type: "Typ",
+    description: "Opis",
+    documentDate: "Data dokumentu",
+    validityDate: "Data ważności",
+    signed: "Podpis",
+    createdAt: "Utworzono",
+    actions: "",
+  },
+
+  loading: "Ładowanie…",
+  empty: "Brak umów",
+
+  types: {
+    owz: "OWZ",
+    framework_agreement: "Umowa ramowa",
+    fixed_term: "Terminowa",
+  },
+
+  signed: {
+    yes: "Podpisana",
+    no: "Niepodpisana",
+  },
+
+  details: {
+    purchaseAgreement: "Umowa zakupu",
+    documents: "Dokumenty",
+    vendorSnapshot: "Dostawca (snapshot)",
+    agreementFlags: "Flagi umowy",
+    open: "Otwórz",
+    yes: "TAK",
+    no: "NIE",
+    fixedTermAvailable: "Terminowa dostępna",
+    lines: "Wiersze",
+    addLine: "Dodaj wiersz",
+  },
+
+  docFields: {
+    documentUrl: "URL dokumentu",
+    signedDocumentUrl: "URL podpisanego dokumentu",
+  },
+
+  vendorFields: {
+    vendorNo: "Nr dostawcy",
+    name: "Nazwa",
+    nip: "NIP",
+    phone: "Telefon",
+    email: "E-mail",
+    region: "Region",
+  },
+
+  flags: {
+    owzSigned: "OWZ podpisane",
+    frameworkAgreementSigned: "Umowa ramowa podpisana",
+  },
+
+  lines: {
+    title: "Wiersze",
+    loading: "Ładowanie wierszy…",
+    empty: "Brak wierszy",
+    deleteConfirm: "Usunąć ten wiersz?",
+    loadFail: "Nie udało się wczytać wierszy.",
+    created: "Dodano wiersz.",
+    updated: "Zaktualizowano wiersz.",
+    deleted: "Usunięto wiersz.",
+    requestFail: "Żądanie nie powiodło się.",
+  },
+
+  lineCols: {
+    lineNo: "Nr wiersza",
+    status: "Status",
+    type: "Typ",
+    item: "Pozycja",
+    uom: "JM",
+    unitPrice: "Cena jedn.",
+    qty: "Ilość",
+    transport: "Transport",
+    lineValue: "Wartość",
+    updatedAt: "Zmieniono",
+    actions: "Akcje",
+  },
+
+  lineStatus: {
+    open: "otwarta",
+    closed: "zamknięta",
+    canceled: "anulowana",
+  },
+
+  forms: {
+    agreement: {
+      newTitle: "Nowa umowa zakupu",
+      editTitle: "Edytuj umowę zakupu",
+      vendorLocked: "Dostawca jest zablokowany po utworzeniu (snapshot zapisany w umowie).",
+
+      fields: {
+        vendor: "Dostawca",
+        type: "Typ",
+        description: "Opis",
+        documentDate: "Data dokumentu",
+        validityDate: "Data ważności",
+        documentUrl: "URL dokumentu",
+        signedDocumentUrl: "URL podpisanego dokumentu",
+        signed: "Podpisana",
+      },
+
+      actions: {
+        cancel: "Anuluj",
+        save: "Zapisz",
+      },
+    },
+
+    line: {
+      newTitle: "Dodaj wiersz",
+      editTitle: "Edytuj wiersz",
+
+      fields: {
+        status: "Status",
+        item: "Pozycja",
+        uom: "JM",
+        unitPrice: "Cena jedn.",
+        qty: "Ilość",
+        transport: "Transport",
+      },
+
+      actions: {
+        cancel: "Anuluj",
+        save: "Zapisz",
+      },
+    },
+  },
+
+  alerts: {
+    loadFail: "Nie udało się wczytać umów.",
+    requestFail: "Żądanie nie powiodło się.",
+    deleteConfirm: "Usunąć tę umowę?",
+    deleted: "Umowa została usunięta.",
+    created: "Utworzono umowę.",
+    updated: "Zaktualizowano umowę.",
+    fixErrors: "Popraw zaznaczone pola.",
+  },
+
+  footer: {
+    meta: (total, page, pages) => `Razem: ${total} • Strona ${page} z ${pages || 1}`,
+    perPage: (n) => `${n} / stronę`,
+  },
+
+  prev: "Wstecz",
+  next: "Dalej",
+},
+
+
+purchaseAgreements: {
+  searchPh: "Szukaj...",
+  addBtn: "Nowa umowa",
+  filters: "Filtry",
+
+  allTypes: "Wszystkie typy",
+  allSigned: "Wszystkie",
+  signedYes: "Podpisana",
+  signedNo: "Niepodpisana",
+
+  validFrom: "Ważne od",
+  validTo: "Ważne do",
+
+  loading: "Ładowanie...",
+  empty: "Brak umów zakupu.",
+  prev: "Poprzednia",
+  next: "Następna",
+
+  edit: "Edytuj",
+  delete: "Usuń",
+
+  // table columns (main)
+  cols: {
+    no: "Nr",
+    vendorNo: "Nr dostawcy",
+    vendorName: "Nazwa dostawcy",
+    type: "Typ",
+    description: "Opis",
+    documentDate: "Data dokumentu",
+    validityDate: "Data ważności",
+    signed: "Podpis",
+    createdAt: "Utworzono",
+    actions: "Akcje",
+  },
+
+  // types (labels)
+  types: {
+    owz: "OWZ",
+    framework_agreement: "Umowa ramowa",
+    fixed_term: "Terminowa",
+  },
+
+  // sections + common labels used inside expanded view + modals
+  sections: {
+    agreement: "Umowa zakupu",
+    documents: "Dokumenty",
+    vendorSnapshot: "Dostawca (snapshot)",
+    vendorPreview: "Podgląd snapshotu dostawcy",
+    flags: "Flagi umowy",
+    lines: "Pozycje",
+  },
+
+  labels: {
+    open: "Otwórz",
+    yes: "TAK",
+    no: "NIE",
+    vendorLocked: "Dostawca jest zablokowany po utworzeniu (snapshot jest zapisany w umowie).",
+    pickVendorHint: "Wybierz dostawcę, aby odblokować typy umowy.",
+    fixedTermHint:
+      "Umowa terminowa jest dostępna tylko gdy dostawca ma: OWZ Signed = true oraz Framework Agreement Signed = true.",
+    fixedTermAvailable: "Dostępność umowy terminowej",
+    owzSigned: "OWZ podpisane",
+    frameworkAgreementSigned: "Umowa ramowa podpisana",
+
+    // form tabs
+    tabVendor: "Dostawca",
+    tabBasics: "Podstawowe",
+    tabDates: "Daty",
+    tabDocuments: "Dokumenty",
+
+    // form fields
+    selectVendor: "Wybierz dostawcę",
+    vendorSearchPh: "Szukaj dostawcy...",
+    no: "Nr",
+    type: "Typ",
+    description: "Opis",
+    signed: "Podpis",
+    documentUrl: "URL dokumentu",
+    signedDocumentUrl: "URL podpisanego dokumentu",
+    documentDate: "Data dokumentu",
+    validityDate: "Data ważności",
+    cancel: "Anuluj",
+    save: "Zapisz",
+    create: "Utwórz",
+  },
+
+  // lines section
+  lines: {
+    addLine: "Dodaj pozycję",
+    loading: "Ładowanie pozycji...",
+    empty: "Brak pozycji.",
+    confirmDelete: "Usunąć tę pozycję?",
+    toastAdded: "Pozycja dodana",
+    toastUpdated: "Pozycja zaktualizowana",
+    toastDeleted: "Pozycja usunięta",
+
+    // headers
+    headers: {
+      lineNo: "Nr pozycji",
+      status: "Status",
+      type: "Typ",
+      item: "Towar/usługa",
+      uom: "JM",
+      unitPrice: "Cena jedn.",
+      qty: "Ilość",
+      transport: "Transport",
+      lineValue: "Wartość",
+      updatedAt: "Zmieniono",
+      actions: "Akcje",
+    },
+
+    statusLabels: {
+      open: "Otwarte",
+      closed: "Zamknięte",
+      canceled: "Anulowane",
+    },
+
+    modalAdd: "Dodaj pozycję",
+    modalEdit: "Edytuj pozycję",
+    saveLine: "Zapisz pozycję",
+  },
+
+  // modals (agreement)
+  modals: {
+    add: "Dodaj umowę zakupu",
+    edit: "Edytuj umowę zakupu",
+  },
+
+  alerts: {
+    loadFail: "Nie udało się wczytać umów zakupu.",
+    deleteConfirm: "Usunąć tę umowę zakupu?",
+    deleted: "Umowa zakupu została usunięta.",
+    requestFail: "Błąd żądania.",
+    updated: "Zapisano zmiany.",
+    created: "Utworzono umowę.",
+  },
+},
+
+
+
+
 
     // --- inside T.pl ---
     salesLineParameters: {
@@ -2412,7 +2889,8 @@ salesOfferLines: {
       DEFAULT_LOCATIONS: "DEFAULT LOCATIONS",
       SALES_LINE_PARAMETERS: "SALES LINE PARAMETERS",
       VENDORS: "VENDORS",
-      AGREEMENTS: "AGREEMENTS",
+      SALES_AGREEMENTS: "SALES AGREEMENTS",
+      PURCHASE_AGREEMENTS: "PURCHASE AGREEMENTS",
       BUY: "BUY",
       SELL: "SELL",
       SALES_OFFER_LINES: "SALES OFFER LINES",
@@ -2592,92 +3070,557 @@ salesOfferLines: {
       },
     },
 
-    agreements: {
-      title: "Agreements",
-      controls: {
-        searchPlaceholder: "Search: number or description",
-        searchBtn: "Search",
-        addBtn: "New agreement",
-        filters: "Filters",
-        allTypes: "All types",
-        allSigned: "All sign states",
-      },
-      types: {
-        owz: "OWZ",
-        umowa_ramowa: "Framework agreement",
-        umowa_jednorazowa: "One-off agreement",
-        umowa_cykliczna: "Recurring agreement",
-      },
-      signedLabels: {
-        yes: "Signed",
-        no: "Not signed",
-      },
-      table: {
-        no: "No.",
+// ✅ SALES AGREEMENTS (your block)
+// EN
+agreements: {
+  title: "SALES AGREEMENTS",
+
+  searchPh: "Search: number or description",
+  addBtn: "New agreement",
+  filters: "Filters",
+  allTypes: "All types",
+  allSigned: "All sign states",
+  validFrom: "Valid from",
+  validTo: "Valid to",
+  signedYes: "Signed",
+  signedNo: "Not signed",
+
+  edit: "Edit",
+  delete: "Delete",
+
+  cols: {
+    no: "No.",
+    customerNo: "Customer No.",
+    customerName: "Customer Name",
+    type: "Type",
+    description: "Description",
+    documentDate: "Document date",
+    validityDate: "Validity date",
+    signed: "Signed",
+    createdAt: "Created",
+    actions: "",
+  },
+
+  loading: "Loading…",
+  empty: "No agreements",
+
+  types: {
+    owz: "OWZ",
+    umowa_ramowa: "Framework agreement",
+    umowa_jednorazowa: "One-off agreement",
+    umowa_cykliczna: "Recurring agreement",
+    fixed_term: "Fixed term",
+  },
+
+  signed: {
+    yes: "Signed",
+    no: "Not signed",
+  },
+
+  alerts: {
+    loadFail: "Failed to load agreements.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this agreement?",
+    deleted: "Agreement deleted.",
+    created: "Agreement created.",
+    updated: "Agreement updated.",
+    fixErrors: "Please correct the highlighted fields.",
+  },
+
+  footer: {
+    meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+  },
+
+  prev: "Prev",
+  next: "Next",
+
+  ui: {
+    search: "Search",
+    sort: "Sort",
+    expand: "Expand",
+    open: "Open",
+    close: "Close",
+    restore: "Restore",
+    yes: "Yes",
+    no: "No",
+  },
+
+  modal: {
+    addTitle: "Add agreement",
+    editTitle: "Edit agreement",
+  },
+
+  tabs: {
+    customer: "Customer",
+    basics: "Basics",
+    dates: "Dates",
+    links: "Documents",
+  },
+
+  details: {
+    agreement: "Agreement",
+    documents: "Documents",
+    customer: "Customer (snapshot)",
+
+    openLink: "Open",
+
+    labels: {
+      no: "No.",
+      type: "Type",
+      description: "Description",
+      documentDate: "Document date",
+      validityDate: "Validity date",
+      signed: "Signed",
+      documentUrl: "Document URL",
+      signedDocumentUrl: "Signed document URL",
+      customerNo: "Customer No.",
+      name: "Name",
+      nip: "NIP",
+      phone: "Phone",
+      email: "Email",
+      region: "Region",
+    },
+
+    flagsTitle: "Agreement flags",
+    flags: {
+      owzSigned: "OWZ Signed",
+      umowaRamowaSigned: "Framework agreement signed",
+      fixedTermAvailable: "Fixed term available",
+    },
+    yes: "YES",
+    no: "NO",
+  },
+
+  form: {
+    errors: {
+      required: "Required",
+      invalidUrl: "Invalid URL",
+    },
+
+    labels: {
+      selectCustomer: "Select customer",
+      customerSnapshotPreview: "Customer snapshot preview",
+      customerSnapshot: "Customer snapshot",
+      customerNo: "No.",
+      customerName: "Name",
+      customerNip: "NIP",
+      customerPhone: "Phone",
+      customerEmail: "Email",
+      customerAddress: "Address",
+      flagsTitle: "Agreement flags",
+      owzSigned: "OWZ Signed",
+      umowaRamowaSigned: "Framework agreement signed",
+      fixedTermAvailable: "Fixed term available",
+
+      no: "No.",
+      type: "Type",
+      description: "Description",
+      signed: "Signed",
+      documentDate: "Document date",
+      validityDate: "Validity date",
+      documentUrl: "Document URL",
+      signedDocumentUrl: "Signed document URL",
+    },
+
+    placeholders: {
+      no: "AGR0000001",
+      description: "Optional",
+      url: "https://...",
+      customerSearch: "Search customer...",
+    },
+
+    hints: {
+      pickCustomer: "Pick a customer to unlock agreement types.",
+      customerLocked: "Customer is locked after creation (snapshot stored in agreement).",
+      fixedTermRule:
+        "Fixed term appears only when customer has: OWZ Signed = true and Framework agreement signed = true.",
+    },
+
+    actions: {
+      cancel: "Cancel",
+      save: "Save",
+      create: "Create",
+    },
+
+    yes: "YES",
+    no: "NO",
+  },
+
+  lines: {
+    title: "Lines",
+    addBtn: "Add line",
+
+    cols: {
+      lineNo: "Line No.",
+      status: "Status",
+      type: "Type",
+      item: "Item",
+      uom: "UOM",
+      unitPrice: "Unit price",
+      qty: "Qty",
+      transport: "Transport",
+      lineValue: "Line value",
+      updatedAt: "Updated",
+      actions: "Actions",
+    },
+
+    loading: "Loading lines…",
+    empty: "No lines.",
+
+    statuses: {
+      open: "Open",
+      closed: "Closed",
+      canceled: "Canceled",
+    },
+
+    modal: {
+      addTitle: "Add line",
+      editTitle: "Edit line",
+    },
+
+    alerts: {
+      loadFail: "Failed to load lines.",
+      deleteConfirm: "Delete this line?",
+      deleted: "Line deleted.",
+      created: "Line added.",
+      updated: "Line updated.",
+    },
+
+    form: {
+      errors: { required: "Required" },
+
+      labels: {
+        agreement: "Agreement",
+        status: "Status",
+        item: "Item",
         type: "Type",
-        description: "Description",
-        documentDate: "Document date",
-        validityDate: "Validity date",
-        signed: "Signed",
-        created: "Created",
-        actions: "",
-        loading: "Loading…",
-        empty: "No agreements",
-        dash: "—",
+        uom: "UOM",
+        unitPrice: "Unit price",
+        qty: "Qty",
+        transport: "Transport",
+        lineValue: "Line value",
+        defaultPrice: "Default price",
       },
-      details: {
-        no: "No.",
+
+      placeholders: {
+        itemSearch: "Search item...",
+      },
+
+      hints: {
+        lineValueRule: "unitPrice * qty + transport",
+      },
+
+      actions: {
+        cancel: "Cancel",
+        add: "Add line",
+        save: "Save line",
+      },
+    },
+  },
+},
+
+
+// ✅ PURCHASE AGREEMENTS (NEW)
+purchaseAgreements: {
+  title: "PURCHASE AGREEMENTS",
+
+  searchPh: "Search: number or description",
+  addBtn: "New agreement",
+  filters: "Filters",
+  allTypes: "All types",
+  allSigned: "All sign states",
+  validFrom: "Valid from",
+  validTo: "Valid to",
+  signedYes: "Signed",
+  signedNo: "Not signed",
+
+  edit: "Edit",
+  delete: "Delete",
+
+  cols: {
+    no: "No.",
+    vendorNo: "Vendor No.",
+    vendorName: "Vendor Name",
+    type: "Type",
+    description: "Description",
+    documentDate: "Document date",
+    validityDate: "Validity date",
+    signed: "Signed",
+    createdAt: "Created",
+    actions: "",
+  },
+
+  loading: "Loading…",
+  empty: "No agreements",
+
+  types: {
+    owz: "OWZ",
+    framework_agreement: "Framework agreement",
+    fixed_term: "Fixed term",
+  },
+
+  signed: {
+    yes: "Signed",
+    no: "Not signed",
+  },
+
+  details: {
+    purchaseAgreement: "Purchase Agreement",
+    documents: "Documents",
+    vendorSnapshot: "Vendor (snapshot)",
+    agreementFlags: "Agreement flags",
+    open: "Open",
+    yes: "YES",
+    no: "NO",
+    fixedTermAvailable: "Fixed Term available",
+    lines: "Lines",
+    addLine: "Add line",
+  },
+
+  docFields: {
+    documentUrl: "Document URL",
+    signedDocumentUrl: "Signed Doc URL",
+  },
+
+  vendorFields: {
+    vendorNo: "Vendor No.",
+    name: "Name",
+    nip: "NIP",
+    phone: "Phone",
+    email: "Email",
+    region: "Region",
+  },
+
+  flags: {
+    owzSigned: "OWZ Signed",
+    frameworkAgreementSigned: "Framework Agreement Signed",
+  },
+
+  lines: {
+    title: "Lines",
+    loading: "Loading lines…",
+    empty: "No lines",
+    deleteConfirm: "Delete this line?",
+    loadFail: "Failed to load lines.",
+    created: "Line added.",
+    updated: "Line updated.",
+    deleted: "Line deleted.",
+    requestFail: "Request failed.",
+  },
+
+  lineCols: {
+    lineNo: "Line No.",
+    status: "Status",
+    type: "Type",
+    item: "Item",
+    uom: "UOM",
+    unitPrice: "Unit Price",
+    qty: "Qty",
+    transport: "Transport",
+    lineValue: "Line Value",
+    updatedAt: "Updated",
+    actions: "Actions",
+  },
+
+  lineStatus: {
+    open: "open",
+    closed: "closed",
+    canceled: "canceled",
+  },
+
+  forms: {
+    agreement: {
+      newTitle: "New Purchase Agreement",
+      editTitle: "Edit Purchase Agreement",
+      vendorLocked: "Vendor is locked after creation (snapshot stored in agreement).",
+
+      fields: {
+        vendor: "Vendor",
         type: "Type",
         description: "Description",
         documentDate: "Document date",
         validityDate: "Validity date",
         documentUrl: "Document URL",
-        signedDocumentUrl: "Signed document URL",
+        signedDocumentUrl: "Signed Doc URL",
         signed: "Signed",
       },
-      modal: {
-        title: "Agreement",
+
+      actions: {
         cancel: "Cancel",
-        save: "Save changes",
-        add: "Create agreement",
-        tabs: {
-          basics: "Basics",
-          dates: "Dates",
-          links: "Documents",
-        },
-        fields: {
-          no: "No.",
-          type: "Type",
-          description: "Description",
-          documentDate: "Document date",
-          validityDate: "Validity date",
-          documentUrl: "Document URL",
-          signedDocumentUrl: "Signed document URL",
-          signed: "Signed",
-        },
-        autoNumberHelp: "Assigned automatically (AGR + 7 digits).",
-      },
-      alerts: {
-        loadFail: "Failed to load agreements.",
-        requestFail: "Request failed.",
-        deleteConfirm: "Delete this agreement?",
-        deleted: "Agreement deleted.",
-        created: "Agreement created.",
-        updated: "Agreement updated.",
-        fixErrors: "Please correct the highlighted fields.",
-      },
-      footer: {
-        meta: (total, page, pages) =>
-          `Total: ${total} • Page ${page} of ${pages || 1}`,
-        perPage: (n) => `${n} / page`,
-        prev: "Prev",
-        next: "Next",
-      },
-      a11y: {
-        toggleDetails: "Toggle details",
-        sort: "Sort",
+        save: "Save",
       },
     },
+
+    line: {
+      newTitle: "Add line",
+      editTitle: "Edit line",
+
+      fields: {
+        status: "Status",
+        item: "Item",
+        uom: "UOM",
+        unitPrice: "Unit Price",
+        qty: "Qty",
+        transport: "Transport",
+      },
+
+      actions: {
+        cancel: "Cancel",
+        save: "Save",
+      },
+    },
+  },
+
+  alerts: {
+    loadFail: "Failed to load agreements.",
+    requestFail: "Request failed.",
+    deleteConfirm: "Delete this agreement?",
+    deleted: "Agreement deleted.",
+    created: "Agreement created.",
+    updated: "Agreement updated.",
+    fixErrors: "Please correct the highlighted fields.",
+  },
+
+  footer: {
+    meta: (total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`,
+    perPage: (n) => `${n} / page`,
+  },
+
+  prev: "Prev",
+  next: "Next",
+},
+
+purchaseAgreements: {
+  searchPh: "Search...",
+  addBtn: "New agreement",
+  filters: "Filters",
+
+  allTypes: "All types",
+  allSigned: "All",
+  signedYes: "Signed",
+  signedNo: "Not signed",
+
+  validFrom: "Valid from",
+  validTo: "Valid to",
+
+  loading: "Loading...",
+  empty: "No purchase agreements.",
+  prev: "Prev",
+  next: "Next",
+
+  edit: "Edit",
+  delete: "Delete",
+
+  cols: {
+    no: "No.",
+    vendorNo: "Vendor No.",
+    vendorName: "Vendor Name",
+    type: "Type",
+    description: "Description",
+    documentDate: "Document Date",
+    validityDate: "Validity Date",
+    signed: "Signed",
+    createdAt: "Created",
+    actions: "Actions",
+  },
+
+  types: {
+    owz: "OWZ",
+    framework_agreement: "Framework agreement",
+    fixed_term: "Fixed term",
+  },
+
+  sections: {
+    agreement: "Purchase Agreement",
+    documents: "Documents",
+    vendorSnapshot: "Vendor (snapshot)",
+    vendorPreview: "Vendor snapshot preview",
+    flags: "Agreement flags",
+    lines: "Lines",
+  },
+
+  labels: {
+    open: "Open",
+    yes: "YES",
+    no: "NO",
+    vendorLocked: "Vendor is locked after creation (snapshot stored in agreement).",
+    pickVendorHint: "Pick a vendor to unlock agreement types.",
+    fixedTermHint:
+      "Fixed Term appears only when vendor has: OWZ Signed = true and Framework Agreement Signed = true.",
+    fixedTermAvailable: "Fixed Term available",
+    owzSigned: "OWZ Signed",
+    frameworkAgreementSigned: "Framework Agreement Signed",
+
+    tabVendor: "Vendor",
+    tabBasics: "Basics",
+    tabDates: "Dates",
+    tabDocuments: "Documents",
+
+    selectVendor: "Select vendor",
+    vendorSearchPh: "Search vendor...",
+    no: "No.",
+    type: "Type",
+    description: "Description",
+    signed: "Signed",
+    documentUrl: "Document URL",
+    signedDocumentUrl: "Signed Document URL",
+    documentDate: "Document Date",
+    validityDate: "Validity Date",
+    cancel: "Cancel",
+    save: "Save",
+    create: "Create",
+  },
+
+  lines: {
+    addLine: "Add line",
+    loading: "Loading lines...",
+    empty: "No lines.",
+    confirmDelete: "Delete this line?",
+    toastAdded: "Line added",
+    toastUpdated: "Line updated",
+    toastDeleted: "Line deleted",
+
+    headers: {
+      lineNo: "Line No.",
+      status: "Status",
+      type: "Type",
+      item: "Item",
+      uom: "UOM",
+      unitPrice: "Unit Price",
+      qty: "Qty",
+      transport: "Transport",
+      lineValue: "Line Value",
+      updatedAt: "Updated",
+      actions: "Actions",
+    },
+
+    statusLabels: {
+      open: "Open",
+      closed: "Closed",
+      canceled: "Canceled",
+    },
+
+    modalAdd: "Add Line",
+    modalEdit: "Edit Line",
+    saveLine: "Save line",
+  },
+
+  modals: {
+    add: "Add Purchase Agreement",
+    edit: "Edit Purchase Agreement",
+  },
+
+  alerts: {
+    loadFail: "Failed to load purchase agreements.",
+    deleteConfirm: "Delete this purchase agreement?",
+    deleted: "Purchase agreement deleted.",
+    requestFail: "Request failed.",
+    updated: "Updated.",
+    created: "Created.",
+  },
+},
+
 
     drivers: {
   title: "Drivers",
