@@ -33,7 +33,8 @@ export default function Settings() {
 
     placeholderPln: t?.settings?.placeholderPln || "np. 15.00",
     placeholderKm: t?.settings?.placeholderKm || "np. 1.75",
-    placeholderPct: t?.settings?.placeholderPct || "np. 2.5",
+    // ✅ 5 decimals example
+    placeholderPct: t?.settings?.placeholderPct || "np. 0.00001",
 
     save:
       t?.settings?.save ||
@@ -61,6 +62,10 @@ export default function Settings() {
   const [administrativeFee, setAdministrativeFee] = useState("");
   const [factoringFeePercent, setFactoringFeePercent] = useState("");
 
+  // ✅ Factoring fee needs higher precision (e.g. 0.00001)
+  const FACT_DECIMALS = 5;
+  const FACT_STEP = "0.00001";
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -75,7 +80,8 @@ export default function Settings() {
 
         setTransportCostPerKm(String(v1.toFixed(2)));
         setAdministrativeFee(String(v2.toFixed(2)));
-        setFactoringFeePercent(String(v3.toFixed(2)));
+        // ✅ 5 decimals
+        setFactoringFeePercent(String(v3.toFixed(FACT_DECIMALS)));
       } catch {
         setNotice({ type: "error", text: L.loadFail });
       } finally {
@@ -111,7 +117,11 @@ export default function Settings() {
       };
 
       // validate non-negative
-      for (const k of ["transportCostPerKm", "administrativeFee", "factoringFeePercent"]) {
+      for (const k of [
+        "transportCostPerKm",
+        "administrativeFee",
+        "factoringFeePercent",
+      ]) {
         const n = Number(payload[k]);
         if (!Number.isFinite(n) || n < 0) {
           throw new Error(L.validation);
@@ -131,9 +141,26 @@ export default function Settings() {
       }
 
       const json = await res.json();
-      setTransportCostPerKm(String(Number(json.transportCostPerKm ?? payload.transportCostPerKm).toFixed(2)));
-      setAdministrativeFee(String(Number(json.administrativeFee ?? payload.administrativeFee).toFixed(2)));
-      setFactoringFeePercent(String(Number(json.factoringFeePercent ?? payload.factoringFeePercent).toFixed(2)));
+      setTransportCostPerKm(
+        String(
+          Number(json.transportCostPerKm ?? payload.transportCostPerKm).toFixed(
+            2
+          )
+        )
+      );
+      setAdministrativeFee(
+        String(
+          Number(json.administrativeFee ?? payload.administrativeFee).toFixed(2)
+        )
+      );
+      // ✅ 5 decimals
+      setFactoringFeePercent(
+        String(
+          Number(
+            json.factoringFeePercent ?? payload.factoringFeePercent
+          ).toFixed(FACT_DECIMALS)
+        )
+      );
 
       setNotice({ type: "success", text: L.updated });
     } catch (e) {
@@ -272,7 +299,7 @@ export default function Settings() {
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step={FACT_STEP}
                       value={factoringFeePercent}
                       onChange={(e) => {
                         setFactoringFeePercent(e.target.value);
@@ -301,6 +328,8 @@ export default function Settings() {
                 </div>
               </Field>
             </form>
+
+
           </div>
         )}
       </div>
@@ -322,11 +351,11 @@ function Field({ label, icon: Icon, children }) {
 }
 
 function Toast({ type = "success", children, onClose }) {
-  const isSuccess = type === "success";
-  const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
-  const wrap = isSuccess
-    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-    : "bg-red-50 border-red-200 text-red-800";
+  const Icon = type === "success" ? CheckCircle2 : AlertTriangle;
+  const wrap =
+    type === "success"
+      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+      : "bg-red-50 border-red-200 text-red-800";
   return (
     <div
       className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}

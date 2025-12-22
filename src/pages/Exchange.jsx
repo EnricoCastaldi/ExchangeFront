@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCcw, ChevronUp, ChevronDown, Search } from "lucide-react";
 import { useI18n, fmtMoney, fmtNum } from "../helpers/i18n";
 import {
@@ -41,6 +41,55 @@ async function safeJson(res, url) {
   }
   return res.json();
 }
+
+/* ---------- helpers: road distance (Azure Maps via backend) ---------- */
+async function fetchRoadDistanceKm(fromLat, fromLon, toLat, toLon) {
+  const params = new URLSearchParams({
+    fromLat: String(fromLat),
+    fromLon: String(fromLon),
+    toLat: String(toLat),
+    toLon: String(toLon),
+  });
+
+  const url = `${API}/api/maps/distance?${params.toString()}`;
+  const res = await fetch(url);
+  const json = await safeJson(res, url);
+
+  // backend returns distanceInMeters (and we also accept distanceKm if present)
+  const km =
+    Number(json.distanceKm) ||
+    (Number.isFinite(Number(json.distanceInMeters))
+      ? Number(json.distanceInMeters) / 1000
+      : NaN);
+
+  return Number.isFinite(km) ? km : null;
+}
+
+const ROAD_DISTANCE_CACHE = new Map(); // key -> number|null
+
+function makePairKey(aLat, aLon, bLat, bLon) {
+  if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return null;
+  return `${aLat.toFixed(6)},${aLon.toFixed(6)}|${bLat.toFixed(6)},${bLon.toFixed(6)}`;
+}
+
+// Small concurrency helper to avoid spamming the API
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i], i);
+    }
+  }
+
+  const workers = Array.from({ length: Math.max(1, limit) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
 
 /**
  * Normalize purchase/sales *block* rows into a common shape.
@@ -233,6 +282,7 @@ function computeProfitParts(b, s, opts = {}) {
     transportMatrix,
     baseTransportPerUnit = 0,
     costPerKm = 0, // PLN per km
+    distanceKmOverride,
   } = opts;
 
   const buyPrice = Number(b.price) || 0;
@@ -279,13 +329,14 @@ function computeProfitParts(b, s, opts = {}) {
   // distance-based cost / t (this is what you already had)
   let distanceKm = null;
   if (costPerKm > 0) {
-    distanceKm = geoDistanceKm(
-      b.locationLat,
-      b.locationLon,
-      s.locationLat,
-      s.locationLon
-    );
-
+    distanceKm = Number.isFinite(distanceKmOverride)
+      ? distanceKmOverride
+      : geoDistanceKm(
+          b.locationLat,
+          b.locationLon,
+          s.locationLat,
+          s.locationLon
+        );
     if (Number.isFinite(distanceKm)) {
       const bQty = Number(b.quantity) || 0;
       const sQty = Number(s.quantity) || 0;
@@ -342,6 +393,7 @@ export default function Exchange() {
 
   const [bAllRows, setBAllRows] = useState([]);
   const [sAllRows, setSAllRows] = useState([]);
+  const PCT_5 = { minimumFractionDigits: 5, maximumFractionDigits: 5 };
 
   // Load catalog once (optional)
   useEffect(() => {
@@ -893,7 +945,7 @@ function Column({
 }
 
 /* ===================== UI bits ===================== */
-function Header({ title, totals, locale, stats }) {
+function Header({ title, totals, locale, stats, isMatching = false, matchError = null }) {
   const { count = 0, qty = 0, notional = 0 } = totals || {};
   return (
     <div className="px-4 py-3 border-b bg-slate-50">
@@ -917,6 +969,18 @@ function Header({ title, totals, locale, stats }) {
             value={fmtMoney(notional, locale, "PLN")}
           />
         </div>
+{(isMatching || matchError) && (
+  <div className="mt-2 text-xs">
+    {isMatching ? (
+      <span className="text-slate-600">
+        Calculating road distance and recalculating costs…
+      </span>
+    ) : (
+      <span className="text-red-600">{matchError}</span>
+    )}
+  </div>
+)}
+
       </div>
     </div>
   );
@@ -1128,14 +1192,14 @@ function daysUntil(dateLike) {
 /**
  * Hungarian-based global matcher.
  */
-function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
+async function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
   const {
     itemKey = "",
     transportMatrix,
     baseTransportPerUnit = 0,
     costPerKm = 0,
     factoringFeePercent = 0,
-    administrativeFee = 0, // ✅ NEW
+    administrativeFee = 0, // from settings
   } = options;
 
   const debugExclusions = [];
@@ -1195,17 +1259,68 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
     const m = itemBuys.length;
     const n = itemSells.length;
     if (!m || !n) continue;
+// Prefetch road distances for this item group (so we compute correct costs from the start)
+if (costPerKm > 0) {
+  const uniquePairs = new Map(); // key -> coords
+
+  for (let i = 0; i < m; i++) {
+    const b = itemBuys[i];
+    const aLat = Number(b.locationLat);
+    const aLon = Number(b.locationLon);
+
+    for (let j = 0; j < n; j++) {
+      const s = itemSells[j];
+      const bLat = Number(s.locationLat);
+      const bLon = Number(s.locationLon);
+
+      const key = makePairKey(aLat, aLon, bLat, bLon);
+      if (!key) continue;
+
+      if (ROAD_DISTANCE_CACHE.has(key)) continue;
+      if (uniquePairs.has(key)) continue;
+
+      uniquePairs.set(key, { key, aLat, aLon, bLat, bLon });
+    }
+  }
+
+  const pending = Array.from(uniquePairs.values());
+  if (pending.length) {
+    await mapLimit(pending, 6, async (p) => {
+      try {
+        const km = await fetchRoadDistanceKm(p.aLat, p.aLon, p.bLat, p.bLon);
+        ROAD_DISTANCE_CACHE.set(p.key, km);
+      } catch (e) {
+        // store null to avoid endless retries
+        ROAD_DISTANCE_CACHE.set(p.key, null);
+      }
+    });
+  }
+}
+
 
     const profitMatrix = Array.from({ length: m }, () => Array(n).fill(0));
     let maxProfit = -Infinity;
 
     for (let i = 0; i < m; i++) {
       for (let j = 0; j < n; j++) {
-        const { profit } = computeProfitParts(itemBuys[i], itemSells[j], {
-          transportMatrix,
-          baseTransportPerUnit,
-          costPerKm,
-        });
+        const b = itemBuys[i];
+const s = itemSells[j];
+
+const key = makePairKey(
+  Number(b.locationLat),
+  Number(b.locationLon),
+  Number(s.locationLat),
+  Number(s.locationLon)
+);
+const distanceKmOverride =
+  costPerKm > 0 && key ? ROAD_DISTANCE_CACHE.get(key) : undefined;
+
+const { profit } = computeProfitParts(b, s, {
+  transportMatrix,
+  baseTransportPerUnit,
+  costPerKm,
+  distanceKmOverride,
+});
         profitMatrix[i][j] = profit;
         if (profit > maxProfit) maxProfit = profit;
       }
@@ -1247,100 +1362,101 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
       const buyPrice = Number(b.price) || 0;
       const sellPrice = Number(s.price) || 0;
 
-      const { transportCost, fromRegion, toRegion, distanceKm } =
-        computeProfitParts(b, s, {
-          transportMatrix,
-          baseTransportPerUnit,
-          costPerKm,
-        });
+      const key = makePairKey(
+  Number(b.locationLat),
+  Number(b.locationLon),
+  Number(s.locationLat),
+  Number(s.locationLon)
+);
+const distanceKmOverride = key ? ROAD_DISTANCE_CACHE.get(key) : undefined;
 
-      // ✅ include ALL costs from BOTH locations
+const { transportCost, fromRegion, toRegion, distanceKm } =
+  computeProfitParts(b, s, {
+    transportMatrix,
+    baseTransportPerUnit,
+    costPerKm,
+    distanceKmOverride,
+  });
+
+// =========================================================
+      // LOCATION COSTS RULE
+      // =========================================================
       const buyLocExtra =
-        (Number(b.loadingCost) || 0) +
-        (Number(b.unloadingCost) || 0) +
-        (Number(b.loadingCostRisk) || 0) +
-        (Number(b.unloadingCostRisk) || 0);
+        (Number(b.loadingCost) || 0) + (Number(b.loadingCostRisk) || 0);
 
       const sellLocExtra =
-        (Number(s.loadingCost) || 0) +
-        (Number(s.unloadingCost) || 0) +
-        (Number(s.loadingCostRisk) || 0) +
-        (Number(s.unloadingCostRisk) || 0);
+        (Number(s.unloadingCost) || 0) + (Number(s.unloadingCostRisk) || 0);
 
       const additionalLocationCost = buyLocExtra + sellLocExtra;
 
       // -------------------------
-      // ✅ FACTORING (must be computed BEFORE mainCost)
+      // FACTORING
       // -------------------------
       const daysToDue = daysUntil(s.dueDate);
 
-      // Sales line total value (from sales block)
       const sellLineValueTotal = Number(s.lineValue) || 0;
-
-      // Pro-rate to matched quantity
       const sellQtyTotal = Number(s.quantity) || 0;
       const matchedLineValue =
         sellQtyTotal > 0 ? (sellLineValueTotal * matchedQty) / sellQtyTotal : 0;
 
-      // % from Settings
       const feePercent = Number(factoringFeePercent) || 0;
       const feePct = feePercent / 100;
 
-      // Final PLN
       const factoringCost = matchedLineValue * feePct * daysToDue;
 
-      // ✅ matched sales value (already computed earlier)
       const salesMatchedValue = matchedLineValue;
 
-      // ✅ matched purchase value
       const buyLineValueTotal = Number(b.lineValue) || 0;
       const buyQtyTotal = Number(b.quantity) || 0;
       const buyMatchedValue =
         buyQtyTotal > 0 ? (buyLineValueTotal * matchedQty) / buyQtyTotal : 0;
+
+      // =========================
+      // ADMIN FEE
+      // =========================
       const adminFee = Number(administrativeFee) || 0;
+
       const distanceTransportCost = Number.isFinite(distanceKm)
         ? (Number(distanceKm) || 0) * (Number(costPerKm) || 0)
         : 0;
-      const mainCost =
-        (Number(additionalLocationCost) || 0) +
-        adminFee +
-        (Number(factoringCost) || 0) +
-        (Number(distanceTransportCost) || 0); // ✅ add transport
 
-      // ✅ commission base (PLN) = matched sales value - matched buy value - main cost
+      // ✅ Additional cost column = location extras + admin fee
+      const additionalCost =
+        (Number(additionalLocationCost) || 0) + (Number(adminFee) || 0);
+
+      // ✅ FIX: Main cost must start from Additional cost (NOT location-only)
+      // mainCost = additionalCost + factoring + transport
+      const mainCost =
+        (Number(additionalCost) || 0) +
+        (Number(factoringCost) || 0) +
+        (Number(distanceTransportCost) || 0);
+
+      // ✅ FIX: do NOT add admin fee again (already inside mainCost)
       const commissionBase =
         (Number(salesMatchedValue) || 0) -
         (Number(buyMatchedValue) || 0) -
         (Number(mainCost) || 0);
 
-      // ✅ sales commission % comes from sales row (enriched from backend)
       const salesCommissionPercent = Number(s.userCommissionPercent ?? 0) || 0;
       const salesCommission = commissionBase * (salesCommissionPercent / 100);
 
-      // ✅ purchase commission % comes from buy row (enriched from backend)
       const purchaseCommissionPercent =
         Number(b.userCommissionPercent ?? 0) || 0;
       const purchaseCommission =
         commissionBase * (purchaseCommissionPercent / 100);
 
+      // ✅ FIX: Total cost = mainCost + commissions (admin already included)
       const totalCost =
         (Number(mainCost) || 0) +
         (Number(salesCommission) || 0) +
         (Number(purchaseCommission) || 0);
 
-      // -------------------------
-      // ✅ MAIN COST (now factoringCost exists)
-      // -------------------------
-
-      // -------------------------
       const costPerTon = matchedQty ? (Number(totalCost) || 0) / matchedQty : 0;
 
       const spread =
         (Number(sellPrice) || 0) - (Number(buyPrice) || 0) - costPerTon;
 
-      // Spread × Qty (PLN) = total profit after all costs
       const spreadNotional = matchedQty * spread;
-      // (same as: (sellPrice - buyPrice) * matchedQty - totalCost)
 
       matches.push({
         item_name: itemName,
@@ -1356,11 +1472,11 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
         toRegion,
         distanceKm,
 
-        // ✅ separate column value
         additionalLocationCost,
+        additionalCost,
+
         distanceTransportCost,
 
-        // ✅ breakdown for tooltip
         additionalLocationCostDetails: {
           buy: {
             loadingCost: Number(b.loadingCost) || 0,
@@ -1379,7 +1495,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
           total: additionalLocationCost,
         },
 
-        // ✅ factoring
         factoringCost,
         factoringFeePercentUsed: feePercent,
         factoringDaysToDue: daysToDue,
@@ -1388,7 +1503,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
         factoringSellQtyTotal: sellQtyTotal,
         factoringMatchedLineValue: matchedLineValue,
 
-        // ✅ admin + main
         administrativeFeeUsed: adminFee,
         mainCost,
 
@@ -1424,7 +1538,6 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
         purchaseCommissionPercentUsed: purchaseCommissionPercent,
         purchaseCommissionUserEmail: b.userCreated ?? null,
         purchaseCommissionUserName: b.userName ?? null,
-        purchaseCommissionUserEmail: b.userCreated ?? null,
 
         totalCost,
       });
@@ -1441,6 +1554,7 @@ function buildMatchesHungarian(buyRows = [], sellRows = [], options = {}) {
 
   return matches;
 }
+
 
 /* ---------- small helpers for MatchesTable ---------- */
 function fmtPct(v, locale) {
@@ -1464,22 +1578,50 @@ function MatchesTable({
   const [limit, setLimit] = useState(5);
   const [page, setPage] = useState(1);
 
-  const allMatchesRaw = useMemo(() => {
-    const res = buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
-      itemKey,
-      costPerKm: transportCostPerKm,
-      factoringFeePercent,
-      administrativeFee,
-    });
-    return Array.isArray(res) ? res : [];
-  }, [
-    buyAllRows,
-    sellAllRows,
-    itemKey,
-    transportCostPerKm,
-    factoringFeePercent,
-    administrativeFee,
-  ]);
+  const [allMatchesRaw, setAllMatchesRaw] = useState([]);
+const [isMatching, setIsMatching] = useState(false);
+const [matchError, setMatchError] = useState(null);
+
+useEffect(() => {
+  let cancelled = false;
+
+  (async () => {
+    try {
+      setIsMatching(true);
+        setAllMatchesRaw([]);
+        setMatchError(null);
+
+      const res = await buildMatchesHungarian(buyAllRows || [], sellAllRows || [], {
+        itemKey,
+        costPerKm: transportCostPerKm,
+        factoringFeePercent,
+        administrativeFee,
+      });
+
+      if (cancelled) return;
+      setAllMatchesRaw(Array.isArray(res) ? res : []);
+    } catch (e) {
+      if (cancelled) return;
+      setAllMatchesRaw([]);
+      setMatchError(e?.message || "Failed to build matches");
+    } finally {
+      if (cancelled) return;
+      setIsMatching(false);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [
+  buyAllRows,
+  sellAllRows,
+  itemKey,
+  transportCostPerKm,
+  factoringFeePercent,
+  administrativeFee,
+]);
+
 
   const allMatches = useMemo(() => {
     return allMatchesRaw
@@ -1531,9 +1673,11 @@ function MatchesTable({
           return Number(r.factoringCost ?? 0);
 
         // ✅ NEW separate column sorting
+        case "additionalCost":
+          return Number(r.additionalCost ?? 0);
         case "additionalLocationCost":
           return Number(r.additionalLocationCost ?? 0);
-        case "salesCommission":
+case "salesCommission":
           return Number(r.salesCommission ?? 0);
 
         case "purchaseCommission":
@@ -1698,11 +1842,17 @@ function MatchesTable({
                 k="totalTransportCost"
                 className="text-right whitespace-nowrap"
               />
+                            {/* per ton transport cost = what Hungarian used */}
+              <Th
+                label="Transport / t"
+                k="transportCost"
+                className="text-right whitespace-nowrap"
+              />
 
               {/* ✅ NEW column */}
               <Th
                 label="Additional cost"
-                k="additionalLocationCost"
+                k="additionalCost"
                 className="text-right whitespace-nowrap"
               />
 
@@ -1732,12 +1882,7 @@ function MatchesTable({
                 className="text-right whitespace-nowrap"
               />
 
-              {/* per ton transport cost = what Hungarian used */}
-              <Th
-                label="Transport / t"
-                k="transportCost"
-                className="text-right whitespace-nowrap"
-              />
+
 
               <Th
                 label="Quantity"
@@ -1799,28 +1944,30 @@ function MatchesTable({
                   </Td>
 
                   <Td className="text-right whitespace-nowrap">
-                    {Number.isFinite(r.distanceKm)
-                      ? `${fmtNum(r.distanceKm, locale, {
-                          maximumFractionDigits: 1,
-                        })} km`
-                      : "n/a"}
-                  </Td>
+  {Number.isFinite(r.distanceKm)
+    ? `${fmtNum(r.distanceKm, locale, { maximumFractionDigits: 1 })} km`
+    : "n/a"}
+</Td>
 
                   {/* Transport = distance only */}
                   <Td className="text-right tabular-nums whitespace-nowrap">
-                    {fmtMoney(
-                      Number.isFinite(r.distanceKm)
-                        ? r.distanceKm * transportCostPerKm
-                        : 0,
-                      locale,
-                      "PLN"
-                    )}
+  {fmtMoney(
+    Number.isFinite(r.distanceKm) ? r.distanceKm * transportCostPerKm : 0,
+    locale,
+    "PLN"
+  )}
+</Td>
+
+                                    {/* per ton transport cost */}
+                  <Td className="text-right tabular-nums whitespace-nowrap">
+                    {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
                   </Td>
 
-                  {/* ✅ NEW: Additional location cost (TOTAL PLN) */}
+
+                  {/* ✅ NEW: Additional  cost (TOTAL PLN) */}
                   <Td className="text-right tabular-nums whitespace-nowrap">
                     <span className="inline-flex items-center justify-end gap-2">
-                      {fmtMoney(r.additionalLocationCost ?? 0, locale, "PLN")}
+                      {fmtMoney(r.additionalCost ?? 0, locale, "PLN")}
 
                       <span className="relative group">
                         <Info
@@ -1855,39 +2002,73 @@ function MatchesTable({
 
                             return (
                               <div className="space-y-2">
-                                {/* BUY */}
-                                <div className="rounded-lg border border-slate-100 p-2">
-                                  <div className="font-medium text-slate-600 mb-1">
-                                    Buy location
-                                  </div>
-                                  <div className="space-y-1">
-                                    <Row
-                                      label="Loading cost:"
-                                      value={buy.loadingCost}
-                                    />
-                                    <Row
-                                      label="Unloading cost:"
-                                      value={buy.unloadingCost}
-                                    />
-                                    <Row
-                                      label="Loading risk:"
-                                      value={buy.loadingCostRisk}
-                                    />
-                                    <Row
-                                      label="Unloading risk:"
-                                      value={buy.unloadingCostRisk}
-                                    />
+{/* BUY */}
+<div className="rounded-lg border border-slate-100 p-2">
+  <div className="font-medium text-slate-600 mb-1">Buy location</div>
 
-                                    <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
-                                      <span className="font-medium text-slate-600">
-                                        Buy total:
-                                      </span>
-                                      <span className="font-medium tabular-nums">
-                                        {fmtMoney(buyTotal, locale, "PLN")}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
+  <div className="space-y-1">
+    <Row label="Loading cost (included):" value={buy.loadingCost} />
+    <Row label="Loading risk (included):" value={buy.loadingCostRisk} />
+
+    <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+      <span className="font-medium text-slate-600">Buy total:</span>
+      <span className="font-medium tabular-nums">
+        {fmtMoney(buyTotal, locale, "PLN")}
+      </span>
+    </div>
+  </div>
+</div>
+
+{/* SELL */}
+<div className="rounded-lg border border-slate-100 p-2">
+  <div className="font-medium text-slate-600 mb-1">Sell location</div>
+
+  <div className="space-y-1">
+    <Row label="Unloading cost (included):" value={sell.unloadingCost} />
+    <Row label="Unloading risk (included):" value={sell.unloadingCostRisk} />
+
+    <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+      <span className="font-medium text-slate-600">Sell total:</span>
+      <span className="font-medium tabular-nums">
+        {fmtMoney(sellTotal, locale, "PLN")}
+      </span>
+    </div>
+  </div>
+</div>
+
+{/* LOCATION EXTRAS TOTAL */}
+<div className="mt-1 pt-2 border-t border-slate-200 flex justify-between gap-3">
+  <span className="font-semibold">Location extras (total)</span>
+  <span className="font-semibold tabular-nums">
+    {fmtMoney(total, locale, "PLN")}
+  </span>
+</div>
+
+{/* ADMIN FEE + GRAND TOTAL */}
+<div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
+  <div className="flex justify-between gap-3">
+    <span className="text-slate-500">Opłata administracyjna:</span>
+    <span className="tabular-nums">
+      {fmtMoney(r.administrativeFeeUsed ?? 0, locale, "PLN")}
+    </span>
+  </div>
+
+  <div className="flex justify-between gap-3">
+    <span className="font-semibold">Additional cost (total)</span>
+    <span className="font-semibold tabular-nums">
+      {fmtMoney(r.additionalCost ?? 0, locale, "PLN")}
+    </span>
+  </div>
+</div>
+{/* ✅ FIXED formula */}
+<div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+  <div className="font-medium mb-1">Wzór:</div>
+  <div className="font-mono space-y-1">
+    <div>(buy: load + loadRisk)</div>
+    <div>+ (sell: unload + unloadRisk)</div>
+  </div>
+</div>
+
 
                                 {/* SELL */}
                                 <div className="rounded-lg border border-slate-100 p-2">
@@ -2011,14 +2192,15 @@ function MatchesTable({
                                 Opłata factoringowa:
                               </span>
                               <span className="tabular-nums">
-                                {fmtNum(
-                                  r.factoringFeePercentUsed ?? 0,
-                                  locale,
-                                  {
-                                    maximumFractionDigits: 4,
-                                  }
-                                )}
-                                %
+{fmtNum(
+  r.factoringFeePercentUsed ?? 0,
+  locale,
+  {
+    minimumFractionDigits: 5,
+    maximumFractionDigits: 5,
+  }
+)}
+%
                               </span>
                             </div>
 
@@ -2072,32 +2254,12 @@ function MatchesTable({
                           </div>
 
                           <div className="space-y-1">
-                            <div className="flex justify-between gap-3">
-                              <span className="text-slate-500">
-                                Additional location cost:
-                              </span>
-                              <span className="tabular-nums">
-                                {fmtMoney(
-                                  r.additionalLocationCost ?? 0,
-                                  locale,
-                                  "PLN"
-                                )}
-                              </span>
-                            </div>
-
-                            <div className="flex justify-between gap-3">
-                              <span className="text-slate-500">
-                                Opłata administracyjna:
-                              </span>
-                              <span className="tabular-nums">
-                                {fmtMoney(
-                                  r.administrativeFeeUsed ?? 0,
-                                  locale,
-                                  "PLN"
-                                )}
-                              </span>
-                            </div>
-
+<div className="flex justify-between gap-3">
+  <span className="text-slate-500">Additional cost:</span>
+  <span className="tabular-nums">
+    {fmtMoney(r.additionalCost ?? 0, locale, "PLN")}
+  </span>
+</div>
                             <div className="flex justify-between gap-3">
                               <span className="text-slate-500">
                                 Koszt factoringu:
@@ -2130,7 +2292,7 @@ function MatchesTable({
                             <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                               <div className="font-medium mb-1">Wzór:</div>
                               <div className="font-mono">
-                                additional + adminFee + factoring + transport
+                                additional cost + factoring + transport
                               </div>
                             </div>
                           </div>
@@ -2420,10 +2582,6 @@ function MatchesTable({
                     </span>
                   </Td>
 
-                  {/* per ton transport cost */}
-                  <Td className="text-right tabular-nums whitespace-nowrap">
-                    {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
-                  </Td>
 
                   <Td className="text-right whitespace-nowrap">
                     {fmtNum(r.matchedQty, locale)}
@@ -2617,3 +2775,4 @@ function MatchesTable({
     </div>
   );
 }
+
