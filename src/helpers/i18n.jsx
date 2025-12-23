@@ -14,6 +14,7 @@ const T = {
     },
     menu: {
       CONTACTS: "KONTAKT",
+      SUGGESTED_PRICE: "SUGEROWANA CENA",
       EXCHANGE: "WYMIANA",
       BUYERS: "NABYWCA",
       ITEM: "PRODUKTY",
@@ -40,6 +41,150 @@ const T = {
       SETTINGS: "USTAWIENIA",
       PARAMETERS: "PARAMETRY",
     },
+
+suggestedPrice: {
+  pageTitle: "Suggested Price",
+  cardTitle: "Suggested Purchase Price (P70)",
+  note: "Note: Location is selected for later use and does not filter SalesOfferLinesBlocks right now.",
+  lastUpdate: "Last update",
+  calculate: "Calculate",
+  calculating: "Calculating…",
+  reset: "Reset",
+  selectItemHint: "Select an Item to calculate.",
+  noResultYet: "No result yet. Pick Item and click Calculate.",
+
+  // filters
+  location: "Location",
+  pickLocation: "Pick location",
+  item: "Item",
+  pickItem: "Pick item",
+  metric: "Metric",
+  percentile: "Percentile",
+  statusOptional: "Status (optional)",
+  statusPlaceholder: 'e.g. "accepted"',
+  maxRows: "Max rows (cap)",
+
+  // result
+  suggestedPrice: "Suggested price",
+  rowsUsed: "Rows used",
+  method: "Method",
+  nearestRank: "Nearest Rank",
+
+  // stats
+  min: "MIN",
+  avg: "AVG",
+  p50: "P50",
+  p70: "P70",
+  p90: "P90",
+  max: "MAX",
+
+  // tables
+  recordsUsed: "Records used",
+  history: "History",
+  searchRecords: "Search records…",
+  searchHistory: "Search history…",
+  onlyMine: "Only mine",
+  allPercentiles: "All %",
+
+  // table headers - used
+  thDate: "Date",
+  thDocument: "Document",
+  thLine: "Line",
+  thBlock: "Block",
+  thStatus: "Status",
+  thValueUsed: "Value used",
+  thUnitPrice: "Unit price",
+  thQty: "Qty",
+  thLineValue: "Line value",
+  thLocation: "Location",
+  thCity: "City",
+
+  // table headers - history
+  thUser: "User",
+  thDestination: "Destination",
+  thSuggested: "Suggested",
+  thSamples: "Samples",
+
+  // paging
+  refresh: "Refresh",
+  prev: "Prev",
+  next: "Next",
+  loading: "Loading…",
+  noRows: "No data",
+},
+
+
+    suggestedPrice: {
+  pageTitle: "Sugerowana cena",
+  cardTitle: "Sugerowana cena zakupu (P70)",
+  note: "Uwaga: Lokalizacja jest wybierana na później i obecnie nie filtruje SalesOfferLinesBlocks.",
+  lastUpdate: "Ostatnia aktualizacja",
+  calculate: "Oblicz",
+  calculating: "Obliczam…",
+  reset: "Reset",
+  selectItemHint: "Wybierz produkt, aby obliczyć.",
+  noResultYet: "Brak wyniku. Wybierz produkt i kliknij Oblicz.",
+
+  // filters
+  location: "Lokalizacja",
+  pickLocation: "Wybierz lokalizację",
+  item: "Produkt",
+  pickItem: "Wybierz produkt",
+  metric: "Metryka",
+  percentile: "Percentyl",
+  statusOptional: "Status (opcjonalnie)",
+  statusPlaceholder: 'np. "accepted"',
+  maxRows: "Maks. rekordów (limit)",
+
+  // result
+  suggestedPrice: "Sugerowana cena",
+  rowsUsed: "Użyte rekordy",
+  method: "Metoda",
+  nearestRank: "Nearest Rank",
+
+  // stats
+  min: "MIN",
+  avg: "ŚREDNIA",
+  p50: "P50",
+  p70: "P70",
+  p90: "P90",
+  max: "MAX",
+
+  // tables
+  recordsUsed: "Użyte rekordy",
+  history: "Historia",
+  searchRecords: "Szukaj rekordów…",
+  searchHistory: "Szukaj historii…",
+  onlyMine: "Tylko moje",
+  allPercentiles: "Wszystkie %",
+
+  // table headers - used
+  thDate: "Data",
+  thDocument: "Dokument",
+  thLine: "Wiersz",
+  thBlock: "Blok",
+  thStatus: "Status",
+  thValueUsed: "Użyta wartość",
+  thUnitPrice: "Cena jedn.",
+  thQty: "Ilość",
+  thLineValue: "Wartość",
+  thLocation: "Lokalizacja",
+  thCity: "Miasto",
+
+  // table headers - history
+  thUser: "Użytkownik",
+  thDestination: "Miejsce dostawy",
+  thSuggested: "Sugerowana",
+  thSamples: "Próby",
+
+  // paging
+  refresh: "Odśwież",
+  prev: "Poprzednia",
+  next: "Następna",
+  loading: "Ładowanie…",
+  noRows: "Brak danych",
+},
+
     contacts: {
       controls: {
         searchPlaceholder: "Szukaj: imię/nazwa, e-mail, firma, miasto",
@@ -2873,6 +3018,7 @@ salesOfferLines: {
     menu: {
       CONTACTS: "CONTACTS",
       EXCHANGE: "EXCHANGE",
+        SUGGESTED_PRICE: "SUGGESTED PRICE",
       BUYERS: "BUYERS",
       ITEM: "ITEMS (GRAINS)",
       LOCATIONS: "LOCATIONS",

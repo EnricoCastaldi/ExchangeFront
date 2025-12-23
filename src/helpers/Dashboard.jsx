@@ -12,6 +12,7 @@ import {
   Truck,
   MapPin,
   Mail,
+   Calculator,
   Bell,
   FileText,
   Settings as SettingsIcon,
@@ -49,6 +50,7 @@ import Drivers from "../pages/Drivers";
 import Speditors from "../pages/Speditors";
 import PurchaseOfferLinesBlocks from "../pages/PurchaseOfferLinesBlocks";
 import SalesOfferLinesBlocks from "../pages/SalesOfferLinesBlocks";
+import SuggestedPriceByLocationAndItem from "../pages/SuggestedPriceByLocationAndItem";
 
 // Helper: title-case fallback labels and strip underscores
 const toTitle = (s) =>
@@ -69,6 +71,7 @@ const HEADER_ICONS = {
   ITEM: Sprout,
   VENDORS: Building2,
   PURCHASE_AGREEMENTS: FileText,
+  SUGGESTED_PRICE: Calculator,
   SALES_AGREEMENTS: FileText,
   BUY: ShoppingCart,
   PURCHASE_LINE_PARAMETERS: SlidersHorizontal,
@@ -93,6 +96,7 @@ const HEADER_ICONS = {
 
 const PATH_TO_KEY = {
   "/app/exchange": "EXCHANGE",
+  "/app/suggested-price": "SUGGESTED_PRICE",
   "/app/contacts": "CONTACTS",
   "/app/buyers": "BUYERS",
   "/app/users": "USERS",
@@ -263,6 +267,7 @@ export default function Dashboard({ onLogout }) {
           <Routes>
             <Route index element={<Navigate to="exchange" replace />} />
             <Route path="exchange" element={<Exchange />} />
+            <Route path="suggested-price" element={<SuggestedPriceByLocationAndItem />} />
             <Route path="contacts" element={<Contacts />} />
             <Route path="buyers" element={<Customers />} />
             <Route path="users" element={<UsersPage />} />

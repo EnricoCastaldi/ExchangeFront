@@ -13,6 +13,7 @@ import {
   PanelRight,
   SlidersHorizontal,
   MapPin,
+  Calculator,
   Truck,
   BadgeCheck,
   ChevronRight,
@@ -28,7 +29,7 @@ import { useI18n } from "./i18n";
 /** Flat menu registry */
 const MENU_REGISTRY = {
   EXCHANGE: { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
-
+  SUGGESTED_PRICE: { key: "SUGGESTED_PRICE", icon: Calculator, to: "/app/suggested-price" },
   CONTACTS: { key: "CONTACTS", icon: BookUser, to: "/app/contacts" },
   BUYERS: { key: "BUYERS", icon: Users, to: "/app/buyers" },
   VENDORS: { key: "VENDORS", icon: Building2, to: "/app/vendors" },
@@ -167,7 +168,7 @@ const MENU_REGISTRY = {
 
 /** Grouping order */
 const GROUPS = [
-  { key: "CORE", titleKey: "CORE", items: ["EXCHANGE"] },
+  { key: "CORE", titleKey: "CORE", items: ["EXCHANGE", "SUGGESTED_PRICE"] },
   {
     key: "DATA",
     titleKey: "DATA",

@@ -785,15 +785,72 @@ return (
                     </Td>
                   </tr>
 
-                  {/* expanded details stays exactly the same as your current code */}
-                  {expandedId === d._id && (
-                    <tr>
-                      <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
-                        {/* keep your existing expanded content */}
-                        {/* ... */}
-                      </td>
-                    </tr>
-                  )}
+{expandedId === d._id && (
+  <tr>
+    <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+        <Section title={S.details.core}>
+          <KV label={S.details.kv.lineNo} icon={Hash}>{d.lineNo ?? "—"}</KV>
+          <KV label={S.details.kv.documentNo} icon={Hash}>{d.documentNo || "—"}</KV>
+          <KV label={S.details.kv.documentId} icon={Hash}>{d.documentId || "—"}</KV>
+          <KV label={S.details.kv.status} icon={ClipboardList}><StatusBadge value={d.status} /></KV>
+          <KV label={S.details.kv.type} icon={Layers}>{d.lineType || "—"}</KV>
+          <KV label={S.details.kv.itemNo} icon={Package}>{d.itemNo || "—"}</KV>
+          <KV label={S.details.kv.uom} icon={Package}>{d.unitOfMeasure || "—"}</KV>
+          <KV label={S.details.kv.serviceDate} icon={CalendarIcon}>{formatDate(d.serviceDate)}</KV>
+          <KV label={S.details.kv.requestedDeliveryDate} icon={CalendarIcon}>{formatDate(d.requestedDeliveryDate)}</KV>
+          <KV label={S.details.kv.promisedDeliveryDate} icon={CalendarIcon}>{formatDate(d.promisedDeliveryDate)}</KV>
+          <KV label={S.details.kv.shipmentDate} icon={CalendarIcon}>{formatDate(d.shipmentDate)}</KV>
+          <KV label={S.details.kv.documentValidityDate} icon={CalendarIcon}>{formatDate(d.documentValidityDate)}</KV>
+          <KV label={S.details.kv.documentValidityHour} icon={CalendarIcon}>{d.documentValidityHour || "—"}</KV>
+        </Section>
+
+        <Section title={S.details.amounts}>
+          <KV label={S.details.kv.unitPrice} icon={DollarSign}>{fmtDOT(d.unitPrice, 2, locale)}</KV>
+          <KV label={S.details.kv.quantity} icon={Package}>{fmtDOT(d.quantity, 3, locale)}</KV>
+          <KV label={S.details.kv.lineValue} icon={DollarSign}><b>{fmtDOT(d.lineValue, 2, locale)}</b></KV>
+          <KV label={S.details.kv.tollCost} icon={Truck}>{fmtDOT(d.tollCost, 2, locale)}</KV>
+          <KV label={S.details.kv.driverCost} icon={UserIcon}>{fmtDOT(d.driverCost, 2, locale)}</KV>
+          <KV label={S.details.kv.vehicleCost} icon={Truck}>{fmtDOT(d.vehicleCost, 2, locale)}</KV>
+          <KV label={S.details.kv.additionalCosts} icon={FileText}>{fmtDOT(d.additionalCosts, 2, locale)}</KV>
+
+          {/* ✅ FIX: use costMargin (not costMarginPct) */}
+          <KV label={S.details.kv.costMargin} icon={Percent}>{fmtDOT(d.costMargin, 2, locale)}</KV>
+
+          <KV label={S.details.kv.transportCost} icon={Truck}><b>{fmtDOT(d.transportCost, 2, locale)}</b></KV>
+        </Section>
+
+        <Section title={S.details.parties}>
+          <KV label={S.details.kv.buyVendorNo} icon={Hash}>{d.buyVendorNo || "—"}</KV>
+          <KV label={S.details.kv.payVendorNo} icon={Hash}>{d.payVendorNo || "—"}</KV>
+          <KV label={S.details.kv.locationNo} icon={Hash}>{d.locationNo || "—"}</KV>
+          <KV label={S.details.kv.locationName} icon={MapPin}>{d.locationName || "—"}</KV>
+          <KV label={S.details.kv.locationAddress} icon={MapPin}>{d.locationAddress || "—"}</KV>
+          <KV label={S.details.kv.locationAddress2} icon={MapPin}>{d.locationAddress2 || "—"}</KV>
+          <KV label={S.details.kv.locationPostCode} icon={MapPin}>{d.locationPostCode || "—"}</KV>
+          <KV label={S.details.kv.locationCity} icon={MapPin}>{d.locationCity || "—"}</KV>
+          <KV label={S.details.kv.locationCountryCode} icon={MapPin}>{d.locationCountryCode || "—"}</KV>
+        </Section>
+
+        <Section title={S.details.audit}>
+          <KV label={S.details.kv.createdBy} icon={UserIcon}>{d.userCreated || "—"}</KV>
+          <KV label={S.details.kv.createdAt} icon={CalendarIcon}>{formatDate(d.dateCreated || d.createdAt)}</KV>
+          <KV label={S.details.kv.modifiedBy} icon={UserIcon}>{d.userModified || "—"}</KV>
+          <KV label={S.details.kv.modifiedAt} icon={CalendarIcon}>{formatDate(d.dateModified || d.updatedAt)}</KV>
+        </Section>
+
+        <Section title={S.details.params}>
+          <KV label={S.details.kv.param(1)}>{(d.param1Code || "—") + " : " + (d.param1Value || "—")}</KV>
+          <KV label={S.details.kv.param(2)}>{(d.param2Code || "—") + " : " + (d.param2Value || "—")}</KV>
+          <KV label={S.details.kv.param(3)}>{(d.param3Code || "—") + " : " + (d.param3Value || "—")}</KV>
+          <KV label={S.details.kv.param(4)}>{(d.param4Code || "—") + " : " + (d.param4Value || "—")}</KV>
+          <KV label={S.details.kv.param(5)}>{(d.param5Code || "—") + " : " + (d.param5Value || "—")}</KV>
+        </Section>
+      </div>
+    </td>
+  </tr>
+)}
+
                 </React.Fragment>
               ))
             )}
