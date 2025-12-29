@@ -65,12 +65,23 @@ const LINE_TYPES = [
 
 const UOMS = ["SZT", "M2", "M3", "T", "KG"];
 
+// ---- Priority helpers ----
+// 0 = Low, 1 = Normal, 2 = High
+const PRIORITIES = [0, 1, 2];
+const PRIORITY_LABELS = { 0: "0", 1: "1", 2: "2" };
+function normalizePriority(v) {
+  const n = Number(v);
+  return PRIORITIES.includes(n) ? n : 0;
+}
+
+
 // Server-accepted sort keys (must match backend router)
 const SERVER_SORT_KEYS = new Set([
   "createdAt",
   "updatedAt",
   "lineNo",
   "status",
+  "priority",
   "itemNo",
   "quantity",
   "unitPrice",
@@ -116,7 +127,7 @@ function docLabel(d) {
    PAGE
 ========================================= */
 export default function SalesOfferLinesPage() {
-  const COL_COUNT = 15; // increased because we add UOM column
+    const COL_COUNT = 16; // includes Priority column
 
   const { t, locale } = useI18nSafe();
 
@@ -130,6 +141,7 @@ export default function SalesOfferLinesPage() {
       allDocuments: "All documents",
       allStatuses: "All statuses",
       allLineTypes: "All line types",
+      allPriorities: "All priorities",
       itemNoPlaceholder: "Item No.",
     },
     table: {
@@ -137,6 +149,8 @@ export default function SalesOfferLinesPage() {
       documentNo: "Document No.",
       status: "Status",
       type: "Type",
+        priority: "Priority",
+      priority: "Priority",
       item: "Item",
       uom: "UOM",
       unitPrice: "Unit Price",
@@ -214,13 +228,14 @@ export default function SalesOfferLinesPage() {
   const [documentNo, setDocumentNo] = useState("");
   const [status, setStatus] = useState("");
   const [lineType, setLineType] = useState("");
+  const [priority, setPriority] = useState("");
   const [itemNo, setItemNo] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [docs, setDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [documentNo, status, lineType, itemNo].filter(
+    const activeFilterCount = [documentNo, status, lineType, priority, itemNo].filter(
     Boolean
   ).length;
 
@@ -266,7 +281,8 @@ export default function SalesOfferLinesPage() {
       if (q) params.set("q", q);
       if (documentNo) params.set("documentNo", documentNo);
       if (status) params.set("status", canonStatus(status));
-      if (lineType) params.set("lineType", String(lineType).toLowerCase());
+            if (lineType) params.set("lineType", String(lineType).toLowerCase());
+      if (priority !== "" && priority != null) params.set("priority", String(normalizePriority(priority)));
       if (itemNo) params.set("itemNo", itemNo);
 
       const res = await fetch(
@@ -323,7 +339,7 @@ export default function SalesOfferLinesPage() {
 
   useEffect(() => {
     fetchData(); // eslint-disable-next-line
-  }, [page, limit, status, lineType, itemNo, sortBy, sortDir, documentNo]);
+  }, [page, limit, status, lineType, priority, itemNo, sortBy, sortDir, documentNo]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -618,6 +634,23 @@ return (
           ))}
         </select>
 
+        <select
+          value={priority}
+          onChange={(e) => {
+            setPriority(e.target.value);
+            setPage(1);
+          }}
+          className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+        >
+          <option value="">{S.controls.allPriorities || "All priorities"}</option>
+          {PRIORITIES.map((p) => (
+            <option key={p} value={String(p)}>
+              {PRIORITY_LABELS[p]}
+            </option>
+          ))}
+        </select>
+
+
         <input
           value={itemNo}
           onChange={(e) => {
@@ -627,7 +660,6 @@ return (
           placeholder={S.controls.itemNoPlaceholder}
           className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
         />
-        <div className="hidden md:block" />
       </div>
     </form>
 
@@ -656,6 +688,9 @@ return (
               <Th>{S.table.documentNo}</Th>
               <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
                 {S.table.status}
+              </SortableTh>
+              <SortableTh id="priority" {...{ sortBy, sortDir, onSort }}>
+                {S.table.priority || "Priority"}
               </SortableTh>
               <Th>{S.table.type}</Th>
               <SortableTh id="itemNo" {...{ sortBy, sortDir, onSort }}>
@@ -744,6 +779,9 @@ return (
                     <Td>
                       <StatusBadge value={d.status} />
                     </Td>
+                    <Td>
+                      <PriorityBadge value={d.priority} />
+                    </Td>
                     <Td className="capitalize">{d.lineType || "—"}</Td>
                     <Td className="truncate max-w-[220px]">{d.itemNo || "—"}</Td>
                     <Td className="font-mono">{d.unitOfMeasure || "—"}</Td>
@@ -794,6 +832,7 @@ return (
           <KV label={S.details.kv.documentNo} icon={Hash}>{d.documentNo || "—"}</KV>
           <KV label={S.details.kv.documentId} icon={Hash}>{d.documentId || "—"}</KV>
           <KV label={S.details.kv.status} icon={ClipboardList}><StatusBadge value={d.status} /></KV>
+          <KV label={S.details.kv.priority || "Priority"} icon={SlidersHorizontal}><PriorityBadge value={d.priority} /></KV>
           <KV label={S.details.kv.type} icon={Layers}>{d.lineType || "—"}</KV>
           <KV label={S.details.kv.itemNo} icon={Package}>{d.itemNo || "—"}</KV>
           <KV label={S.details.kv.uom} icon={Package}>{d.unitOfMeasure || "—"}</KV>
@@ -1017,7 +1056,7 @@ function Modal({ children, onClose, title }) {
   );
 }
 
-function SalesOfferLineForm({
+export function SalesOfferLineForm({
   initial,
   onCancel,
   onSaved,
@@ -1036,6 +1075,9 @@ function SalesOfferLineForm({
   const [lineNo] = useState(initial?.lineNo ?? null); // read-only on edit
   const [status, setStatus] = useState(canonStatus(initial?.status || "new"));
   const [lineType, setLineType] = useState(initial?.lineType || "item");
+  const [priority, setPriority] = useState(
+    normalizePriority(initial?.priority ?? 0)
+  );
 
   // core
   const [itemNo, setItemNo] = useState(initial?.itemNo || "");
@@ -1307,6 +1349,7 @@ function SalesOfferLineForm({
     const payload = {
       documentNo: documentNo.trim(),
       status: canonStatus(status),
+      priority: normalizePriority(priority),
       lineType: (lineType || "item").toLowerCase(),
       lineNo: isEdit ? lineNo : undefined,
       itemNo: itemNo || null,
@@ -1760,6 +1803,20 @@ useEffect(() => {
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>
                   {STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={S.details.kv.priority || "Priority"} icon={SlidersHorizontal}>
+            <select
+              className={INPUT_CLS}
+              value={String(priority)}
+              onChange={(e) => setPriority(e.target.value)}
+            >
+              {PRIORITIES.map((p) => (
+                <option key={p} value={String(p)}>
+                  {PRIORITY_LABELS[p]}
                 </option>
               ))}
             </select>
@@ -2531,6 +2588,27 @@ function StatusBadge({ value }) {
   );
 }
 
+
+function PriorityBadge({ value }) {
+  const p = normalizePriority(value);
+  const label = PRIORITY_LABELS[p] || String(p);
+  const cls =
+    p === 2
+      ? "bg-red-50 text-red-700 border-red-200"
+      : p === 1
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : "bg-slate-50 text-slate-700 border-slate-200";
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${cls}`}
+      title={label}
+    >
+      {label}
+    </span>
+  );
+}
+
 function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -3161,4 +3239,3 @@ function Field({ label, icon: Icon, error, children }) {
     </label>
   );
 }
-export { SalesOfferLineForm };

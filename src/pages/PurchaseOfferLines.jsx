@@ -75,6 +75,7 @@ const SERVER_SORT_KEYS = new Set([
   "updatedAt",
   "lineNo",
   "status",
+  "priority",
   "itemNo",
   "quantity",
   "unitPrice",
@@ -105,6 +106,7 @@ function PurchaseOfferLineForm({
         documentNo: "Document No.",
         documentId: "Document ID",
         status: "Status",
+        priority: "Priority",
         type: "Type",
         itemNo: "Item No.",
         uom: "Unit of Measure",
@@ -191,6 +193,9 @@ function PurchaseOfferLineForm({
   const [lineNo] = React.useState(initial?.lineNo ?? null); // read-only on edit
   const [status, setStatus] = React.useState(
     canonStatus(initial?.status || "new")
+  );
+  const [priority, setPriority] = React.useState(
+    Number.isFinite(Number(initial?.priority)) ? Number(initial.priority) : 0
   );
   const [lineType, setLineType] = React.useState(initial?.lineType || "item");
 
@@ -514,6 +519,7 @@ const qty = Number(quantity) || 0;
 const payload = {
   documentNo: documentNo.trim(),
   status: canonStatus(status),
+  priority: [0, 1, 2].includes(Number(priority)) ? Number(priority) : 0,
   lineType: (lineType || "item").toLowerCase(),
   lineNo: isEdit ? lineNo : undefined,
 
@@ -727,6 +733,18 @@ const payload = {
                   {STATUS_LABELS[s]}
                 </option>
               ))}
+            </select>
+          </Field>
+
+          <Field label={SS.details.kv.priority || "Priority"} icon={SlidersHorizontal}>
+            <select
+              className={INPUT_CLS}
+              value={String(priority)}
+              onChange={(e) => setPriority(Number(e.target.value))}
+            >
+              <option value="0">0 (Low)</option>
+              <option value="1">1 (Normal)</option>
+              <option value="2">2 (High)</option>
             </select>
           </Field>
 
@@ -1257,7 +1275,7 @@ function docLabel(d) {
    PAGE — PurchaseOfferLinesPage
 ========================================= */
 export default function PurchaseOfferLinesPage() {
-  const COL_COUNT = 15; // includes UOM & totals
+  const COL_COUNT = 16; // includes Priority column
 
   const { t, locale } = useI18nSafe();
 
@@ -1279,6 +1297,7 @@ export default function PurchaseOfferLinesPage() {
       lineNo: "Line No.",
       documentNo: "Document No.",
       status: "Status",
+      priority: "Priority",
       type: "Type",
       item: "Item",
       uom: "UOM",
@@ -1304,6 +1323,7 @@ export default function PurchaseOfferLinesPage() {
         documentNo: "Document No.",
         documentId: "Document ID",
         status: "Status",
+        priority: "Priority",
         type: "Type",
         itemNo: "Item No.",
         uom: "Unit of Measure",
@@ -1365,13 +1385,14 @@ export default function PurchaseOfferLinesPage() {
   const [documentNo, setDocumentNo] = useState("");
   const [status, setStatus] = useState("");
   const [lineType, setLineType] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [itemNo, setItemNo] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [docs, setDocs] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [documentNo, status, lineType, itemNo].filter(
+  const activeFilterCount = [documentNo, status, lineType, priorityFilter, itemNo].filter(
     Boolean
   ).length;
 
@@ -1456,6 +1477,7 @@ export default function PurchaseOfferLinesPage() {
       if (documentNo) params.set("documentNo", documentNo);
       if (status) params.set("status", canonStatus(status));
       if (lineType) params.set("lineType", String(lineType).toLowerCase());
+      if (priorityFilter !== "") params.set("priority", String(priorityFilter));
       if (itemNo) params.set("itemNo", itemNo);
 
       const res = await fetch(
@@ -1472,7 +1494,7 @@ export default function PurchaseOfferLinesPage() {
 
   useEffect(() => {
     fetchData(); // eslint-disable-next-line
-  }, [page, limit, status, lineType, itemNo, sortBy, sortDir, documentNo]);
+  }, [page, limit, status, lineType, priorityFilter, itemNo, sortBy, sortDir, documentNo]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -1754,6 +1776,20 @@ return (
         </select>
 
         <select
+          value={priorityFilter}
+          onChange={(e) => {
+            setPriorityFilter(e.target.value);
+            setPage(1);
+          }}
+          className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+        >
+          <option value="">All priorities</option>
+          <option value="0">0 (Low)</option>
+          <option value="1">1 (Normal)</option>
+          <option value="2">2 (High)</option>
+        </select>
+
+        <select
           value={lineType}
           onChange={(e) => {
             setLineType(e.target.value);
@@ -1807,6 +1843,9 @@ return (
               <Th>{S.table.documentNo}</Th>
               <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
                 {S.table.status}
+              </SortableTh>
+              <SortableTh id="priority" {...{ sortBy, sortDir, onSort }}>
+                {S.table.priority || "Priority"}
               </SortableTh>
               <Th>{S.table.type}</Th>
               <SortableTh id="itemNo" {...{ sortBy, sortDir, onSort }}>
@@ -1896,6 +1935,9 @@ return (
                     <Td>
                       <StatusBadge value={d.status} />
                     </Td>
+                    <Td className="text-center font-mono">
+                      {d.priority ?? 0}
+                    </Td>
                     <Td className="capitalize">{d.lineType || "—"}</Td>
                     <Td className="truncate max-w-[220px]">{d.itemNo || "—"}</Td>
                     <Td className="font-mono">{d.unitOfMeasure || "—"}</Td>
@@ -1955,6 +1997,9 @@ return (
                             </KV>
                             <KV label={S.details.kv.status} icon={ClipboardList}>
                               <StatusBadge value={d.status} />
+                            </KV>
+                            <KV label={S.details.kv.priority || "Priority"} icon={SlidersHorizontal}>
+                              {d.priority ?? 0}
                             </KV>
                             <KV label={S.details.kv.type} icon={Layers}>
                               {d.lineType || "—"}
@@ -3025,6 +3070,7 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
 
       // core
       status: savedLine.status,
+      priority: [0, 1, 2].includes(Number(savedLine.priority)) ? Number(savedLine.priority) : 0,
       lineType: savedLine.lineType,
       itemNo: savedLine.itemNo,
       unitOfMeasure: savedLine.unitOfMeasure,

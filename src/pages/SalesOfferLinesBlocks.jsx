@@ -194,6 +194,27 @@ function StatusBadge({ value }) {
   );
 }
 
+const PRIORITY_LABELS = { 0: "0", 1: "1", 2: "2" };
+
+function PriorityBadge({ value }) {
+  const n = Number(value);
+  const v = [0, 1, 2].includes(n) ? n : 0;
+  const label = PRIORITY_LABELS[v] || String(v);
+  const cls =
+    v === 2
+      ? "bg-red-50 text-red-700 border-red-200"
+      : v === 1
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : "bg-slate-50 text-slate-700 border-slate-200";
+
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
+
 function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -257,7 +278,7 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
 export default function SalesOfferLinesBlocksPage() {
   // expander + line + block + doc + status + type + item + uom
   // + unitPrice + qty + lineValue + transport + created + updated + actions
-  const COL_COUNT = 16;
+  const COL_COUNT = 17;
 
   const { t, locale } = useI18nSafe();
   const S =
@@ -280,6 +301,7 @@ export default function SalesOfferLinesBlocksPage() {
         block: "Block",
         documentNo: "Document No.",
         status: "Status",
+        priority: "Priority",
         type: "Type",
         item: "Item",
         uom: "UOM",
@@ -825,6 +847,7 @@ return (
               <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
                 {S.table.status}
               </SortableTh>
+              <Th>{(S.table && S.table.priority) || "Priority"}</Th>
               <Th>{S.table.type}</Th>
               <SortableTh id="itemNo" {...{ sortBy, sortDir, onSort }}>
                 {S.table.item}
@@ -912,6 +935,7 @@ return (
                     <Td className="font-mono">{d.block}</Td>
                     <Td className="font-mono">{d.documentNo}</Td>
                     <Td><StatusBadge value={d.status} /></Td>
+                    <Td><PriorityBadge value={d.priority} /></Td>
                     <Td className="capitalize">{d.lineType || "—"}</Td>
                     <Td className="truncate max-w-[220px]">{d.itemNo || "—"}</Td>
                     <Td className="font-mono">{d.unitOfMeasure || "—"}</Td>

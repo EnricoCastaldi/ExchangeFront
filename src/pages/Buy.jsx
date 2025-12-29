@@ -706,6 +706,9 @@ export default function Buy() {
                                             {LH.status || "Status"}
                                           </th>
                                           <th className="text-left px-3 py-2 font-medium">
+                                            {LH.priority || "Priority"}
+                                          </th>
+                                          <th className="text-left px-3 py-2 font-medium">
                                             {LH.type || "Type"}
                                           </th>
                                           <th className="text-left px-3 py-2 font-medium">
@@ -746,6 +749,18 @@ export default function Buy() {
                                                 value={ln.status}
                                                 map={L.statusMap}
                                               />
+                                            </td>
+                                            <td
+                                              className={[
+                                                "px-3 py-2 text-center font-mono",
+                                                ln.priority === 2
+                                                  ? "font-semibold text-red-700"
+                                                  : ln.priority === 1
+                                                  ? "font-semibold text-amber-700"
+                                                  : "text-slate-600",
+                                              ].join(" ")}
+                                            >
+                                              {ln.priority ?? 0}
                                             </td>
                                             <td className="px-3 py-2 capitalize">
                                               {ln.lineType || "—"}
@@ -798,7 +813,7 @@ export default function Buy() {
                                         <tr className="border-t">
                                           <td
                                             className="px-3 py-2 text-right font-semibold"
-                                            colSpan={7}
+                                            colSpan={8}
                                           >
                                             {LL.totalsLabel || "Totals:"}
                                           </td>

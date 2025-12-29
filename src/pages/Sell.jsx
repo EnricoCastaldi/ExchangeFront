@@ -57,6 +57,20 @@
     canceled: "Canceled",
   };
 
+// ---- Priority helpers (0/1/2 -> label) ----
+const PRIORITY_LABELS = {
+  0: "0 (Low)",
+  1: "1 (Normal)",
+  2: "2 (High)",
+};
+const fmtPriority = (v) => {
+  const n = Number(v);
+  return Object.prototype.hasOwnProperty.call(PRIORITY_LABELS, n)
+    ? PRIORITY_LABELS[n]
+    : PRIORITY_LABELS[0];
+};
+
+
   function canonStatus(s) {
     const k = String(s || "").toLowerCase();
     return STATUS_CANON_MAP[k] || k;
@@ -649,7 +663,8 @@ const S_lines = t.sells?.lineForm || {};
   <tr>
     <th className="text-left px-3 py-2 font-medium">{LH.lineNo || "Line No."}</th>
     <th className="text-left px-3 py-2 font-medium">{LH.status || "Status"}</th>
-    <th className="text-left px-3 py-2 font-medium">{LH.type || "Type"}</th>
+        <th className="text-left px-3 py-2 font-medium">{LH.priority || "Priority"}</th>
+<th className="text-left px-3 py-2 font-medium">{LH.type || "Type"}</th>
     <th className="text-left px-3 py-2 font-medium">{LH.item || "Item"}</th>
     <th className="text-left px-3 py-2 font-medium">{LH.uom || "UOM"}</th>
     <th className="text-right px-3 py-2 font-medium">{LH.unitPrice || "Unit Price"}</th>
@@ -666,7 +681,8 @@ const S_lines = t.sells?.lineForm || {};
               <tr key={ln._id} className="border-t">
                 <td className="px-3 py-2 font-mono">{ln.lineNo ?? "—"}</td>
                 <td className="px-3 py-2"><StatusBadge value={ln.status} map={L.statusMap} /></td>
-                <td className="px-3 py-2 capitalize">{ln.lineType || "—"}</td>
+                                <td className="px-3 py-2 whitespace-nowrap">{fmtPriority(ln.priority)}</td>
+<td className="px-3 py-2 capitalize">{ln.lineType || "—"}</td>
                 <td className="px-3 py-2 truncate max-w-[220px]">{ln.itemNo || "—"}</td>
                 <td className="px-3 py-2 font-mono">{ln.unitOfMeasure || "—"}</td>
                 <td className="px-3 py-2 text-right">{fmtDOT(ln.unitPrice, 2)}</td>
@@ -695,7 +711,7 @@ const S_lines = t.sells?.lineForm || {};
 
 <tfoot className="bg-slate-50">
   <tr className="border-t">
-    <td className="px-3 py-2 text-right font-semibold" colSpan={7}>
+    <td className="px-3 py-2 text-right font-semibold" colSpan={8}>
       {LL.totalsLabel || "Totals:"}
     </td>
     <td className="px-3 py-2 text-right font-semibold">{fmtDOT(sumLineValue, 2)}</td>

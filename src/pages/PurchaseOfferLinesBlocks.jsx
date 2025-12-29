@@ -23,8 +23,7 @@ import {
   Minimize2,
 } from "lucide-react";
 
-import { useI18n as _useI18n } from "../helpers/i18n";
-const useI18nSafe = _useI18n || (() => ({ t: null, locale: undefined }));
+import { useI18n } from "../helpers/i18n";
 
 /* ---------------------------------------------------
    Status helpers (canonicalize + labels)  — purchase
@@ -73,6 +72,7 @@ const SERVER_SORT_KEYS = new Set([
   "lineNo",
   "block",
   "status",
+  "priority",
   "itemNo",
   "quantity",
   "unitPrice",
@@ -174,6 +174,23 @@ function StatusBadge({ value }) {
   );
 }
 
+function PriorityBadge({ value }) {
+  const v = Number.isFinite(Number(value)) ? Number(value) : 0;
+  const cls =
+    v === 2
+      ? "bg-red-50 text-red-700 border-red-200"
+      : v === 1
+      ? "bg-amber-50 text-amber-700 border-amber-200"
+      : "bg-slate-100 text-slate-700 border-slate-300";
+
+  return (
+    <span className={`px-2 py-1 rounded text-xs font-semibold border ${cls}`}>
+      {v}
+    </span>
+  );
+}
+
+
 function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -239,9 +256,9 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
 ========================================= */
 export default function PurchaseOfferLinesBlocksPage() {
   // +1 column for actions
-  const COL_COUNT = 16;
+  const COL_COUNT = 17;
 
-  const { t, locale } = useI18nSafe();
+  const { t, locale } = useI18n();
 
   const S =
     (t && t.purchaseOfferLinesBlocks) || {
@@ -263,6 +280,7 @@ export default function PurchaseOfferLinesBlocksPage() {
         block: "Block",
         documentNo: "Document No.",
         status: "Status",
+        priority: "Priority",
         type: "Type",
         item: "Item",
         uom: "UOM",
@@ -289,6 +307,8 @@ export default function PurchaseOfferLinesBlocksPage() {
           documentNo: "Document No.",
           documentId: "Document ID",
           status: "Status",
+        priority: "Priority",
+           priority: "Priority",
           type: "Type",
           itemNo: "Item No.",
           uom: "Unit of Measure",
@@ -832,6 +852,9 @@ return (
               <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
                 {S.table.status}
               </SortableTh>
+              <SortableTh id="priority" {...{ sortBy, sortDir, onSort }} className="text-center">
+                {S.table.priority || "Priority"}
+              </SortableTh>
               <Th>{S.table.type}</Th>
               <SortableTh id="itemNo" {...{ sortBy, sortDir, onSort }}>
                 {S.table.item}
@@ -921,6 +944,9 @@ return (
                     <Td>
                       <StatusBadge value={d.status} />
                     </Td>
+                    <Td className="text-center">
+                      <PriorityBadge value={d.priority} />
+                    </Td>
                     <Td className="capitalize">{d.lineType || "—"}</Td>
                     <Td className="truncate max-w-[220px]">{d.itemNo || "—"}</Td>
                     <Td className="font-mono">{d.unitOfMeasure || "—"}</Td>
@@ -979,6 +1005,9 @@ return (
                             <KV label={S.details.kv.status} icon={ClipboardList}>
                               <StatusBadge value={d.status} />
                             </KV>
+                             <KV label={S.details.kv.priority || "Priority"} icon={SlidersHorizontal}>
+                               <PriorityBadge value={d.priority} />
+                             </KV>
                             <KV label={S.details.kv.type} icon={Layers}>
                               {d.lineType || "—"}
                             </KV>
@@ -1313,7 +1342,7 @@ function PurchaseOfferLineBlockForm({
   S,
   locale,
 }) {
-  const { t } = useI18nSafe();
+  const { t } = useI18n();
   const DEFAULT_S = {
     details: {
       core: "Core",
