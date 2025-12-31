@@ -1690,9 +1690,7 @@ function applyPriorityOnHungarianMatches(raw) {
     // );
     // const pool = filteredCandidates;
 
-    const pool = candidates.filter(
-  (m) => Number(m.buy_priority || 0) > 0 && Number(m.sell_priority || 0) > 0
-);
+const pool = candidates;
 
     // 3) Priority “matrix” ordering:
     //    sort by priority-combo first, then by profit
