@@ -704,6 +704,10 @@ const itemKey = isBuy ? bItemKey : sItemKey;
       reloadBoth();
     };
 
+
+    
+    
+
     return (
       <div className="space-y-4">
         {errMsg ? (
@@ -1920,19 +1924,16 @@ const openPopup = async (matchRow) => {
   setPopupError(null);
   setPopupBusy(true);
 
-  // ✅ open popup immediately so user sees it
+  // open immediately
   activeMatchRef.current = matchRow;
   setActiveMatch(matchRow);
   setPopupSecondsLeft(20);
 
-  // Pause main auto-refresh as soon as user clicks
   if (typeof onPauseMainRefresh === "function") onPauseMainRefresh();
 
   try {
-    // 1) lock both blocks "new" -> "on-hold"
     await postMatchAction("hold", matchRow);
 
-    // 2) start popup countdown
     stopPopupTimer();
     popupTimerRef.current = setInterval(() => {
       setPopupSecondsLeft((s) => {
@@ -1944,15 +1945,18 @@ const openPopup = async (matchRow) => {
       });
     }, 1000);
   } catch (e) {
-    // ✅ show error inside popup
+    // show 409 here (someone else took it)
     setPopupError(e?.message || String(e));
 
-    // resume main refresh if hold failed
+    // IMPORTANT: refresh table immediately so the row disappears
+    if (typeof onRefreshNow === "function") await onRefreshNow();
+
     if (typeof onResumeMainRefresh === "function") onResumeMainRefresh();
   } finally {
     setPopupBusy(false);
   }
 };
+
 
 
     const cancelMatch = async () => {
