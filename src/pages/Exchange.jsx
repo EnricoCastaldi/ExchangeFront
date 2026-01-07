@@ -41,6 +41,18 @@
     );
   }
 
+  function getSessionEmail() {
+  try {
+    const raw = localStorage.getItem("session");
+    const s = raw ? JSON.parse(raw) : null;
+    const email = s?.email;
+    return typeof email === "string" && email.trim() ? email.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+
   /* ---------- helpers: HTTP ---------- */
   async function readBodyAsText(res) {
     try {
@@ -399,10 +411,19 @@
     const [itemsCatalog, setItemsCatalog] = useState([]);
     const [settings, setSettings] = useState({ transportCostPerKm: 0 });
 
+    // Auto refresh + countdown
+    const AUTO_REFRESH_SEC = 10;
+    const [nextUpdateIn, setNextUpdateIn] = useState(AUTO_REFRESH_SEC);
+    const lastRefreshAtRef = useRef(Date.now());
+    const refreshInFlightRef = useRef(false);
+  const [isRefreshPaused, setIsRefreshPaused] = useState(false);
+
+
+
     // BUY state
     const [bItemKey, setBItemKey] = useState("");
     const [bPage, setBPage] = useState(1);
-    const [bLimit, setBLimit] = useState(8);
+    const [bLimit, setBLimit] = useState(5);
     const [bData, setBData] = useState({ data: [], total: 0, pages: 0, page: 1 });
     const [bTotals, setBTotals] = useState({ count: 0, qty: 0, notional: 0 });
     const [bSort, setBSort] = useState({ key: "lineNo", dir: "desc" });
@@ -411,11 +432,37 @@
     // SELL state
     const [sItemKey, setSItemKey] = useState("");
     const [sPage, setSPage] = useState(1);
-    const [sLimit, setSLimit] = useState(8);
+    const [sLimit, setSLimit] = useState(5);
     const [sData, setSData] = useState({ data: [], total: 0, pages: 0, page: 1 });
     const [sTotals, setSTotals] = useState({ count: 0, qty: 0, notional: 0 });
     const [sSort, setSSort] = useState({ key: "lineNo", dir: "desc" });
     const [sFacets, setSFacets] = useState({ items: [] });
+
+    // Global item filter (applies to BUY + SELL + Matches)
+    const globalItemKey = bItemKey || sItemKey;
+    const setGlobalItemKey = (val) => {
+      setBItemKey(val);
+      setSItemKey(val);
+      setBPage(1);
+      setSPage(1);
+    };
+
+    const facetsItemsAll = useMemo(() => {
+      const map = new Map();
+      for (const it of [...(bFacets?.items || []), ...(sFacets?.items || [])]) {
+        if (!it) continue;
+        const k = String(it.key ?? it.name ?? "");
+        if (!k) continue;
+        if (!map.has(k)) map.set(k, it);
+      }
+      const arr = Array.from(map.values());
+      arr.sort((a, b) =>
+        String(a.name ?? a.key ?? "").localeCompare(String(b.name ?? b.key ?? ""), locale)
+      );
+      return arr;
+    }, [bFacets, sFacets, locale]);
+
+
 
     const [loading, setLoading] = useState(false);
     const [lastUpdated, setLastUpdated] = useState(null);
@@ -476,7 +523,11 @@
         limit: String(isBuy ? bLimit : sLimit),
       });
 
-      const itemKey = isBuy ? bItemKey : sItemKey;
+      
+
+      // Always work only with available blocks
+      params.set("status", "new");
+const itemKey = isBuy ? bItemKey : sItemKey;
       if (itemKey) {
         params.set("itemNo", String(itemKey));
         params.set("query", String(itemKey));
@@ -494,7 +545,7 @@
       try {
         const res = await fetch(url);
         const json = await safeJson(res, url);
-        const rows = (json?.data || []).map((r) => normalizeBlockRow(r, side));
+        const rows = (json?.data || []).map((r) => normalizeBlockRow(r, side)).filter((r) => String(r.status || "").toLowerCase() === "new");
         const payload = { ...json, data: rows };
         if (isBuy) setBData(payload);
         else setSData(payload);
@@ -520,7 +571,7 @@
       try {
         const res = await fetch(url);
         const json = await safeJson(res, url);
-        const norm = (json?.data || []).map((r) => normalizeBlockRow(r, side));
+        const norm = (json?.data || []).map((r) => normalizeBlockRow(r, side)).filter((r) => String(r.status || "").toLowerCase() === "new");
 
         if (isBuy) setBAllRows(norm);
         else setSAllRows(norm);
@@ -557,16 +608,22 @@
     const reloadBuy = async () => {
       await fetchColumn("buy");
       await fetchTotalsAndFacets("buy");
+      lastRefreshAtRef.current = Date.now();
+      setNextUpdateIn(AUTO_REFRESH_SEC);
     };
     const reloadSell = async () => {
       await fetchColumn("sell");
       await fetchTotalsAndFacets("sell");
+      lastRefreshAtRef.current = Date.now();
+      setNextUpdateIn(AUTO_REFRESH_SEC);
     };
     const reloadBoth = async () => {
       setLoading(true);
       try {
         await Promise.all([reloadBuy(), reloadSell()]);
         setLastUpdated(new Date());
+        lastRefreshAtRef.current = Date.now();
+        setNextUpdateIn(AUTO_REFRESH_SEC);
       } finally {
         setLoading(false);
       }
@@ -576,6 +633,52 @@
       reloadBoth();
       // eslint-disable-next-line
     }, []);
+
+    // Countdown tick (updates every second)
+    useEffect(() => {
+      const tick = setInterval(() => {
+        if (isRefreshPaused) return;
+        const elapsed = Math.floor(
+          (Date.now() - lastRefreshAtRef.current) / 1000
+        );
+        const left = Math.max(0, AUTO_REFRESH_SEC - elapsed);
+        setNextUpdateIn(left);
+      }, 1000);
+
+      return () => clearInterval(tick);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRefreshPaused]);
+
+    // Auto refresh every 10 seconds (overlap-protected)
+    useEffect(() => {
+      const interval = setInterval(async () => {
+        if (isRefreshPaused) return;
+        if (refreshInFlightRef.current) return;
+        refreshInFlightRef.current = true;
+        try {
+          await reloadBoth();
+          lastRefreshAtRef.current = Date.now();
+          setNextUpdateIn(AUTO_REFRESH_SEC);
+        } finally {
+          refreshInFlightRef.current = false;
+        }
+      }, AUTO_REFRESH_SEC * 1000);
+
+      return () => clearInterval(interval);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isRefreshPaused]);
+
+    const pauseMainRefresh = () => {
+      setIsRefreshPaused(true);
+    };
+
+    const resumeMainRefresh = () => {
+      lastRefreshAtRef.current = Date.now();
+      setNextUpdateIn(AUTO_REFRESH_SEC);
+      setIsRefreshPaused(false);
+    };
+
+
 
     useEffect(() => {
       setBPage(1);
@@ -616,6 +719,46 @@
           </div>
 
           <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                <select
+                  value={globalItemKey}
+                  onChange={(e) => {
+                    setGlobalItemKey(e.target.value);
+                  }}
+                  className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm min-w-[16rem]"
+                  title={C.headers.item}
+                >
+                  <option value="">{C.allItems}</option>
+                  {facetsItemsAll.map((it) => (
+                    <option key={it.key} value={it.key}>
+                      {it.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {globalItemKey ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGlobalItemKey("");
+                  }}
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm bg-white hover:bg-slate-50"
+                >
+                  {C.clearItem || "Clear item"}
+                </button>
+              ) : null}
+
+              <span className="text-slate-500">
+                {EX.topbar.nextUpdate || "Next update in"}{" "}
+                <b className="tabular-nums">{nextUpdateIn}s</b>
+              </span>
+            </div>
+
+
             <button
               type="button"
               onClick={manualRefresh}
@@ -641,6 +784,14 @@
             transportCostPerKm={settings.transportCostPerKm ?? 0}
             factoringFeePercent={settings.factoringFeePercent ?? 0}
             administrativeFee={settings.administrativeFee ?? 0}
+            onPauseMainRefresh={pauseMainRefresh}
+            onResumeMainRefresh={resumeMainRefresh}
+          onRefreshNow={async () => {
+              await reloadBoth();
+              setLastUpdated(new Date());
+              lastRefreshAtRef.current = Date.now();
+              setNextUpdateIn(AUTO_REFRESH_SEC);
+            }}
           />
         </div>
 
@@ -650,6 +801,8 @@
             side="buy"
             itemKey={bItemKey}
             setItemKey={setBItemKey}
+            showItemFilter={false}
+            nextUpdateIn={nextUpdateIn}
             rows={bData}
             page={bPage}
             setPage={setBPage}
@@ -672,6 +825,8 @@
             side="sell"
             itemKey={sItemKey}
             setItemKey={setSItemKey}
+            showItemFilter={false}
+            nextUpdateIn={nextUpdateIn}
             rows={sData}
             page={sPage}
             setPage={setSPage}
@@ -699,6 +854,8 @@
     side,
     itemKey,
     setItemKey,
+    showItemFilter = true,
+    nextUpdateIn,
     rows,
     page,
     setPage,
@@ -739,9 +896,10 @@
 
     const viewTotals = useMemo(() => sumUp(filteredData), [filteredData]);
 
-    const MIN_ROWS = 8;
+    const MIN_ROWS = 5;
     const targetRows = Math.max(limit, MIN_ROWS);
-    const padCount = Math.max(0, targetRows - (sortedData?.length || 0));
+    const pageData = sortedData.slice(0, targetRows);
+    const padCount = Math.max(0, targetRows - (pageData?.length || 0));
     const COLS = 9;
 
     const onSort = (key) => {
@@ -753,18 +911,20 @@
       });
     };
 
-    return (
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-        <Header title={title} totals={viewTotals} locale={locale} stats={stats} />
+return (
+  <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <Header title={title} totals={viewTotals} locale={locale} stats={stats} />
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setPage(1);
-            onRefresh();
-          }}
-          className="flex flex-wrap gap-2 items-center px-4 py-3 border-b bg-white"
-        >
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        setPage(1);
+        onRefresh();
+      }}
+      className="flex flex-wrap gap-2 items-center px-4 py-3 border-b bg-white"
+    >
+      {showItemFilter ? (
+        <>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <select
@@ -786,7 +946,7 @@
             </select>
           </div>
 
-          {itemKey && (
+          {itemKey ? (
             <button
               type="button"
               onClick={() => {
@@ -798,189 +958,182 @@
             >
               {labels.clearItem || "Clear item"}
             </button>
+          ) : null}
+        </>
+      ) : null}
+
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50"
+      >
+        <RefreshCcw size={16} /> {labels.refreshBtn}
+      </button>
+
+      {/* countdown */}
+      <span className="text-xs text-slate-500">
+        Next update in{" "}
+        <span className="font-semibold tabular-nums">{nextUpdateIn}s</span>
+      </span>
+    </form>
+
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-slate-600">
+          <tr>
+            <SortableTh
+              label={labels.headers.lineNo || labels.headers.id}
+              sortKey="lineNo"
+              sort={sort}
+              onSort={onSort}
+              className="w-24"
+            />
+            <SortableTh
+              label={labels.headers.item}
+              sortKey="item_name"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortableTh
+              label={labels.headers.location || "Location"}
+              sortKey="locationLabel"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortableTh
+              label={labels.headers.type}
+              sortKey="type"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortableTh
+              label={labels.headers.qty}
+              sortKey="quantity"
+              sort={sort}
+              onSort={onSort}
+              className="text-right"
+            />
+            <SortableTh
+              label={labels.headers.price}
+              sortKey="price"
+              sort={sort}
+              onSort={onSort}
+              className="text-right"
+            />
+            <SortableTh
+              label={labels.headers.status}
+              sortKey="status"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortableTh
+              label={labels.headers.priority || "Priority"}
+              sortKey="priority"
+              sort={sort}
+              onSort={onSort}
+            />
+            <SortableTh
+              label={labels.headers.created}
+              sortKey="created_at"
+              sort={sort}
+              onSort={onSort}
+            />
+          </tr>
+        </thead>
+
+        <tbody>
+          {pageData.length ? (
+            pageData.map((r, idx) => (
+              <tr
+                key={`${r.lineNo}-${idx}`}
+                className={`border-t ${colorMap.get(r.lineNo) ?? ""}`}
+              >
+                <Td className="font-mono">{r.lineNo || "—"}</Td>
+                <Td className="truncate">
+                  <span className="font-medium">{r.item_name}</span>{" "}
+                  {r.item_sku ? (
+                    <span className="text-slate-500">({r.item_sku})</span>
+                  ) : null}
+                  <span className="text-slate-400 ml-2">{r.documentNo}</span>
+                </Td>
+
+                <Td className="truncate">
+                  <span className="font-medium">{r.locationLabel || "—"}</span>
+                </Td>
+
+                <Td className="uppercase">{r.type}</Td>
+                <Td className="text-right">{fmtNum(r.quantity, locale)}</Td>
+                <Td className="text-right font-semibold tabular-nums">
+                  {fmtMoney(r.price, locale, "PLN")}
+                </Td>
+                <Td>
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-semibold ${
+                      r.status === "open"
+                        ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                        : r.status === "approved"
+                        ? "bg-green-50 text-green-700 border border-green-200"
+                        : r.status === "rejected"
+                        ? "bg-red-50 text-red-700 border border-red-200"
+                        : "bg-slate-100 text-slate-700 border border-slate-200"
+                    }`}
+                  >
+                    {(labels.statuses[r.status] || r.status).toUpperCase()}
+                  </span>
+                </Td>
+                <Td>
+                  <PriorityBadge value={r.priority} />
+                </Td>
+                <Td>
+                  {r.created_at
+                    ? new Date(r.created_at).toLocaleDateString(locale)
+                    : "—"}
+                </Td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={COLS} className="p-6 text-center text-slate-500">
+                {labels.empty}
+              </td>
+            </tr>
           )}
 
-          <button
-            type="button"
-            onClick={onRefresh}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50"
-          >
-            <RefreshCcw size={16} /> {labels.refreshBtn}
-          </button>
-        </form>
+          {Array.from({ length: padCount }).map((_, i) => (
+            <tr key={`pad-${i}`} className="border-t">
+              <td colSpan={COLS} className="px-4 py-3">
+                &nbsp;
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-slate-600">
-              <tr>
-                <SortableTh
-                  label={labels.headers.lineNo || labels.headers.id}
-                  sortKey="lineNo"
-                  sort={sort}
-                  onSort={onSort}
-                  className="w-24"
-                />
-                <SortableTh
-                  label={labels.headers.item}
-                  sortKey="item_name"
-                  sort={sort}
-                  onSort={onSort}
-                />
-                <SortableTh
-                  label={labels.headers.location || "Location"}
-                  sortKey="locationLabel"
-                  sort={sort}
-                  onSort={onSort}
-                />
-                <SortableTh
-                  label={labels.headers.type}
-                  sortKey="type"
-                  sort={sort}
-                  onSort={onSort}
-                />
-                <SortableTh
-                  label={labels.headers.qty}
-                  sortKey="quantity"
-                  sort={sort}
-                  onSort={onSort}
-                  className="text-right"
-                />
-                <SortableTh
-                  label={labels.headers.price}
-                  sortKey="price"
-                  sort={sort}
-                  onSort={onSort}
-                  className="text-right"
-                />
-                <SortableTh
-                  label={labels.headers.status}
-                  sortKey="status"
-                  sort={sort}
-                  onSort={onSort}
-                />
-                <SortableTh
-                  label={labels.headers.priority || "Priority"}
-                  sortKey="priority"
-                  sort={sort}
-                  onSort={onSort}
-                />
-                <SortableTh
-                  label={labels.headers.created}
-                  sortKey="created_at"
-                  sort={sort}
-                  onSort={onSort}
-                />
-              </tr>
-            </thead>
-
-            <tbody>
-              {sortedData.length ? (
-                sortedData.map((r, idx) => (
-                  <tr
-                    key={`${r.lineNo}-${idx}`}
-                    className={`border-t ${colorMap.get(r.lineNo) ?? ""}`}
-                  >
-                    <Td className="font-mono">{r.lineNo || "—"}</Td>
-                    <Td className="truncate">
-                      <span className="font-medium">{r.item_name}</span>{" "}
-                      {r.item_sku ? (
-                        <span className="text-slate-500">({r.item_sku})</span>
-                      ) : null}
-                      <span className="text-slate-400 ml-2">{r.documentNo}</span>
-                    </Td>
-
-                    <Td className="truncate">
-                      <span className="font-medium">
-                        {r.locationLabel || "—"}
-                      </span>
-                    </Td>
-
-                    <Td className="uppercase">{r.type}</Td>
-                    <Td className="text-right">{fmtNum(r.quantity, locale)}</Td>
-                    <Td className="text-right font-semibold tabular-nums">
-                      {fmtMoney(r.price, locale, "PLN")}
-                    </Td>
-                    <Td>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-semibold ${
-                          r.status === "open"
-                            ? "bg-yellow-50 text-yellow-700 border border-yellow-200"
-                            : r.status === "approved"
-                            ? "bg-green-50 text-green-700 border border-green-200"
-                            : r.status === "rejected"
-                            ? "bg-red-50 text-red-700 border border-red-200"
-                            : "bg-slate-100 text-slate-700 border border-slate-200"
-                        }`}
-                      >
-                        {(labels.statuses[r.status] || r.status).toUpperCase()}
-                      </span>
-                    </Td>
-                    <Td>
-                      <PriorityBadge value={r.priority} />
-                    </Td>
-                    <Td>
-                      {r.created_at
-                        ? new Date(r.created_at).toLocaleDateString(locale)
-                        : "—"}
-                    </Td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={COLS} className="p-6 text-center text-slate-500">
-                    {labels.empty}
-                  </td>
-                </tr>
-              )}
-
-              {Array.from({ length: padCount }).map((_, i) => (
-                <tr key={`pad-${i}`} className="border-t">
-                  <td colSpan={COLS} className="px-4 py-3">
-                    &nbsp;
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
-          <div className="text-xs text-slate-500">
-            {labels.footer.meta(rows.total || 0, rows.page || 1, rows.pages || 1)}
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-            >
-              {[8, 20, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {labels.footer.perPage(n)}
-                </option>
-              ))}
-            </select>
-            <button
-              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={(rows.page || 1) <= 1}
-            >
-              {labels.footer.prev}
-            </button>
-            <button
-              className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-              onClick={() => setPage((p) => Math.min(rows.pages || 1, p + 1))}
-              disabled={(rows.page || 1) >= (rows.pages || 1)}
-            >
-              {labels.footer.next}
-            </button>
-          </div>
-        </div>
+    <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
+      <div className="text-xs text-slate-500">
+        {labels.footer.meta(rows.total || 0, rows.page || 1, rows.pages || 1)}
       </div>
-    );
+      <div className="flex items-center gap-2">
+<button
+          className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={(rows.page || 1) <= 1}
+        >
+          {labels.footer.prev}
+        </button>
+        <button
+          className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+          onClick={() => setPage((p) => Math.min(rows.pages || 1, p + 1))}
+          disabled={(rows.page || 1) >= (rows.pages || 1)}
+        >
+          {labels.footer.next}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
   }
 
   /* ===================== UI bits ===================== */
@@ -1421,15 +1574,18 @@
     });
 
   // =========================================================
-        // LOCATION COSTS RULE
+        // LOCATION COSTS RULE (split base vs risk)
         // =========================================================
-        const buyLocExtra =
-          (Number(b.loadingCost) || 0) + (Number(b.loadingCostRisk) || 0);
+        // ✅ BASE costs (move to Transport column)
+        const buyLocBase = Number(b.loadingCost) || 0;
+        const sellLocBase = Number(s.unloadingCost) || 0;
 
-        const sellLocExtra =
-          (Number(s.unloadingCost) || 0) + (Number(s.unloadingCostRisk) || 0);
+        // ✅ RISK costs (stay in Additional cost column)
+        const buyLocRisk = Number(b.loadingCostRisk) || 0;
+        const sellLocRisk = Number(s.unloadingCostRisk) || 0;
 
-        const additionalLocationCost = buyLocExtra + sellLocExtra;
+        const locationBaseCost = buyLocBase + sellLocBase;
+        const locationRiskCost = buyLocRisk + sellLocRisk;
 
         // -------------------------
         // FACTORING
@@ -1456,22 +1612,28 @@
         // =========================
         // ADMIN FEE
         // =========================
-        const adminFee = Number(administrativeFee) || 0;
+        const adminFeeValue = Number(administrativeFee) || 0;
 
         const distanceTransportCost = Number.isFinite(distanceKm)
           ? (Number(distanceKm) || 0) * (Number(costPerKm) || 0)
           : 0;
 
-        // ✅ Additional cost column = location extras + admin fee
-        const additionalCost =
-          (Number(additionalLocationCost) || 0) + (Number(adminFee) || 0);
+        // ✅ Transport column TOTAL = distance transport + base location costs
+        const totalTransportCost =
+          (Number(distanceTransportCost) || 0) + (Number(locationBaseCost) || 0);
 
-        // ✅ FIX: Main cost must start from Additional cost (NOT location-only)
-        // mainCost = additionalCost + factoring + transport
+                const locationBaseCostPerTon = matchedQty ? (Number(locationBaseCost) || 0) / matchedQty : 0;
+        const transportCostPerTon = (Number(transportCost) || 0) + (Number(locationBaseCostPerTon) || 0);
+
+// ✅ Additional cost column TOTAL = risk location costs + admin fee
+        const additionalCost =
+          (Number(locationRiskCost) || 0) + (Number(adminFeeValue) || 0);
+
+        // ✅ Main cost = Additional + factoring + Transport (includes base location costs)
         const mainCost =
           (Number(additionalCost) || 0) +
           (Number(factoringCost) || 0) +
-          (Number(distanceTransportCost) || 0);
+          (Number(totalTransportCost) || 0);
 
         // ✅ FIX: do NOT add admin fee again (already inside mainCost)
         const commissionBase =
@@ -1509,32 +1671,45 @@
           spread,
           spreadNotional,
 
-          transportCost,
+          transportCost: transportCostPerTon,
+
+          transportCostCore: transportCost,
+
+          locationBaseCost,
+
+          locationBaseCostPerTon,
+
+          totalTransportCost,
           fromRegion,
           toRegion,
           distanceKm,
 
-          additionalLocationCost,
-          additionalCost,
-
+          // ✅ Transport column extras (base loading/unloading) moved here
           distanceTransportCost,
 
-          additionalLocationCostDetails: {
+          // ✅ Additional cost column keeps ONLY risk + admin
+          locationRiskCost,
+          additionalCost,
+
+          transportCostDetails: {
+            distanceTransportCost,
             buy: {
-              loadingCost: Number(b.loadingCost) || 0,
-              unloadingCost: Number(b.unloadingCost) || 0,
-              loadingCostRisk: Number(b.loadingCostRisk) || 0,
-              unloadingCostRisk: Number(b.unloadingCostRisk) || 0,
-              total: buyLocExtra,
+              loadingCost: buyLocBase,
             },
             sell: {
-              loadingCost: Number(s.loadingCost) || 0,
-              unloadingCost: Number(s.unloadingCost) || 0,
-              loadingCostRisk: Number(s.loadingCostRisk) || 0,
-              unloadingCostRisk: Number(s.unloadingCostRisk) || 0,
-              total: sellLocExtra,
+              unloadingCost: sellLocBase,
             },
-            total: additionalLocationCost,
+            total: totalTransportCost,
+          },
+
+          additionalCostDetails: {
+            risk: {
+              buyLoadingRisk: buyLocRisk,
+              sellUnloadingRisk: sellLocRisk,
+              totalRisk: locationRiskCost,
+            },
+            administrativeFee: adminFeeValue,
+            total: additionalCost,
           },
 
           factoringCost,
@@ -1545,7 +1720,7 @@
           factoringSellQtyTotal: sellQtyTotal,
           factoringMatchedLineValue: matchedLineValue,
 
-          administrativeFeeUsed: adminFee,
+          administrativeFeeUsed: adminFeeValue,
           mainCost,
 
           buy_lineNo: b.lineNo,
@@ -1631,6 +1806,9 @@
     transportCostPerKm,
     factoringFeePercent,
     administrativeFee,
+    onPauseMainRefresh,
+    onResumeMainRefresh,
+    onRefreshNow,
   }) {
     const [sort, setSort] = useState({ key: "spread", dir: "asc" });
     const [limit, setLimit] = useState(5);
@@ -1639,6 +1817,195 @@
     const [allMatchesRaw, setAllMatchesRaw] = useState([]);
     const [isMatching, setIsMatching] = useState(false);
     const [matchError, setMatchError] = useState(null);
+
+        // Modal (pick/cancel) state
+    const [activeMatch, setActiveMatch] = useState(null);
+    const activeMatchRef = useRef(null);
+const [popupSecondsLeft, setPopupSecondsLeft] = useState(20);
+    const [popupBusy, setPopupBusy] = useState(false);
+    const [popupError, setPopupError] = useState(null);
+    const popupTimerRef = useRef(null);
+
+    const matchPayload = (m) => ({
+      buy: {
+        documentNo: m?.buy_documentNo,
+        lineNo: m?.buy_lineNo,
+        block: m?.buy_block,
+      },
+      sell: {
+        documentNo: m?.sell_documentNo,
+        lineNo: m?.sell_lineNo,
+        block: m?.sell_block,
+      },
+    });
+
+    const postMatchAction = async (action, m) => {
+      const url = `${API}/api/match-actions/${action}`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(matchPayload(m)),
+      });
+      return safeJson(res, url);
+    };
+
+const postMatchedRecord = async (m) => {
+  const url = `${API}/api/matched-records`;
+  const pickedBy = getSessionEmail(); // ✅ from localStorage session
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ match: m, pickedBy }), // ✅ send pickedBy
+  });
+
+  return safeJson(res, url);
+};
+
+
+    const isSameMatch = (a, b) => {
+      if (!a || !b) return false;
+      return (
+        a.buy_documentNo === b.buy_documentNo &&
+        Number(a.buy_lineNo) === Number(b.buy_lineNo) &&
+        Number(a.buy_block) === Number(b.buy_block) &&
+        a.sell_documentNo === b.sell_documentNo &&
+        Number(a.sell_lineNo) === Number(b.sell_lineNo) &&
+        Number(a.sell_block) === Number(b.sell_block)
+      );
+    };
+
+
+    const stopPopupTimer = () => {
+      if (popupTimerRef.current) {
+        clearInterval(popupTimerRef.current);
+        popupTimerRef.current = null;
+      }
+    };
+
+    const closePopup = async (
+      { releaseHold, match } = { releaseHold: false, match: null }
+    ) => {
+      stopPopupTimer();
+
+      const m = match || activeMatchRef.current || activeMatch;
+
+      setActiveMatch(null);
+      activeMatchRef.current = null;
+
+      setPopupSecondsLeft(20);
+      setPopupBusy(false);
+      setPopupError(null);
+
+      // If user did nothing / timed out, revert "on-hold" -> "new"
+      if (releaseHold && m) {
+        try {
+          // Prefer "release" if your backend supports it
+          await postMatchAction("release", m);
+        } catch (e) {
+          // Fallback: many backends use "cancel" to revert to "new"
+          try {
+            await postMatchAction("cancel", m);
+          } catch (e2) {
+            // don't block UI for release/cancel failures
+            console.warn("[match-actions/release|cancel] failed", e2);
+          }
+        }
+      }
+
+      if (typeof onResumeMainRefresh === "function") onResumeMainRefresh();
+    };
+
+const openPopup = async (matchRow) => {
+  setPopupError(null);
+  setPopupBusy(true);
+
+  // ✅ open popup immediately so user sees it
+  activeMatchRef.current = matchRow;
+  setActiveMatch(matchRow);
+  setPopupSecondsLeft(20);
+
+  // Pause main auto-refresh as soon as user clicks
+  if (typeof onPauseMainRefresh === "function") onPauseMainRefresh();
+
+  try {
+    // 1) lock both blocks "new" -> "on-hold"
+    await postMatchAction("hold", matchRow);
+
+    // 2) start popup countdown
+    stopPopupTimer();
+    popupTimerRef.current = setInterval(() => {
+      setPopupSecondsLeft((s) => {
+        if (s <= 1) {
+          setTimeout(() => closePopup({ releaseHold: true, match: matchRow }), 0);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  } catch (e) {
+    // ✅ show error inside popup
+    setPopupError(e?.message || String(e));
+
+    // resume main refresh if hold failed
+    if (typeof onResumeMainRefresh === "function") onResumeMainRefresh();
+  } finally {
+    setPopupBusy(false);
+  }
+};
+
+
+    const cancelMatch = async () => {
+      if (!activeMatch) return;
+      setPopupBusy(true);
+      setPopupError(null);
+      try {
+        // Cancel = revert "on-hold" -> "new"
+        await postMatchAction("cancel", activeMatch);
+        await closePopup({ releaseHold: false });
+      } catch (e) {
+        setPopupError(e?.message || String(e));
+      } finally {
+        setPopupBusy(false);
+      }
+    };
+
+    const pickupMatch = async () => {
+      if (!activeMatch) return;
+      setPopupBusy(true);
+      setPopupError(null);
+      try {
+        // Pickup = set both blocks status to "matched"
+        await postMatchAction("pickup", activeMatch);
+
+        // ✅ store snapshot in DB (history/audit)
+        await postMatchedRecord(activeMatch);
+
+        // ✅ remove picked match immediately from UI
+        setAllMatchesRaw((prev) => prev.filter((m) => !isSameMatch(m, activeMatch)));
+        setPrioMatchesRaw((prev) => prev.filter((m) => !isSameMatch(m, activeMatch)));
+
+        // close popup (do NOT release)
+        await closePopup({ releaseHold: false });
+
+        // ✅ refresh immediately so picked match disappears everywhere
+        if (typeof onRefreshNow === "function") {
+          await onRefreshNow();
+        }
+      } catch (e) {
+        setPopupError(e?.message || String(e));
+      } finally {
+        setPopupBusy(false);
+      }
+    };
+
+    useEffect(() => {
+      // cleanup on unmount
+      return () => {
+        if (popupTimerRef.current) clearInterval(popupTimerRef.current);
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // ✅ NEW: priority overlay on top of Hungarian (no recalculation)
     const [mode, setMode] = useState("hungarian"); // "hungarian" | "priority"
@@ -1837,12 +2204,8 @@ const pool = candidates;
 
           // Transport (TOTAL) = km * 1kmCost (distance only)
           case "totalTransportCost":
-            return Number(
-              r.distanceKm && transportCostPerKm
-                ? r.distanceKm * transportCostPerKm
-                : 0
-            );
-          case "mainCost":
+            return Number(r.totalTransportCost ?? 0);
+case "mainCost":
             return Number(r.mainCost ?? 0);
 
           case "factoringCost":
@@ -1852,9 +2215,8 @@ const pool = candidates;
           case "additionalCost":
             return Number(r.additionalCost ?? 0);
           case "additionalLocationCost":
-            return Number(r.additionalLocationCost ?? 0);
-
-          case "salesCommission":
+            return Number(r.locationRiskCost ?? 0);
+case "salesCommission":
             return Number(r.salesCommission ?? 0);
 
           case "purchaseCommission":
@@ -2172,7 +2534,12 @@ const pool = candidates;
             <tbody>
               {pageRows.length ? (
                 pageRows.map((r, i) => (
-                  <tr key={`${r.rowKey}-${i}`} className="border-t">
+                  <tr
+                    key={`${r.rowKey}-${i}`}
+                    className="border-t cursor-pointer hover:bg-slate-50"
+                    onClick={() => openPopup(r)}
+                    title="Click to manage this match"
+                  >
                     <Td className="whitespace-nowrap">
                       <span className="font-medium">{r.item_name}</span>
                       <span className="text-slate-400 ml-2">
@@ -2191,23 +2558,124 @@ const pool = candidates;
                         : "n/a"}
                     </Td>
 
-                    {/* Transport = distance only */}
+                    {/* Transport = distance (km×rate) + base loading/unloading */}
                     <Td className="text-right tabular-nums whitespace-nowrap">
-                      {fmtMoney(
-                        Number.isFinite(r.distanceKm)
-                          ? r.distanceKm * transportCostPerKm
-                          : 0,
-                        locale,
-                        "PLN"
-                      )}
+                      <span className="inline-flex items-center justify-end gap-2">
+                        {fmtMoney(r.totalTransportCost ?? 0, locale, "PLN")}
+
+                        <span className="relative group">
+                          <Info
+                            size={14}
+                            className="text-slate-400 hover:text-slate-700 cursor-help"
+                          />
+
+                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                            <div className="font-semibold mb-2">
+                              Transport – szczegóły
+                            </div>
+
+                            {(() => {
+                              const d = r.transportCostDetails || {};
+                              const Row = ({ label, value }) => (
+                                <div className="flex justify-between gap-3">
+                                  <span className="text-slate-500">{label}</span>
+                                  <span className="tabular-nums">
+                                    {fmtMoney(value ?? 0, locale, "PLN")}
+                                  </span>
+                                </div>
+                              );
+
+                              return (
+                                <div className="space-y-1">
+                                  <Row
+                                    label="Transport (km × stawka):"
+                                    value={d.distanceTransportCost ?? 0}
+                                  />
+                                  <Row
+                                    label="Załadunek (buy):"
+                                    value={d.buy?.loadingCost ?? 0}
+                                  />
+                                  <Row
+                                    label="Rozładunek (sell):"
+                                    value={d.sell?.unloadingCost ?? 0}
+                                  />
+
+                                  <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                                    <span className="font-semibold">Total</span>
+                                    <span className="font-semibold tabular-nums">
+                                      {fmtMoney(d.total ?? r.totalTransportCost ?? 0, locale, "PLN")}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                                    <div className="font-medium mb-1">Wzór:</div>
+                                    <div className="font-mono">
+                                      (km × stawka) + załadunek + rozładunek
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        </span>
+                      </span>
                     </Td>
 
                     {/* per ton transport cost */}
                     <Td className="text-right tabular-nums whitespace-nowrap">
-                      {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+                      <span className="inline-flex items-center justify-end gap-2">
+                        {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+
+                        <span className="relative group">
+                          <Info
+                            size={14}
+                            className="text-slate-400 hover:text-slate-700 cursor-help"
+                          />
+
+                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                            <div className="font-semibold mb-2">
+                              Transport / t – details
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between gap-3">
+                                <span className="text-slate-500">
+                                  Core transport / t:
+                                </span>
+                                <span className="tabular-nums">
+                                  {fmtMoney(r.transportCostCore ?? 0, locale, "PLN")}
+                                </span>
+                              </div>
+
+                              <div className="flex justify-between gap-3">
+                                <span className="text-slate-500">
+                                  Load + unload / t:
+                                </span>
+                                <span className="tabular-nums">
+                                  {fmtMoney(r.locationBaseCostPerTon ?? 0, locale, "PLN")}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                                <span className="font-semibold">Total / t</span>
+                                <span className="font-semibold tabular-nums">
+                                  {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
+                                <div className="font-medium mb-1">Wzór:</div>
+                                <div className="font-mono">
+                                  coreTransport/t + (load+unload)/matchedQty
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </span>
+                      </span>
                     </Td>
 
-                    {/* ✅ Additional cost (TOTAL PLN) */}
+                    {/* ✅ Additional cost = risk costs + admin fee */}
                     <Td className="text-right tabular-nums whitespace-nowrap">
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.additionalCost ?? 0, locale, "PLN")}
@@ -2218,21 +2686,14 @@ const pool = candidates;
                             className="text-slate-400 hover:text-slate-700 cursor-help"
                           />
 
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-[28rem] rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
                             <div className="font-semibold mb-2">
                               Additional cost – szczegóły
                             </div>
 
                             {(() => {
-                              const d = r.additionalLocationCostDetails || null;
-                              const buy = d?.buy || {};
-                              const sell = d?.sell || {};
-                              const buyTotal = Number(buy.total ?? 0) || 0;
-                              const sellTotal = Number(sell.total ?? 0) || 0;
-                              const total =
-                                Number(
-                                  d?.total ?? r.additionalLocationCost ?? 0
-                                ) || 0;
+                              const d = r.additionalCostDetails || {};
+                              const risk = d.risk || {};
 
                               const Row = ({ label, value }) => (
                                 <div className="flex justify-between gap-3">
@@ -2244,138 +2705,42 @@ const pool = candidates;
                               );
 
                               return (
-                                <div className="space-y-2">
-                                  {/* BUY */}
-                                  <div className="rounded-lg border border-slate-100 p-2">
-                                    <div className="font-medium text-slate-600 mb-1">
-                                      Buy location
-                                    </div>
+                                <div className="space-y-1">
+                                  <Row
+                                    label="Ryzyko załadunku (buy):"
+                                    value={risk.buyLoadingRisk ?? 0}
+                                  />
+                                  <Row
+                                    label="Ryzyko rozładunku (sell):"
+                                    value={risk.sellUnloadingRisk ?? 0}
+                                  />
 
-                                    <div className="space-y-1">
-                                      <Row
-                                        label="Loading cost (included):"
-                                        value={buy.loadingCost}
-                                      />
-                                      <Row
-                                        label="Loading risk (included):"
-                                        value={buy.loadingCostRisk}
-                                      />
-
-                                      <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
-                                        <span className="font-medium text-slate-600">
-                                          Buy total:
-                                        </span>
-                                        <span className="font-medium tabular-nums">
-                                          {fmtMoney(buyTotal, locale, "PLN")}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* SELL */}
-                                  <div className="rounded-lg border border-slate-100 p-2">
-                                    <div className="font-medium text-slate-600 mb-1">
-                                      Sell location
-                                    </div>
-
-                                    <div className="space-y-1">
-                                      <Row
-                                        label="Unloading cost (included):"
-                                        value={sell.unloadingCost}
-                                      />
-                                      <Row
-                                        label="Unloading risk (included):"
-                                        value={sell.unloadingCostRisk}
-                                      />
-
-                                      <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
-                                        <span className="font-medium text-slate-600">
-                                          Sell total:
-                                        </span>
-                                        <span className="font-medium tabular-nums">
-                                          {fmtMoney(sellTotal, locale, "PLN")}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* LOCATION EXTRAS TOTAL */}
-                                  <div className="mt-1 pt-2 border-t border-slate-200 flex justify-between gap-3">
-                                    <span className="font-semibold">
-                                      Location extras (total)
+                                  <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
+                                    <span className="font-medium text-slate-600">
+                                      Risk total:
                                     </span>
+                                    <span className="font-medium tabular-nums">
+                                      {fmtMoney(risk.totalRisk ?? 0, locale, "PLN")}
+                                    </span>
+                                  </div>
+
+                                  <Row
+                                    label="Opłata administracyjna:"
+                                    value={d.administrativeFee ?? 0}
+                                  />
+
+                                  <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
+                                    <span className="font-semibold">Total</span>
                                     <span className="font-semibold tabular-nums">
-                                      {fmtMoney(total, locale, "PLN")}
+                                      {fmtMoney(d.total ?? r.additionalCost ?? 0, locale, "PLN")}
                                     </span>
-                                  </div>
-
-                                  {/* ADMIN FEE + GRAND TOTAL */}
-                                  <div className="mt-2 pt-2 border-t border-slate-200 space-y-1">
-                                    <div className="flex justify-between gap-3">
-                                      <span className="text-slate-500">
-                                        Opłata administracyjna:
-                                      </span>
-                                      <span className="tabular-nums">
-                                        {fmtMoney(
-                                          r.administrativeFeeUsed ?? 0,
-                                          locale,
-                                          "PLN"
-                                        )}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex justify-between gap-3">
-                                      <span className="font-semibold">
-                                        Additional cost (total)
-                                      </span>
-                                      <span className="font-semibold tabular-nums">
-                                        {fmtMoney(r.additionalCost ?? 0, locale, "PLN")}
-                                      </span>
-                                    </div>
                                   </div>
 
                                   <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                     <div className="font-medium mb-1">Wzór:</div>
-                                    <div className="font-mono space-y-1">
-                                      <div>(buy: load + loadRisk)</div>
-                                      <div>+ (sell: unload + unloadRisk)</div>
+                                    <div className="font-mono">
+                                      (risk buy + risk sell) + opłata admin.
                                     </div>
-                                  </div>
-
-                                  {/* legacy duplicated block kept as-is */}
-                                  <div className="rounded-lg border border-slate-100 p-2">
-                                    <div className="font-medium text-slate-600 mb-1">
-                                      Sell location
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Row label="Loading cost:" value={sell.loadingCost} />
-                                      <Row label="Unloading cost:" value={sell.unloadingCost} />
-                                      <Row label="Loading risk:" value={sell.loadingCostRisk} />
-                                      <Row label="Unloading risk:" value={sell.unloadingCostRisk} />
-
-                                      <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
-                                        <span className="font-medium text-slate-600">
-                                          Sell total:
-                                        </span>
-                                        <span className="font-medium tabular-nums">
-                                          {fmtMoney(sellTotal, locale, "PLN")}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  <div className="mt-1 pt-2 border-t border-slate-200 flex justify-between gap-3">
-                                    <span className="font-semibold">
-                                      Additional cost (total)
-                                    </span>
-                                    <span className="font-semibold tabular-nums">
-                                      {fmtMoney(total, locale, "PLN")}
-                                    </span>
-                                  </div>
-
-                                  <div className="font-mono space-y-1">
-                                    <div>buy + sell</div>
-                                    <div>(load + unload + riskLoad + riskUnload)</div>
                                   </div>
                                 </div>
                               );
@@ -3009,19 +3374,7 @@ const pool = candidates;
             {fmtNum(sorted.length, locale)} pairs
           </div>
           <div className="flex items-center gap-2">
-            <select
-              className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
-              value={limit}
-              onChange={(e) => {
-                setLimit(Number(e.target.value));
-                setPage(1);
-              }}
-            >
-              {[5, 10, 20, 50].map((n) => (
-                <option key={n} value={n}>{`Per page: ${n}`}</option>
-              ))}
-            </select>
-            <button
+<button
               className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={curPage <= 1}
@@ -3037,6 +3390,99 @@ const pool = candidates;
             </button>
           </div>
         </div>
+
+        {activeMatch ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            role="dialog"
+            aria-modal="true"
+            onClick={() => closePopup({ releaseHold: true })}
+          >
+            <div
+              className="w-full max-w-xl rounded-2xl bg-white shadow-xl border border-slate-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm text-slate-500">Selected match</div>
+                  <div className="font-semibold">
+                    {activeMatch.item_name}{" "}
+                    <span className="text-slate-400">·</span>{" "}
+                    {fmtNum(activeMatch.matchedQty || 0, locale)} t
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    Buy: {activeMatch.buy_documentNo} (line {activeMatch.buy_lineNo}) · Sell: {activeMatch.sell_documentNo} (line {activeMatch.sell_lineNo})
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => closePopup({ releaseHold: true })}
+                  disabled={popupBusy}
+                  className="px-3 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="px-5 py-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-slate-600">Main auto-refresh is paused.</div>
+                  <div className="text-sm text-slate-500">
+                    Auto close in{" "}
+                    <span className="font-semibold tabular-nums">{popupSecondsLeft}s</span>
+                  </div>
+                </div>
+
+                {popupError ? (
+                  <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                    {popupError}
+                  </div>
+                ) : null}
+
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Buy price</span>
+                    <span className="font-semibold tabular-nums">
+                      {fmtMoney(activeMatch.buy_price || 0, locale, "PLN")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-slate-600">Sell price</span>
+                    <span className="font-semibold tabular-nums">
+                      {fmtMoney(activeMatch.sell_price || 0, locale, "PLN")}
+                    </span>
+                  </div>
+                  <div className="flex justify-between mt-1 pt-1 border-t border-slate-200">
+                    <span className="text-slate-600">Spread</span>
+                    <span className="font-semibold tabular-nums">
+                      {fmtMoney(activeMatch.spread || 0, locale, "PLN")} / t
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={cancelMatch}
+                    disabled={popupBusy}
+                    className="px-4 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    Cancel match
+                  </button>
+                  <button
+                    type="button"
+                    onClick={pickupMatch}
+                    disabled={popupBusy}
+                    className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    Pickup match
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }

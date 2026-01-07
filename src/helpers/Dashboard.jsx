@@ -29,6 +29,7 @@ import Contacts from "../pages/Contacts";
 import Buy from "../pages/Buy";
 import Sell from "../pages/Sell";
 import Exchange from "../pages/Exchange";
+import MatchedRecords from "../pages/MatchedRecords";
 import UsersPage from "../pages/Users";
 import LanguageSwitcher from "./LanguageSwitcher";
 import Locations from "../pages/Locations";
@@ -74,6 +75,7 @@ const HEADER_ICONS = {
   SUGGESTED_PRICE: Calculator,
   SALES_AGREEMENTS: FileText,
   BUY: ShoppingCart,
+  MATCHED_RECORDS: FileText,
   PURCHASE_LINE_PARAMETERS: SlidersHorizontal,
   PURCHASE_OFFER_LINES: FileText,
   SELL: Coins,
@@ -114,6 +116,7 @@ const PATH_TO_KEY = {
   "/app/sales-offer-lines": "SALES_OFFER_LINES",
   "/app/sales-offer-lines-blocks": "SALES_OFFER_LINE_BLOCKS",
   "/app/locations": "LOCATIONS",
+  "/app/matched-records": "MATCHED_RECORDS",
   "/app/transports": "TRANSPORTS",
   "/app/transport-units": "TRANSPORT_UNITS",
   "/app/drivers": "DRIVERS",
@@ -267,6 +270,7 @@ export default function Dashboard({ onLogout }) {
           <Routes>
             <Route index element={<Navigate to="exchange" replace />} />
             <Route path="exchange" element={<Exchange />} />
+            <Route path="matched-records" element={<MatchedRecords />} />
             <Route path="suggested-price" element={<SuggestedPriceByLocationAndItem />} />
             <Route path="contacts" element={<Contacts />} />
             <Route path="buyers" element={<Customers />} />

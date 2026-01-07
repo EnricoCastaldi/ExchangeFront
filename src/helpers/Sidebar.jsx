@@ -29,6 +29,11 @@ import { useI18n } from "./i18n";
 /** Flat menu registry */
 const MENU_REGISTRY = {
   EXCHANGE: { key: "EXCHANGE", icon: ArrowLeftRight, to: "/app/exchange" },
+    MATCHED_RECORDS: { 
+    key: "MATCHED_RECORDS",
+    icon: FileText,
+    to: "/app/matched-records",
+  },
   SUGGESTED_PRICE: { key: "SUGGESTED_PRICE", icon: Calculator, to: "/app/suggested-price" },
   CONTACTS: { key: "CONTACTS", icon: BookUser, to: "/app/contacts" },
   BUYERS: { key: "BUYERS", icon: Users, to: "/app/buyers" },
@@ -168,7 +173,8 @@ const MENU_REGISTRY = {
 
 /** Grouping order */
 const GROUPS = [
-  { key: "CORE", titleKey: "CORE", items: ["EXCHANGE", "SUGGESTED_PRICE"] },
+  { key: "CORE", titleKey: "CORE", items: ["EXCHANGE", "MATCHED_RECORDS", "SUGGESTED_PRICE"] },
+
   {
     key: "DATA",
     titleKey: "DATA",
