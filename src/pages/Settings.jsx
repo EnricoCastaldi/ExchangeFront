@@ -28,12 +28,17 @@ export default function Settings() {
     administrativeFee:
       t?.settings?.administrativeFee || "Opłata administracyjna (PLN)",
 
+    // ✅ NEW
+    defaultLoadingCost:
+      t?.settings?.defaultLoadingCost || "Default loading cost (PLN)",
+    defaultUnloadingCost:
+      t?.settings?.defaultUnloadingCost || "Default unloading cost (PLN)",
+
     factoringFeePercent:
       t?.settings?.factoringFeePercent || "% opłaty factoringowej (%)",
 
     placeholderPln: t?.settings?.placeholderPln || "np. 15.00",
     placeholderKm: t?.settings?.placeholderKm || "np. 1.75",
-    // ✅ 5 decimals example
     placeholderPct: t?.settings?.placeholderPct || "np. 0.00001",
 
     save:
@@ -54,15 +59,19 @@ export default function Settings() {
   // Separate saving states (per-field)
   const [savingKm, setSavingKm] = useState(false);
   const [savingAdmin, setSavingAdmin] = useState(false);
+  const [savingDefLoad, setSavingDefLoad] = useState(false);
+  const [savingDefUnload, setSavingDefUnload] = useState(false);
   const [savingFact, setSavingFact] = useState(false);
 
   const [notice, setNotice] = useState(null);
 
   const [transportCostPerKm, setTransportCostPerKm] = useState("");
   const [administrativeFee, setAdministrativeFee] = useState("");
+  const [defaultLoadingCost, setDefaultLoadingCost] = useState("");
+  const [defaultUnloadingCost, setDefaultUnloadingCost] = useState("");
   const [factoringFeePercent, setFactoringFeePercent] = useState("");
 
-  // ✅ Factoring fee needs higher precision (e.g. 0.00001)
+  // Factoring fee needs higher precision (e.g. 0.00001)
   const FACT_DECIMALS = 5;
   const FACT_STEP = "0.00001";
 
@@ -76,12 +85,15 @@ export default function Settings() {
 
         const v1 = Number(json?.transportCostPerKm ?? 0);
         const v2 = Number(json?.administrativeFee ?? 0);
-        const v3 = Number(json?.factoringFeePercent ?? 0);
+        const v3 = Number(json?.defaultLoadingCost ?? 0);
+        const v4 = Number(json?.defaultUnloadingCost ?? 0);
+        const v5 = Number(json?.factoringFeePercent ?? 0);
 
         setTransportCostPerKm(String(v1.toFixed(2)));
         setAdministrativeFee(String(v2.toFixed(2)));
-        // ✅ 5 decimals
-        setFactoringFeePercent(String(v3.toFixed(FACT_DECIMALS)));
+        setDefaultLoadingCost(String(v3.toFixed(2)));
+        setDefaultUnloadingCost(String(v4.toFixed(2)));
+        setFactoringFeePercent(String(v5.toFixed(FACT_DECIMALS)));
       } catch {
         setNotice({ type: "error", text: L.loadFail });
       } finally {
@@ -101,74 +113,60 @@ export default function Settings() {
     return () => clearTimeout(id);
   }, [notice]);
 
-  const savePartial = async (partial, setSaving) => {
-    setSaving(true);
-    try {
-      // We can send only 1 field, but your backend currently REQUIRES all three fields.
-      // So we first GET current settings, merge, then PUT the full object.
-      const currentRes = await fetch(`${API}/api/settings`);
-      const current = await currentRes.json();
+const savePartial = async (partial, setSaving) => {
+  setSaving(true);
+  try {
+    // ✅ build payload from current UI state (NOT from server)
+    const payload = {
+      transportCostPerKm: Number(transportCostPerKm),
+      administrativeFee: Number(administrativeFee),
+      defaultLoadingCost: Number(defaultLoadingCost),
+      defaultUnloadingCost: Number(defaultUnloadingCost),
+      factoringFeePercent: Number(factoringFeePercent),
+      ...partial,
+    };
 
-      const payload = {
-        transportCostPerKm: Number(current?.transportCostPerKm ?? 0),
-        administrativeFee: Number(current?.administrativeFee ?? 0),
-        factoringFeePercent: Number(current?.factoringFeePercent ?? 0),
-        ...partial,
-      };
-
-      // validate non-negative
-      for (const k of [
-        "transportCostPerKm",
-        "administrativeFee",
-        "factoringFeePercent",
-      ]) {
-        const n = Number(payload[k]);
-        if (!Number.isFinite(n) || n < 0) {
-          throw new Error(L.validation);
-        }
-        payload[k] = n;
-      }
-
-      const res = await fetch(`${API}/api/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Save failed");
-      }
-
-      const json = await res.json();
-      setTransportCostPerKm(
-        String(
-          Number(json.transportCostPerKm ?? payload.transportCostPerKm).toFixed(
-            2
-          )
-        )
-      );
-      setAdministrativeFee(
-        String(
-          Number(json.administrativeFee ?? payload.administrativeFee).toFixed(2)
-        )
-      );
-      // ✅ 5 decimals
-      setFactoringFeePercent(
-        String(
-          Number(
-            json.factoringFeePercent ?? payload.factoringFeePercent
-          ).toFixed(FACT_DECIMALS)
-        )
-      );
-
-      setNotice({ type: "success", text: L.updated });
-    } catch (e) {
-      setNotice({ type: "error", text: e?.message || L.failed });
-    } finally {
-      setSaving(false);
+    // validate non-negative
+    for (const k of [
+      "transportCostPerKm",
+      "administrativeFee",
+      "defaultLoadingCost",
+      "defaultUnloadingCost",
+      "factoringFeePercent",
+    ]) {
+      const n = Number(payload[k]);
+      if (!Number.isFinite(n) || n < 0) throw new Error(L.validation);
+      payload[k] = n;
     }
-  };
+
+    const res = await fetch(`${API}/api/settings`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Save failed");
+    }
+
+    const json = await res.json();
+
+    // ✅ refresh UI from server response
+    setTransportCostPerKm(String(Number(json.transportCostPerKm ?? payload.transportCostPerKm).toFixed(2)));
+    setAdministrativeFee(String(Number(json.administrativeFee ?? payload.administrativeFee).toFixed(2)));
+    setDefaultLoadingCost(String(Number(json.defaultLoadingCost ?? payload.defaultLoadingCost).toFixed(2)));
+    setDefaultUnloadingCost(String(Number(json.defaultUnloadingCost ?? payload.defaultUnloadingCost).toFixed(2)));
+    setFactoringFeePercent(String(Number(json.factoringFeePercent ?? payload.factoringFeePercent).toFixed(FACT_DECIMALS)));
+
+    setNotice({ type: "success", text: L.updated });
+  } catch (e) {
+    setNotice({ type: "error", text: e?.message || L.failed });
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   const onSaveKm = async (e) => {
     e.preventDefault();
@@ -188,6 +186,26 @@ export default function Settings() {
       return;
     }
     await savePartial({ administrativeFee: n }, setSavingAdmin);
+  };
+
+  const onSaveDefaultLoading = async (e) => {
+    e.preventDefault();
+    const n = Number(defaultLoadingCost);
+    if (!Number.isFinite(n) || n < 0) {
+      setNotice({ type: "error", text: L.validation });
+      return;
+    }
+    await savePartial({ defaultLoadingCost: n }, setSavingDefLoad);
+  };
+
+  const onSaveDefaultUnloading = async (e) => {
+    e.preventDefault();
+    const n = Number(defaultUnloadingCost);
+    if (!Number.isFinite(n) || n < 0) {
+      setNotice({ type: "error", text: L.validation });
+      return;
+    }
+    await savePartial({ defaultUnloadingCost: n }, setSavingDefUnload);
   };
 
   const onSaveFact = async (e) => {
@@ -291,6 +309,82 @@ export default function Settings() {
               </Field>
             </form>
 
+            {/* ✅ Default loading cost */}
+            <form onSubmit={onSaveDefaultLoading} className="space-y-2">
+              <Field label={L.defaultLoadingCost} icon={DollarSign}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={defaultLoadingCost}
+                      onChange={(e) => {
+                        setDefaultLoadingCost(e.target.value);
+                        if (notice) setNotice(null);
+                      }}
+                      placeholder={L.placeholderPln}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                      <DollarSign size={14} />
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingDefLoad}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    title={L.save}
+                    aria-label={L.save}
+                  >
+                    <Save size={20} />
+                    <span className="hidden sm:inline">
+                      {savingDefLoad ? "…" : L.save}
+                    </span>
+                  </button>
+                </div>
+              </Field>
+            </form>
+
+            {/* ✅ Default unloading cost */}
+            <form onSubmit={onSaveDefaultUnloading} className="space-y-2">
+              <Field label={L.defaultUnloadingCost} icon={DollarSign}>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={defaultUnloadingCost}
+                      onChange={(e) => {
+                        setDefaultUnloadingCost(e.target.value);
+                        if (notice) setNotice(null);
+                      }}
+                      placeholder={L.placeholderPln}
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 pr-10 text-right"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 text-sm">
+                      <DollarSign size={14} />
+                    </span>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={savingDefUnload}
+                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    title={L.save}
+                    aria-label={L.save}
+                  >
+                    <Save size={20} />
+                    <span className="hidden sm:inline">
+                      {savingDefUnload ? "…" : L.save}
+                    </span>
+                  </button>
+                </div>
+              </Field>
+            </form>
+
             {/* Factoring fee percent */}
             <form onSubmit={onSaveFact} className="space-y-2">
               <Field label={L.factoringFeePercent} icon={Percent}>
@@ -328,8 +422,6 @@ export default function Settings() {
                 </div>
               </Field>
             </form>
-
-
           </div>
         )}
       </div>

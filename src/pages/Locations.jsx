@@ -91,8 +91,7 @@ export default function Locations() {
       unloadingCost: P?.details?.unloadingCost || "Unloading cost",
 
       // ✅ NEW: Risk costs (PLN)
-      loadingCostRisk:
-        P?.details?.loadingCostRisk || "Ryzyko kosztu załadunku",
+      loadingCostRisk: P?.details?.loadingCostRisk || "Ryzyko kosztu załadunku",
       unloadingCostRisk:
         P?.details?.unloadingCostRisk || "Ryzyko kosztu rozładunku",
 
@@ -126,19 +125,15 @@ export default function Locations() {
         maxQty: P?.modal?.fields?.maxQty || "Max Qty (int)",
 
         // Costs
-        additionalCost:
-          P?.modal?.fields?.additionalCost || "Additional Cost",
+        additionalCost: P?.modal?.fields?.additionalCost || "Additional Cost",
         loadingCost: P?.modal?.fields?.loadingCost || "Loading Cost",
-        unloadingCost:
-          P?.modal?.fields?.unloadingCost || "Unloading Cost",
+        unloadingCost: P?.modal?.fields?.unloadingCost || "Unloading Cost",
 
         // ✅ NEW: Risk costs (PLN)
         loadingCostRisk:
-          P?.modal?.fields?.loadingCostRisk ||
-          "Ryzyko kosztu załadunku",
+          P?.modal?.fields?.loadingCostRisk || "Ryzyko kosztu załadunku",
         unloadingCostRisk:
-          P?.modal?.fields?.unloadingCostRisk ||
-          "Ryzyko kosztu rozładunku",
+          P?.modal?.fields?.unloadingCostRisk || "Ryzyko kosztu rozładunku",
 
         active: P?.modal?.fields?.active || "Active",
       },
@@ -155,7 +150,8 @@ export default function Locations() {
     footer: {
       meta:
         P?.footer?.meta ||
-        ((total, page, pages) => `Total: ${total} • Page ${page} of ${pages || 1}`),
+        ((total, page, pages) =>
+          `Total: ${total} • Page ${page} of ${pages || 1}`),
       perPage: (n) =>
         P?.footer?.perPage ? P.footer.perPage(n) : `${n} / page`,
       prev: P?.footer?.prev || "Prev",
@@ -195,6 +191,11 @@ export default function Locations() {
 
   const activeFilterCount = [country, region, active].filter(Boolean).length;
 
+    const [settings, setSettings] = useState({
+    defaultLoadingCost: 0,
+    defaultUnloadingCost: 0,
+  });
+
   // ---------- Data ----------
   const fetchData = async () => {
     setLoading(true);
@@ -233,7 +234,9 @@ export default function Locations() {
   const onDelete = async (id) => {
     if (!window.confirm(L.alerts.deleteConfirm)) return;
     try {
-      const res = await fetch(`${API}/api/mlocations/${id}`, { method: "DELETE" });
+      const res = await fetch(`${API}/api/mlocations/${id}`, {
+        method: "DELETE",
+      });
       if (res.status === 204) {
         showNotice("success", L.alerts.deleted);
         fetchData();
@@ -245,6 +248,29 @@ export default function Locations() {
       showNotice("error", L.alerts.requestFail);
     }
   };
+
+    useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/settings`);
+        const json = await res.json();
+        if (!mounted) return;
+
+        setSettings({
+          defaultLoadingCost: Number(json?.defaultLoadingCost ?? 0),
+          defaultUnloadingCost: Number(json?.defaultUnloadingCost ?? 0),
+        });
+      } catch (e) {
+        // optional: showNotice("error", "Failed to load settings");
+        console.warn("Failed to load settings:", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
 
   // client-side sort parity
   const rows = useMemo(() => {
@@ -277,7 +303,9 @@ export default function Locations() {
   const handleSubmit = async (form) => {
     const isEdit = Boolean(editing?.id || editing?._id);
     const id = editing?.id || editing?._id;
-    const url = isEdit ? `${API}/api/mlocations/${id}` : `${API}/api/mlocations`;
+    const url = isEdit
+      ? `${API}/api/mlocations/${id}`
+      : `${API}/api/mlocations`;
     const method = isEdit ? "PUT" : "POST";
 
     try {
@@ -286,8 +314,15 @@ export default function Locations() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) return showNotice("error", json.message || L.alerts.requestFail);
+
+      const saved = await res.json().catch(() => ({}));
+      if (!res.ok)
+        return showNotice("error", saved.message || L.alerts.requestFail);
+
+      // ✅ auto-geocode after create/update if needed
+      if (needsGeocode(saved)) {
+        await geocodeLocation(saved); // uses your existing function
+      }
 
       showNotice("success", isEdit ? L.alerts.updated : L.alerts.created);
       setOpen(false);
@@ -360,7 +395,9 @@ export default function Locations() {
           ...prev,
           data: prev.data.map((d) => {
             const key = d.id || d._id;
-            return key === (updated.id || updated._id) ? { ...d, ...updated } : d;
+            return key === (updated.id || updated._id)
+              ? { ...d, ...updated }
+              : d;
           }),
         };
         console.log("[Geocode] Next data state:", next);
@@ -376,6 +413,33 @@ export default function Locations() {
       setGeoLoadingId(null);
     }
   };
+
+  const needsGeocode = (loc) => {
+    const hasCoords =
+      typeof loc?.lat === "number" && typeof loc?.lon === "number";
+    const hasEnoughAddress =
+      Boolean(loc?.address || loc?.address2) &&
+      Boolean(loc?.city) &&
+      Boolean(loc?.country);
+    return !hasCoords && hasEnoughAddress;
+  };
+
+  const getOsmEmbedUrl = (lat, lon, zoom = 14) => {
+    // Make a small bbox around the point so OSM embed centers nicely
+    const d = 0.01; // ~1km-ish depending on latitude
+    const left = lon - d;
+    const right = lon + d;
+    const top = lat + d;
+    const bottom = lat - d;
+
+    const bbox = `${left},${bottom},${right},${top}`;
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
+      bbox
+    )}&layer=mapnik&marker=${lat},${lon}`;
+  };
+
+  const getOsmOpenUrl = (lat, lon, zoom = 14) =>
+    `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${zoom}/${lat}/${lon}`;
 
   // ---------- UI ----------
   return (
@@ -571,9 +635,22 @@ export default function Locations() {
                       <Td className="w-8">
                         <button
                           className="p-1 rounded hover:bg-slate-100"
-                          onClick={() =>
-                            setExpandedId((id) => (id === key ? null : key))
-                          }
+                          onClick={() => {
+                            setExpandedId((id) => {
+                              const next = id === key ? null : key;
+
+                              // ✅ auto-geocode when opening details
+                              if (
+                                next &&
+                                needsGeocode(r) &&
+                                geoLoadingId !== key
+                              ) {
+                                geocodeLocation(r);
+                              }
+
+                              return next;
+                            });
+                          }}
                           aria-label={L.a11y.toggleDetails}
                           title={L.a11y.toggleDetails}
                         >
@@ -641,12 +718,14 @@ export default function Locations() {
                             <KV label={L.details.name2} icon={Building2}>
                               {r.name2 || L.table.dash}
                             </KV>
+
                             <KV label={L.details.address} icon={MapPin}>
                               {r.address || L.table.dash}
                             </KV>
                             <KV label={L.details.address2} icon={MapPin}>
                               {r.address2 || L.table.dash}
                             </KV>
+
                             <KV label={L.details.city} icon={MapPin}>
                               {r.city || L.table.dash}
                             </KV>
@@ -661,12 +740,17 @@ export default function Locations() {
                             </KV>
 
                             <KV label={L.details.latitude} icon={MapPin}>
-                              {typeof r.lat === "number"
+                              {geoLoadingId === key
+                                ? "Geocoding…"
+                                : typeof r.lat === "number"
                                 ? r.lat.toFixed(6)
                                 : L.table.dash}
                             </KV>
+
                             <KV label={L.details.longitude} icon={MapPin}>
-                              {typeof r.lon === "number"
+                              {geoLoadingId === key
+                                ? "Geocoding…"
+                                : typeof r.lon === "number"
                                 ? r.lon.toFixed(6)
                                 : L.table.dash}
                             </KV>
@@ -677,6 +761,7 @@ export default function Locations() {
                             <KV label={L.details.phoneNo} icon={Phone}>
                               {r.phoneNo || L.table.dash}
                             </KV>
+
                             <KV label={L.details.minQty} icon={ArrowDown01}>
                               {fmtInt(r.minQty)}
                             </KV>
@@ -685,18 +770,27 @@ export default function Locations() {
                             </KV>
 
                             {/* costs */}
-                            <KV label={L.details.additionalCost} icon={AlignLeft}>
+                            <KV
+                              label={L.details.additionalCost}
+                              icon={AlignLeft}
+                            >
                               {fmtDec(r.additionalCost)}
                             </KV>
                             <KV label={L.details.loadingCost} icon={AlignLeft}>
                               {fmtDec(r.loadingCost)}
                             </KV>
-                            <KV label={L.details.unloadingCost} icon={AlignLeft}>
+                            <KV
+                              label={L.details.unloadingCost}
+                              icon={AlignLeft}
+                            >
                               {fmtDec(r.unloadingCost)}
                             </KV>
 
                             {/* ✅ NEW risk costs */}
-                            <KV label={L.details.loadingCostRisk} icon={AlignLeft}>
+                            <KV
+                              label={L.details.loadingCostRisk}
+                              icon={AlignLeft}
+                            >
                               {fmtDec(r.loadingCostRisk)}
                             </KV>
                             <KV
@@ -720,33 +814,49 @@ export default function Locations() {
                                 : L.table.dash}
                             </KV>
 
-                            {/* geocode action row */}
-                            <div className="md:col-span-3 flex items-center justify-between gap-2">
-                              <span className="text-xs text-slate-500">
-                                Use Azure Maps to geocode this address and save coordinates.
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  console.log("[Geocode] Button clicked for key:", key);
-                                  geocodeLocation(r);
-                                }}
-                                disabled={geoLoadingId === key}
-                                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-60"
-                              >
-                                {geoLoadingId === key ? (
-                                  <span>Geocoding…</span>
-                                ) : (
-                                  <>
-                                    <MapPin size={14} />
-                                    <span>Geocode address</span>
-                                  </>
-                                )}
-                              </button>
+                            {/* ✅ mini map moved near bottom */}
+                            <div className="md:col-span-3">
+                              {geoLoadingId === key ? (
+                                <div className="h-48 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 text-sm">
+                                  Geocoding…
+                                </div>
+                              ) : typeof r.lat === "number" &&
+                                typeof r.lon === "number" ? (
+                                <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                                  <iframe
+                                    title={`map-${key}`}
+                                    src={getOsmEmbedUrl(r.lat, r.lon)}
+                                    className="w-full h-48"
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                  />
+                                  <div className="px-3 py-2 text-xs bg-slate-50 border-t flex items-center justify-between">
+                                    <span className="text-slate-600">
+                                      {r.lat.toFixed(6)}, {r.lon.toFixed(6)}
+                                    </span>
+                                    <a
+                                      href={getOsmOpenUrl(r.lat, r.lon, 14)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-slate-700 hover:underline"
+                                    >
+                                      Open map
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="h-48 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 text-sm">
+                                  No coordinates
+                                </div>
+                              )}
                             </div>
 
+                            {/* Notes last */}
                             <div className="md:col-span-3">
-                              <KV label={L.details.description} icon={AlignLeft}>
+                              <KV
+                                label={L.details.description}
+                                icon={AlignLeft}
+                              >
                                 {r.description || L.table.dash}
                               </KV>
                             </div>
@@ -811,6 +921,7 @@ export default function Locations() {
         >
           <LocationForm
             initial={editing}
+            settings={settings}  
             onCancel={() => {
               setOpen(false);
               setEditing(null);
@@ -826,7 +937,11 @@ export default function Locations() {
 
 /* ---------- Tiny atoms ---------- */
 function Th({ children, className = "" }) {
-  return <th className={`text-left px-4 py-3 font-medium ${className}`}>{children}</th>;
+  return (
+    <th className={`text-left px-4 py-3 font-medium ${className}`}>
+      {children}
+    </th>
+  );
 }
 function Td({ children, className = "" }) {
   return <td className={`px-4 py-3 ${className}`}>{children}</td>;
@@ -844,9 +959,16 @@ function KV({ label, icon: Icon, children }) {
 }
 function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
   const active = sortBy === id;
-  const ariaSort = active ? (sortDir === "asc" ? "ascending" : "descending") : "none";
+  const ariaSort = active
+    ? sortDir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
   return (
-    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
+    <th
+      aria-sort={ariaSort}
+      className={`text-left px-4 py-3 font-medium ${className}`}
+    >
       <button
         type="button"
         onClick={() => onSort(id)}
@@ -880,12 +1002,13 @@ function Chip({ label, onClear, clearTitle = "Clear" }) {
 function Toast({ type = "success", children, onClose }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
-  const wrap =
-    isSuccess
-      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-      : "bg-red-50 border-red-200 text-red-800";
+  const wrap = isSuccess
+    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+    : "bg-red-50 border-red-200 text-red-800";
   return (
-    <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
+    <div
+      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}
+    >
       <Icon size={16} />
       <span className="mr-auto">{children}</span>
       <button onClick={onClose} className="text-slate-500 hover:text-slate-700">
@@ -894,7 +1017,13 @@ function Toast({ type = "success", children, onClose }) {
     </div>
   );
 }
-function Modal({ children, onClose, title = "Location", fullscreen = false, backdrop = "dim" }) {
+function Modal({
+  children,
+  onClose,
+  title = "Location",
+  fullscreen = false,
+  backdrop = "dim",
+}) {
   const [isFull, setIsFull] = React.useState(Boolean(fullscreen));
 
   React.useEffect(() => {
@@ -909,18 +1038,26 @@ function Modal({ children, onClose, title = "Location", fullscreen = false, back
   // backdrop: "dim" | "transparent" | "blur" | "none"
   let backdropNode = null;
   if (backdrop === "dim")
-    backdropNode = <div className="absolute inset-0 bg-black/50" onClick={onClose} />;
+    backdropNode = (
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+    );
   else if (backdrop === "transparent")
     backdropNode = <div className="absolute inset-0" onClick={onClose} />;
   else if (backdrop === "blur")
-    backdropNode = <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />;
+    backdropNode = (
+      <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />
+    );
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
-    isFull ? "w-screen h-screen max-w-none rounded-none" : "w-full max-w-4xl rounded-2xl",
+    isFull
+      ? "w-screen h-screen max-w-none rounded-none"
+      : "w-full max-w-4xl rounded-2xl",
   ].join(" ");
 
-  const bodyCls = isFull ? "p-4 h-[calc(100vh-52px)] overflow-auto" : "p-4 max-h-[75vh] overflow-auto";
+  const bodyCls = isFull
+    ? "p-4 h-[calc(100vh-52px)] overflow-auto"
+    : "p-4 max-h-[75vh] overflow-auto";
 
   return (
     <div
@@ -992,8 +1129,12 @@ function fmtDec(v) {
 }
 
 /* ---------- Form ---------- */
-function LocationForm({ initial, onSubmit, onCancel, L }) {
+function LocationForm({ initial, onSubmit, onCancel, L, settings }) {
   const isEdit = Boolean(initial?.id || initial?._id);
+
+  const defaultLoading = Number(settings?.defaultLoadingCost ?? 0);
+  const defaultUnloading = Number(settings?.defaultUnloadingCost ?? 0);
+
   const [no, setNo] = useState(initial?.no || "");
   const [name, setName] = useState(initial?.name || "");
   const [name2, setName2] = useState(initial?.name2 || "");
@@ -1010,13 +1151,27 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
   const [active, setActive] = useState(initial?.active ?? true);
 
   // costs
-  const [additionalCost, setAdditionalCost] = useState(initial?.additionalCost ?? "");
-  const [loadingCost, setLoadingCost] = useState(initial?.loadingCost ?? "");
-  const [unloadingCost, setUnloadingCost] = useState(initial?.unloadingCost ?? "");
+  const [additionalCost, setAdditionalCost] = useState(
+    initial?.additionalCost ?? ""
+  );
 
-  // ✅ NEW: risk costs (PLN)
-  const [loadingCostRisk, setLoadingCostRisk] = useState(initial?.loadingCostRisk ?? "");
-  const [unloadingCostRisk, setUnloadingCostRisk] = useState(initial?.unloadingCostRisk ?? "");
+  // ✅ IMPORTANT:
+  // - on CREATE: start empty (or show placeholder), we will apply default in submit if empty
+  // - on EDIT: show existing values
+  const [loadingCost, setLoadingCost] = useState(
+    isEdit ? (initial?.loadingCost ?? "") : ""
+  );
+  const [unloadingCost, setUnloadingCost] = useState(
+    isEdit ? (initial?.unloadingCost ?? "") : ""
+  );
+
+  // risk costs
+  const [loadingCostRisk, setLoadingCostRisk] = useState(
+    initial?.loadingCostRisk ?? ""
+  );
+  const [unloadingCostRisk, setUnloadingCostRisk] = useState(
+    initial?.unloadingCostRisk ?? ""
+  );
 
   const submit = (e) => {
     e.preventDefault();
@@ -1024,6 +1179,22 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
       alert(L.modal.required);
       return;
     }
+
+    // ✅ Use defaults only on CREATE when empty
+    const resolvedLoadingCost =
+      loadingCost === ""
+        ? isEdit
+          ? null // or keep existing; edit case not needed because we prefill
+          : defaultLoading
+        : Number(loadingCost);
+
+    const resolvedUnloadingCost =
+      unloadingCost === ""
+        ? isEdit
+          ? null
+          : defaultUnloading
+        : Number(unloadingCost);
+
     const payload = {
       no: no.trim(),
       name: name.trim(),
@@ -1040,15 +1211,27 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
       maxQty: maxQty === "" ? null : Number(maxQty),
 
       additionalCost: additionalCost === "" ? null : Number(additionalCost),
-      loadingCost: loadingCost === "" ? null : Number(loadingCost),
-      unloadingCost: unloadingCost === "" ? null : Number(unloadingCost),
 
-      // ✅ NEW
+      // ✅ defaults applied here for CREATE
+      loadingCost:
+        resolvedLoadingCost == null ? null : Number(resolvedLoadingCost),
+      unloadingCost:
+        resolvedUnloadingCost == null ? null : Number(resolvedUnloadingCost),
+
       loadingCostRisk: loadingCostRisk === "" ? null : Number(loadingCostRisk),
-      unloadingCostRisk: unloadingCostRisk === "" ? null : Number(unloadingCostRisk),
+      unloadingCostRisk:
+        unloadingCostRisk === "" ? null : Number(unloadingCostRisk),
 
       active: Boolean(active),
     };
+
+    // ✅ If editing and user cleared field, I recommend NOT sending null (keeps old value)
+    // So remove loadingCost/unloadingCost if null in edit mode
+    if (isEdit) {
+      if (payload.loadingCost == null) delete payload.loadingCost;
+      if (payload.unloadingCost == null) delete payload.unloadingCost;
+    }
+
     onSubmit(payload);
   };
 
@@ -1189,7 +1372,9 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
             value={loadingCost}
             onChange={(e) => setLoadingCost(e.target.value)}
-            placeholder="0.00"
+            placeholder={
+              isEdit ? "0.00" : `Default: ${defaultLoading.toFixed(2)}`
+            }
           />
         </Field>
 
@@ -1201,11 +1386,13 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
             value={unloadingCost}
             onChange={(e) => setUnloadingCost(e.target.value)}
-            placeholder="0.00"
+            placeholder={
+              isEdit ? "0.00" : `Default: ${defaultUnloading.toFixed(2)}`
+            }
           />
         </Field>
 
-        {/* ✅ NEW: risk costs */}
+        {/* risk costs */}
         <Field label={L.modal.fields.loadingCostRisk} icon={AlignLeft}>
           <input
             type="number"
@@ -1261,11 +1448,14 @@ function LocationForm({ initial, onSubmit, onCancel, L }) {
   );
 }
 
+
 /* Field with optional icon */
 function Field({ label, icon: Icon, children }) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
-        className: [children.props.className || "", Icon ? " pl-9" : ""].join(" "),
+        className: [children.props.className || "", Icon ? " pl-9" : ""].join(
+          " "
+        ),
       })
     : children;
 
