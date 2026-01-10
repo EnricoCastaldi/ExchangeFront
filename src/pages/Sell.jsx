@@ -132,7 +132,9 @@ const fmtPriority = (v) => {
       externalDocumentNo: T.externalDocumentNo || "External Doc. No.",
       info: T.info || "Document Info",
       documentDate: T.documentDate || "Document Date",
-      dueDate: T.dueDate || "Due Date",
+      validUntil: T.validUntil || "Valid until",
+      validUntilDay: T.validUntilDay || "Valid until day",
+      validUntilTime: T.validUntilTime || "Valid until time",
       currency: T.currency || "Currency",
       currencyFactor: T.currencyFactor || "Currency Factor",
       sellTo: T.sellTo || "Sell-to",
@@ -319,14 +321,14 @@ const S_lines = t.sells?.lineForm || {};
         sellCustomer: "sellCustomerName",
         billCustomer: "billCustomerName",
         documentDate: "documentDate",
-        dueDate: "dueDate",
+        validUntilDay: "validUntilDay",
         currencyCode: "currencyCode",
         createdAt: "createdAt",
       };
       const k = keyMap[sortBy] || sortBy;
       const val = (r) => {
         const v = r?.[k];
-        if (k === "documentDate" || k === "dueDate" || k === "createdAt") {
+        if (k === "documentDate" || k === "validUntilDay" || k === "createdAt") {
           return v ? new Date(v).getTime() : 0;
         }
         return (v ?? "").toString().toLowerCase();
@@ -505,8 +507,8 @@ const S_lines = t.sells?.lineForm || {};
                   <SortableTh id="documentDate" {...{ sortBy, sortDir, onSort }}>
                     {L.documentDate}
                   </SortableTh>
-                  <SortableTh id="dueDate" {...{ sortBy, sortDir, onSort }}>
-                    {L.dueDate}
+                  <SortableTh id="validUntilDay" {...{ sortBy, sortDir, onSort }}>
+                    {L.validUntil}
                   </SortableTh>
                   <SortableTh
                     id="currencyCode"
@@ -574,7 +576,7 @@ const S_lines = t.sells?.lineForm || {};
                           {d.billCustomerName || d.billCustomerNo || "—"}
                         </Td>
                         <Td>{formatDate(d.documentDate, locale, "—")}</Td>
-                        <Td>{formatDate(d.dueDate, locale, "—")}</Td>
+                        <Td>{formatDate(d.validUntilDay, locale, "—")}{d.validUntilTime ? ` ${d.validUntilTime}` : ""}</Td>
                         <Td className="text-center font-medium">
                           {d.currencyCode || "—"}{" "}
                           <span className="text-slate-500">
@@ -754,37 +756,14 @@ const S_lines = t.sells?.lineForm || {};
                                     : ""}
                                 </KV>
 
-                                <KV label={L.kv.documentDate} icon={CalendarIcon}>
+                                <KV label={L.kv.documentDate || "Document Date"} icon={CalendarIcon}>
                                   {formatDate(d.documentDate, locale, "—")}
                                 </KV>
-                                <KV label={L.kv.serviceDate} icon={CalendarIcon}>
-                                  {formatDate(d.serviceDate, locale, "—")}
+                                <KV label={L.kv.validUntilDay || "Valid until day"} icon={CalendarIcon}>
+                                  {formatDate(d.validUntilDay, locale, "—")}
                                 </KV>
-                                <KV
-                                  label={L.kv.requestedDeliveryDate}
-                                  icon={CalendarIcon}
-                                >
-                                  {formatDate(
-                                    d.requestedDeliveryDate,
-                                    locale,
-                                    "—"
-                                  )}
-                                </KV>
-                                <KV
-                                  label={L.kv.promisedDeliveryDate}
-                                  icon={CalendarIcon}
-                                >
-                                  {formatDate(
-                                    d.promisedDeliveryDate,
-                                    locale,
-                                    "—"
-                                  )}
-                                </KV>
-                                <KV label={L.kv.shipmentDate} icon={CalendarIcon}>
-                                  {formatDate(d.shipmentDate, locale, "—")}
-                                </KV>
-                                <KV label={L.kv.dueDate} icon={CalendarIcon}>
-                                  {formatDate(d.dueDate, locale, "—")}
+                                <KV label={L.kv.validUntilTime || "Valid until time"} icon={CalendarIcon}>
+                                  {d.validUntilTime || "—"}
                                 </KV>
                               </Section>
 
@@ -1319,31 +1298,116 @@ function Modal({ children, onClose, title }) {
     const [currencyFactor, setCurrencyFactor] = useState(
       initial?.currencyFactor ?? 1
     );
+    // ---- date defaults (Document Date + Valid Until) ----
+    const ymdLocal = (d = new Date()) => {
+      const tz = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+    };
+
+    const isValidHHMM = (s) => /^([01]\d|2[0-3]):([0-5]\d)$/.test(String(s || "").trim());
+
+    const parseHHMM = (s, fallback = "17:00") => {
+      const v = isValidHHMM(s) ? String(s).trim() : String(fallback).trim();
+      const [hh, mm] = v.split(":").map((x) => Number(x));
+      return { hh, mm, value: v };
+    };
+
+    const nextWorkingDayYMD = (ymd) => {
+      const d = new Date(`${ymd}T00:00:00`);
+      while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+      return ymdLocal(d);
+    };
+
+    const computeDefaultValidUntilDayYMD = (defaultTimeHHMM) => {
+      const now = new Date();
+      const { hh, mm } = parseHHMM(defaultTimeHHMM, "17:00");
+      const cutoff = new Date(now);
+      cutoff.setHours(hh, mm, 0, 0);
+
+      // base = today
+      let day = new Date(now);
+      day.setHours(0, 0, 0, 0);
+
+      // if created AFTER default time -> next day
+      if (now.getTime() > cutoff.getTime()) day.setDate(day.getDate() + 1);
+
+      return nextWorkingDayYMD(ymdLocal(day));
+    };
+
+
+    const normalizeHHMM = (v) => {
+      const s = String(v || "").trim();
+      // accept "8:00" and normalize to "08:00"
+      const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+      if (!m) return "";
+      const hh = String(Math.min(23, Math.max(0, Number(m[1])))).padStart(2, "0");
+      const mm = String(Math.min(59, Math.max(0, Number(m[2])))).padStart(2, "0");
+      return `${hh}:${mm}`;
+    };
+
+    const [settings, setSettings] = useState(undefined);
+
+    // "touched" flags so defaults don’t override user edits
+    const [touchedDocumentDate, setTouchedDocumentDate] = useState(false);
+    const [touchedValidUntilDay, setTouchedValidUntilDay] = useState(false);
+    const [touchedValidUntilTime, setTouchedValidUntilTime] = useState(false);
+
+    // Dates
     const [documentDate, setDocumentDate] = useState(
-      initial?.documentDate ? initial.documentDate.slice(0, 10) : ""
+      initial?.documentDate ? initial.documentDate.slice(0, 10) : ymdLocal()
     );
-    const [serviceDate, setServiceDate] = useState(
-      initial?.serviceDate ? initial.serviceDate.slice(0, 10) : ""
+    const [validUntilDay, setValidUntilDay] = useState(
+      initial?.validUntilDay ? initial.validUntilDay.slice(0, 10) : ""
     );
-    const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(
-      initial?.requestedDeliveryDate
-        ? initial.requestedDeliveryDate.slice(0, 10)
-        : ""
+    const [validUntilTime, setValidUntilTime] = useState(
+      initial?.validUntilTime || ""
     );
-    const [promisedDeliveryDate, setPromisedDeliveryDate] = useState(
-      initial?.promisedDeliveryDate
-        ? initial.promisedDeliveryDate.slice(0, 10)
-        : ""
-    );
-    const [shipmentDate, setShipmentDate] = useState(
-      initial?.shipmentDate ? initial.shipmentDate.slice(0, 10) : ""
-    );
-    const [validityDate, setValidityDate] = useState(
-      initial?.validityDate ? initial.validityDate.slice(0, 10) : ""
-    );
-    const [dueDate, setDueDate] = useState(
-      initial?.dueDate ? initial.dueDate.slice(0, 10) : ""
-    );
+
+    // Load general settings once (defaultEndOfDayTime)
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const res = await fetch(`${API}/api/settings`);
+          const json = await res.json().catch(() => ({}));
+          if (!cancelled) setSettings(json || null);
+        } catch {
+          if (!cancelled) setSettings(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Apply defaults for NEW docs only (editable)
+    useEffect(() => {
+      if (isEdit) return;
+
+      // wait for settings fetch to finish (or fail) so we don’t lock in fallback values
+      if (settings === undefined) return;
+
+      // Document Date default = today
+      if (!touchedDocumentDate && !documentDate) {
+        setDocumentDate(ymdLocal());
+      }
+
+      const defTime = normalizeHHMM(settings?.defaultEndOfDayTime) || "17:00";
+
+      // Valid until time default = from settings
+      if (!touchedValidUntilTime && !validUntilTime) {
+        setValidUntilTime(defTime);
+      }
+
+      // Valid until day default:
+      // - if created after defTime -> next working day
+      // - else -> today (or next working day if weekend)
+      if (!touchedValidUntilDay && !validUntilDay) {
+        setValidUntilDay(computeDefaultValidUntilDayYMD(defTime));
+      }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [settings, isEdit]);
 
     // sell-to
     const [sell, setSell] = useState({
@@ -1472,12 +1536,8 @@ function Modal({ children, onClose, title }) {
         currencyCode: (currencyCode || "USD").toUpperCase(),
         currencyFactor: Number(currencyFactor) || 1,
         documentDate: documentDate || null,
-        serviceDate: serviceDate || null,
-        requestedDeliveryDate: requestedDeliveryDate || null,
-        promisedDeliveryDate: promisedDeliveryDate || null,
-        shipmentDate: shipmentDate || null,
-        validityDate: validityDate || null,
-        dueDate: dueDate || null,
+        validUntilDay: validUntilDay || null,
+        validUntilTime: validUntilTime || null,
 
         sellCustomerNo: sell.no,
         sellCustomerName: sell.name || null,
@@ -1716,67 +1776,35 @@ function Modal({ children, onClose, title }) {
                 type="date"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
                 value={documentDate}
-                onChange={(e) => setDocumentDate(e.target.value)}
+                onChange={(e) => {
+                  setTouchedDocumentDate(true);
+                  setDocumentDate(e.target.value);
+                }}
               />
             </Field>
-            <Field
-              label={F.serviceDate || "Service/Delivery Date"}
-              icon={CalendarIcon}
-            >
+
+            <Field label={F.validUntilDay || "Valid until day"} icon={CalendarIcon}>
               <input
                 type="date"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={serviceDate}
-                onChange={(e) => setServiceDate(e.target.value)}
+                value={validUntilDay}
+                onChange={(e) => {
+                  setTouchedValidUntilDay(true);
+                  setValidUntilDay(e.target.value);
+                }}
               />
             </Field>
-            <Field
-              label={F.requestedDeliveryDate || "Requested Delivery Date"}
-              icon={CalendarIcon}
-            >
+
+            <Field label={F.validUntilTime || "Valid until time"} icon={CalendarIcon}>
               <input
-                type="date"
+                type="time"
+                step="60"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={requestedDeliveryDate}
-                onChange={(e) => setRequestedDeliveryDate(e.target.value)}
-              />
-            </Field>
-            <Field
-              label={F.promisedDeliveryDate || "Promised Delivery Date"}
-              icon={CalendarIcon}
-            >
-              <input
-                type="date"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={promisedDeliveryDate}
-                onChange={(e) => setPromisedDeliveryDate(e.target.value)}
-              />
-            </Field>
-            <Field label={F.shipmentDate || "Shipment Date"} icon={CalendarIcon}>
-              <input
-                type="date"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={shipmentDate}
-                onChange={(e) => setShipmentDate(e.target.value)}
-              />
-            </Field>
-            <Field
-              label={F.validityDate || "Document Validity Date"}
-              icon={CalendarIcon}
-            >
-              <input
-                type="date"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={validityDate}
-                onChange={(e) => setValidityDate(e.target.value)}
-              />
-            </Field>
-            <Field label={F.dueDate || "Due Date"} icon={CalendarIcon}>
-              <input
-                type="date"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                value={validUntilTime}
+                onChange={(e) => {
+                  setTouchedValidUntilTime(true);
+                  setValidUntilTime(e.target.value);
+                }}
               />
             </Field>
           </div>

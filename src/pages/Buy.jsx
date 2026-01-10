@@ -80,6 +80,8 @@ function getSession() {
     return null;
   }
 }
+
+// Used for userCreated / userModified fields
 function getUserCode(fallback = "web") {
   const sess = getSession();
   return (
@@ -89,6 +91,49 @@ function getUserCode(fallback = "web") {
     localStorage.getItem("userCode") ||
     fallback
   );
+}
+function dateToLocalISO(d) {
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tz).toISOString().slice(0, 10);
+}
+
+function todayLocalISO() {
+  return dateToLocalISO(new Date());
+}
+
+function parseHHMM(s, fallback = "17:00") {
+  const str = String(s || "").trim();
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(str);
+  const fb = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(fallback));
+  const hh = Number((m || fb)[1]);
+  const mm = Number((m || fb)[2]);
+  return [hh, mm];
+}
+
+function nextWorkingDay(d) {
+  const x = new Date(d);
+  while (x.getDay() === 0 || x.getDay() === 6) {
+    x.setDate(x.getDate() + 1);
+  }
+  return x;
+}
+
+function computeDefaultValidUntilDay(defaultTimeHHMM) {
+  const now = new Date();
+  const [hh, mm] = parseHHMM(defaultTimeHHMM, "17:00");
+
+  const cutoff = new Date(now);
+  cutoff.setHours(hh, mm, 0, 0);
+
+  const base = new Date(now);
+  base.setHours(0, 0, 0, 0);
+
+  // If created AFTER the default time, move to next working day
+  if (now.getTime() > cutoff.getTime()) {
+    base.setDate(base.getDate() + 1);
+  }
+
+  return dateToLocalISO(nextWorkingDay(base));
 }
 
 export default function Buy() {
@@ -107,7 +152,7 @@ export default function Buy() {
     externalDocumentNo: T.externalDocumentNo || "External Doc. No.",
     info: T.info || "Document Info",
     documentDate: T.documentDate || "Document Date",
-    dueDate: T.dueDate || "Due Date",
+    validUntil: T.validUntil || "Valid until",
     currency: T.currency || "Currency",
     currencyFactor: T.currencyFactor || "Currency Factor",
     buyFrom: T.buyFrom || "Buy-from",
@@ -150,6 +195,26 @@ export default function Buy() {
     setNotice({ type, text });
     if (ms) setTimeout(() => setNotice(null), ms);
   };
+
+  // general settings (singleton)
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/api/settings`);
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        if (alive && json) setSettings(json);
+      } catch {
+        // ignore; fall back to defaults
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortDir, setSortDir] = useState("desc");
@@ -324,14 +389,14 @@ export default function Buy() {
       buyVendor: "buyVendorName",
       payVendor: "payVendorName",
       documentDate: "documentDate",
-      dueDate: "dueDate",
+      validUntilDay: "validUntilDay",
       currencyCode: "currencyCode",
       createdAt: "createdAt",
     };
     const k = keyMap[sortBy] || sortBy;
     const val = (r) => {
       const v = r?.[k];
-      if (k === "documentDate" || k === "dueDate" || k === "createdAt") {
+      if (k === "documentDate" || k === "validUntilDay" || k === "createdAt") {
         return v ? new Date(v).getTime() : 0;
       }
       return (v ?? "").toString().toLowerCase();
@@ -510,9 +575,9 @@ export default function Buy() {
                 <SortableTh id="documentDate" {...{ sortBy, sortDir, onSort }}>
                   {L.documentDate}
                 </SortableTh>
-                <SortableTh id="dueDate" {...{ sortBy, sortDir, onSort }}>
-                  {L.dueDate}
-                </SortableTh>
+                <SortableTh id="validUntilDay" {...{ sortBy, sortDir, onSort }}>
+  {L.validUntil || "Valid until"}
+</SortableTh>
                 <SortableTh
                   id="currencyCode"
                   {...{ sortBy, sortDir, onSort }}
@@ -581,7 +646,10 @@ export default function Buy() {
                         {d.payVendorName || d.payVendorNo || "—"}
                       </Td>
                       <Td>{formatDate(d.documentDate, locale, "—")}</Td>
-                      <Td>{formatDate(d.dueDate, locale, "—")}</Td>
+                      <Td>
+  {formatDate(d.validUntilDay, locale, "—")}
+  {d.validUntilTime ? ` ${d.validUntilTime}` : ""}
+</Td>
                       <Td className="text-center font-medium">
                         {d.currencyCode || "—"}{" "}
                         <span className="text-slate-500">
@@ -863,37 +931,20 @@ export default function Buy() {
                               </KV>
 
                               <KV label={L.kv.documentDate} icon={CalendarIcon}>
-                                {formatDate(d.documentDate, locale, "—")}
-                              </KV>
-                              <KV label={L.kv.serviceDate} icon={CalendarIcon}>
-                                {formatDate(d.serviceDate, locale, "—")}
-                              </KV>
-                              <KV
-                                label={L.kv.requestedDeliveryDate}
-                                icon={CalendarIcon}
-                              >
-                                {formatDate(
-                                  d.requestedDeliveryDate,
-                                  locale,
-                                  "—"
-                                )}
-                              </KV>
-                              <KV
-                                label={L.kv.promisedDeliveryDate}
-                                icon={CalendarIcon}
-                              >
-                                {formatDate(
-                                  d.promisedDeliveryDate,
-                                  locale,
-                                  "—"
-                                )}
-                              </KV>
-                              <KV label={L.kv.receiptDate} icon={CalendarIcon}>
-                                {formatDate(d.receiptDate, locale, "—")}
-                              </KV>
-                              <KV label={L.kv.dueDate} icon={CalendarIcon}>
-                                {formatDate(d.dueDate, locale, "—")}
-                              </KV>
+  {formatDate(d.documentDate, locale, "—")}
+</KV>
+<KV
+  label={L.kv.validUntilDay || "Valid until day"}
+  icon={CalendarIcon}
+>
+  {formatDate(d.validUntilDay, locale, "—")}
+</KV>
+<KV
+  label={L.kv.validUntilTime || "Valid until time"}
+  icon={CalendarIcon}
+>
+  {d.validUntilTime || "—"}
+</KV>
                             </Section>
 
                             <Section title={L.buyFrom}>
@@ -1154,6 +1205,7 @@ export default function Buy() {
               fetchData();
             }}
             showNotice={showNotice}
+            defaultEndOfDayTime={settings?.defaultEndOfDayTime}
           />
         </Modal>
       )}
@@ -1390,8 +1442,8 @@ function VendorCombobox({
   );
 }
 
-function DocForm({ initial, onCancel, onSaved, showNotice }) {
-  const isEdit = Boolean(initial?._id);
+function DocForm({ initial, onCancel, onSaved, showNotice, defaultEndOfDayTime = "17:00" }) {
+  const isEdit = Boolean(initial?._id || initial?.id);
   const [tab, setTab] = useState("header");
   const [errors, setErrors] = useState({});
 
@@ -1422,34 +1474,44 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
     initial?.currencyFactor ?? 1
   );
   const [documentDate, setDocumentDate] = useState(
-    initial?.documentDate ? initial.documentDate.slice(0, 10) : ""
-  );
-  const [serviceDate, setServiceDate] = useState(
-    initial?.serviceDate ? initial.serviceDate.slice(0, 10) : ""
-  );
-  const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(
-    initial?.requestedDeliveryDate
-      ? initial.requestedDeliveryDate.slice(0, 10)
-      : ""
-  );
-  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState(
-    initial?.promisedDeliveryDate
-      ? initial.promisedDeliveryDate.slice(0, 10)
-      : ""
-  );
-  const [receiptDate, setReceiptDate] = useState(
-    initial?.receiptDate ? initial.receiptDate.slice(0, 10) : ""
-  );
-  const [validityDate, setValidityDate] = useState(
-    initial?.documentValidityDate
-      ? initial.documentValidityDate.slice(0, 10)
-      : ""
-  );
-  const [dueDate, setDueDate] = useState(
-    initial?.dueDate ? initial.dueDate.slice(0, 10) : ""
+    initial?.documentDate ? initial.documentDate.slice(0, 10) : todayLocalISO()
   );
 
-  // buy-from vendor
+// NEW: validity split into day + time
+  const [validUntilDay, setValidUntilDay] = useState(
+    initial?.validUntilDay
+      ? initial.validUntilDay.slice(0, 10)
+      : computeDefaultValidUntilDay(defaultEndOfDayTime || "17:00")
+  );
+
+  const [validUntilTime, setValidUntilTime] = useState(
+    initial?.validUntilTime || ""
+  );
+  const [validUntilTimeTouched, setValidUntilTimeTouched] = useState(false);
+  const [validUntilDayTouched, setValidUntilDayTouched] = useState(false);
+
+  useEffect(() => {
+    // Defaults only for new docs and only if user didn't change the field
+    if (isEdit) return;
+    if (validUntilTimeTouched) return;
+
+    const desired = String(defaultEndOfDayTime || "17:00").trim();
+    if (!desired) return;
+
+    if (validUntilTime !== desired) setValidUntilTime(desired);
+  }, [defaultEndOfDayTime, isEdit, validUntilTimeTouched, validUntilTime]);
+
+  useEffect(() => {
+    // Default validUntilDay depends on the settings default time and current time.
+    // Apply only for NEW docs and only if user didn't change the field.
+    if (isEdit) return;
+    if (validUntilDayTouched) return;
+
+    const desiredTime = String(defaultEndOfDayTime || "17:00").trim();
+    setValidUntilDay(computeDefaultValidUntilDay(desiredTime));
+  }, [defaultEndOfDayTime, isEdit, validUntilDayTouched]);
+
+// buy-from vendor
   const [buy, setBuy] = useState({
     no: initial?.buyVendorNo || "",
     name: initial?.buyVendorName || "",
@@ -1575,12 +1637,8 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
       currencyCode: (currencyCode || "USD").toUpperCase(),
       currencyFactor: Number(currencyFactor) || 1,
       documentDate: documentDate || null,
-      serviceDate: serviceDate || null,
-      requestedDeliveryDate: requestedDeliveryDate || null,
-      promisedDeliveryDate: promisedDeliveryDate || null,
-      receiptDate: receiptDate || null,
-      documentValidityDate: validityDate || null,
-      dueDate: dueDate || null,
+validUntilDay: validUntilDay || null,
+validUntilTime: validUntilTime || null,
 
       buyVendorNo: buy.no,
       buyVendorName: buy.name || null,
@@ -1813,74 +1871,42 @@ function DocForm({ initial, onCancel, onSaved, showNotice }) {
             />
           </Field>
 
-          <Field label={F.documentDate || "Document Date"} icon={CalendarIcon}>
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={documentDate}
-              onChange={(e) => setDocumentDate(e.target.value)}
-            />
-          </Field>
           <Field
-            label={F.serviceDate || "Service/Delivery Date"}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={serviceDate}
-              onChange={(e) => setServiceDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={F.requestedDeliveryDate || "Requested Delivery Date"}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={requestedDeliveryDate}
-              onChange={(e) => setRequestedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={F.promisedDeliveryDate || "Promised Delivery Date"}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={promisedDeliveryDate}
-              onChange={(e) => setPromisedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field label={F.receiptDate || "Receipt Date"} icon={CalendarIcon}>
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={receiptDate}
-              onChange={(e) => setReceiptDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={F.validityDate || "Document Validity Date"}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={validityDate}
-              onChange={(e) => setValidityDate(e.target.value)}
-            />
-          </Field>
-          <Field label={F.dueDate || "Due Date"} icon={CalendarIcon}>
-            <input
-              type="date"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-            />
-          </Field>
+  label={F.documentDate || "Document Date"}
+  icon={CalendarIcon}
+>
+  <input
+    type="date"
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+    value={documentDate}
+    onChange={(e) => setDocumentDate(e.target.value)}
+  />
+</Field>
+
+<Field
+  label={F.validUntilDay || "Valid until day"}
+  icon={CalendarIcon}
+>
+  <input
+    type="date"
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+    value={validUntilDay}
+    onChange={(e) => { setValidUntilDayTouched(true); setValidUntilDay(e.target.value); }}
+  />
+</Field>
+
+<Field
+  label={F.validUntilTime || "Valid until time"}
+  icon={CalendarIcon}
+>
+  <input
+    type="time"
+    step="60"
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+    value={validUntilTime}
+    onChange={(e) => { setValidUntilTimeTouched(true); setValidUntilTime(e.target.value); }}
+  />
+</Field>
         </div>
       )}
 

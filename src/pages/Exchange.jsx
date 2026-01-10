@@ -1,4 +1,5 @@
   import { useEffect, useMemo, useRef, useState } from "react";
+  import { createPortal } from "react-dom";
   import { RefreshCcw, ChevronUp, ChevronDown, Search } from "lucide-react";
   import { useI18n, fmtMoney, fmtNum } from "../helpers/i18n";
   import {
@@ -41,7 +42,71 @@
     );
   }
 
-  function getSessionEmail() {
+    function PortalTooltip({ content, children, widthClass = "w-80", offset = 8 }) {
+    const [open, setOpen] = useState(false);
+    const anchorRef = useRef(null);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+
+    const updatePos = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+
+      const left = Math.min(r.right, window.innerWidth - 12);
+      const top = Math.min(r.bottom + offset, window.innerHeight - 12);
+
+      setPos({ top, left });
+    };
+
+    useEffect(() => {
+      if (!open) return;
+
+      updatePos();
+
+      const onScroll = () => updatePos();
+      const onResize = () => updatePos();
+
+      window.addEventListener("scroll", onScroll, true);
+      window.addEventListener("resize", onResize);
+
+      return () => {
+        window.removeEventListener("scroll", onScroll, true);
+        window.removeEventListener("resize", onResize);
+      };
+    }, [open]);
+
+    return (
+      <>
+        <span
+          ref={anchorRef}
+          className="inline-flex"
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+        >
+          {children}
+        </span>
+
+        {open
+          ? createPortal(
+              <div
+                className={`fixed z-[9999] ${widthClass} rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg`}
+                style={{
+                  top: pos.top,
+                  left: pos.left,
+                  transform: "translateX(-100%)",
+                }}
+                onMouseEnter={() => setOpen(true)}
+                onMouseLeave={() => setOpen(false)}
+              >
+                {content}
+              </div>,
+              document.body
+            )
+          : null}
+      </>
+    );
+  }
+function getSessionEmail() {
   try {
     const raw = localStorage.getItem("session");
     const s = raw ? JSON.parse(raw) : null;
@@ -2325,7 +2390,8 @@ case "salesCommission":
     const COLS = 22;
 
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 bg-white relative overflow-visible">
+
         <div className="px-4 py-3 border-b bg-slate-50">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -2567,17 +2633,14 @@ case "salesCommission":
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.totalTransportCost ?? 0, locale, "PLN")}
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Transport – szczegóły
                             </div>
-
+                            
                             {(() => {
                               const d = r.transportCostDetails || {};
                               const Row = ({ label, value }) => (
@@ -2588,7 +2651,7 @@ case "salesCommission":
                                   </span>
                                 </div>
                               );
-
+                            
                               return (
                                 <div className="space-y-1">
                                   <Row
@@ -2603,14 +2666,14 @@ case "salesCommission":
                                     label="Rozładunek (sell):"
                                     value={d.sell?.unloadingCost ?? 0}
                                   />
-
+                            
                                   <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                     <span className="font-semibold">Total</span>
                                     <span className="font-semibold tabular-nums">
                                       {fmtMoney(d.total ?? r.totalTransportCost ?? 0, locale, "PLN")}
                                     </span>
                                   </div>
-
+                            
                                   <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                     <div className="font-medium mb-1">Wzór:</div>
                                     <div className="font-mono">
@@ -2620,8 +2683,17 @@ case "salesCommission":
                                 </div>
                               );
                             })()}
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -2630,17 +2702,14 @@ case "salesCommission":
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Transport / t – details
                             </div>
-
+                            
                             <div className="space-y-1">
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
@@ -2650,7 +2719,7 @@ case "salesCommission":
                                   {fmtMoney(r.transportCostCore ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Load + unload / t:
@@ -2659,14 +2728,14 @@ case "salesCommission":
                                   {fmtMoney(r.locationBaseCostPerTon ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                 <span className="font-semibold">Total / t</span>
                                 <span className="font-semibold tabular-nums">
                                   {fmtMoney(r.transportCost ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                 <div className="font-medium mb-1">Wzór:</div>
                                 <div className="font-mono">
@@ -2674,8 +2743,17 @@ case "salesCommission":
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -2684,21 +2762,18 @@ case "salesCommission":
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.additionalCost ?? 0, locale, "PLN")}
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Additional cost – szczegóły
                             </div>
-
+                            
                             {(() => {
                               const d = r.additionalCostDetails || {};
                               const risk = d.risk || {};
-
+                            
                               const Row = ({ label, value }) => (
                                 <div className="flex justify-between gap-3">
                                   <span className="text-slate-500">{label}</span>
@@ -2707,7 +2782,7 @@ case "salesCommission":
                                   </span>
                                 </div>
                               );
-
+                            
                               return (
                                 <div className="space-y-1">
                                   <Row
@@ -2718,7 +2793,7 @@ case "salesCommission":
                                     label="Ryzyko rozładunku (sell):"
                                     value={risk.sellUnloadingRisk ?? 0}
                                   />
-
+                            
                                   <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
                                     <span className="font-medium text-slate-600">
                                       Risk total:
@@ -2727,19 +2802,19 @@ case "salesCommission":
                                       {fmtMoney(risk.totalRisk ?? 0, locale, "PLN")}
                                     </span>
                                   </div>
-
+                            
                                   <Row
                                     label="Opłata administracyjna:"
                                     value={d.administrativeFee ?? 0}
                                   />
-
+                            
                                   <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                     <span className="font-semibold">Total</span>
                                     <span className="font-semibold tabular-nums">
                                       {fmtMoney(d.total ?? r.additionalCost ?? 0, locale, "PLN")}
                                     </span>
                                   </div>
-
+                            
                                   <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                     <div className="font-medium mb-1">Wzór:</div>
                                     <div className="font-mono">
@@ -2749,8 +2824,17 @@ case "salesCommission":
                                 </div>
                               );
                             })()}
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -2758,18 +2842,14 @@ case "salesCommission":
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.factoringCost ?? 0, locale, "PLN")}
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          {/* Tooltip */}
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Koszt factoringu – szczegóły
                             </div>
-
+                            
                             <div className="space-y-1">
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
@@ -2783,7 +2863,7 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Ilość (sell):
@@ -2792,7 +2872,7 @@ case "salesCommission":
                                   {fmtNum(r.factoringSellQtyTotal ?? 0, locale)}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Ilość (matched):
@@ -2801,7 +2881,7 @@ case "salesCommission":
                                   {fmtNum(r.matchedQty ?? 0, locale)}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Wartość (matched):
@@ -2814,7 +2894,7 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Opłata factoringowa:
@@ -2831,7 +2911,7 @@ case "salesCommission":
                                   %
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Dni do terminu:
@@ -2840,7 +2920,7 @@ case "salesCommission":
                                   {r.factoringDaysToDue ?? 0}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">Due date:</span>
                                 <span className="tabular-nums">
@@ -2849,7 +2929,7 @@ case "salesCommission":
                                     : "—"}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                 <div className="font-medium mb-1">Wzór:</div>
                                 <div className="font-mono">
@@ -2857,8 +2937,17 @@ case "salesCommission":
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -2868,17 +2957,14 @@ case "salesCommission":
                           {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
                         </span>
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Main cost – details
                             </div>
-
+                            
                             <div className="space-y-1">
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">Additional cost:</span>
@@ -2894,7 +2980,7 @@ case "salesCommission":
                                   {fmtMoney(r.factoringCost ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Transport (km × stawka):
@@ -2907,14 +2993,14 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                 <span className="font-semibold">Total</span>
                                 <span className="font-semibold text-orange-600 tabular-nums">
                                   {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                 <div className="font-medium mb-1">Wzór:</div>
                                 <div className="font-mono">
@@ -2922,8 +3008,17 @@ case "salesCommission":
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -2931,17 +3026,14 @@ case "salesCommission":
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.salesCommission ?? 0, locale, "PLN")}
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-96"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Prowizja sprzedaży – szczegóły
                             </div>
-
+                            
                             <div className="space-y-1">
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
@@ -2955,7 +3047,7 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Wartość zakupu (matched):
@@ -2968,14 +3060,14 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">Main cost:</span>
                                 <span className="tabular-nums">
                                   {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
                                 <span className="font-medium text-slate-600">
                                   Podstawa prowizji:
@@ -2984,7 +3076,7 @@ case "salesCommission":
                                   {fmtMoney(r.commissionBase ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Prowizja % (User):
@@ -2996,7 +3088,7 @@ case "salesCommission":
                                   %
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   User (sales):
@@ -3007,7 +3099,7 @@ case "salesCommission":
                                     : ""}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                 <span className="font-semibold">
                                   Prowizja (PLN)
@@ -3020,7 +3112,7 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                 <div className="font-medium mb-1">Wzór:</div>
                                 <div className="font-mono">
@@ -3028,8 +3120,17 @@ case "salesCommission":
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -3037,17 +3138,14 @@ case "salesCommission":
                       <span className="inline-flex items-center justify-end gap-2">
                         {fmtMoney(r.purchaseCommission ?? 0, locale, "PLN")}
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Prowizja zakupu – szczegóły
                             </div>
-
+                            
                             <div className="space-y-1">
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
@@ -3061,7 +3159,7 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Wartość zakupu (matched):
@@ -3074,14 +3172,14 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">Main cost:</span>
                                 <span className="tabular-nums">
                                   {fmtMoney(r.mainCost ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
                                 <span className="font-medium text-slate-600">
                                   Podstawa prowizji:
@@ -3090,7 +3188,7 @@ case "salesCommission":
                                   {fmtMoney(r.commissionBase ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   Prowizja % (buy):
@@ -3104,7 +3202,7 @@ case "salesCommission":
                                   %
                                 </span>
                               </div>
-
+                            
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">
                                   User (buy):
@@ -3115,7 +3213,7 @@ case "salesCommission":
                                     : ""}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                 <span className="font-semibold">
                                   Prowizja (PLN)
@@ -3128,7 +3226,7 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                 <div className="font-medium mb-1">Wzór:</div>
                                 <div className="font-mono">
@@ -3136,8 +3234,17 @@ case "salesCommission":
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -3147,17 +3254,14 @@ case "salesCommission":
                           {fmtMoney(r.totalCost ?? 0, locale, "PLN")}
                         </span>
 
-                        <span className="relative group">
-                          <Info
-                            size={14}
-                            className="text-slate-400 hover:text-slate-700 cursor-help"
-                          />
-
-                          <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-80 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                <PortalTooltip
+                          widthClass="w-80"
+                          content={
+                            <>
                             <div className="font-semibold mb-2">
                               Total cost – szczegóły
                             </div>
-
+                            
                             <div className="space-y-1">
                               <div className="flex justify-between gap-3">
                                 <span className="text-slate-500">Main cost:</span>
@@ -3189,14 +3293,14 @@ case "salesCommission":
                                   )}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                 <span className="font-semibold">Total</span>
                                 <span className="font-semibold text-red-600 tabular-nums">
                                   {fmtMoney(r.totalCost ?? 0, locale, "PLN")}
                                 </span>
                               </div>
-
+                            
                               <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                 <div className="font-medium mb-1">Wzór:</div>
                                 <div className="font-mono">
@@ -3204,8 +3308,17 @@ case "salesCommission":
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        </span>
+                            
+                            </>
+                          }
+                        >
+                            <Info
+                              size={14}
+                              className="text-slate-400 hover:text-slate-700 cursor-help"
+                            />
+                            
+                            
+                        </PortalTooltip>
                       </span>
                     </Td>
 
@@ -3239,17 +3352,14 @@ case "salesCommission":
                               {fmtMoney(spread, locale, "PLN")}
                             </span>
 
-                            <span className="relative group">
-                              <Info
-                                size={14}
-                                className="text-slate-400 hover:text-slate-700 cursor-help"
-                              />
-
-                              <div className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-96 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition">
+                                                        <PortalTooltip
+                              widthClass="w-96"
+                              content={
+                                <>
                                 <div className="font-semibold mb-2">
                                   Spread – kalkulacja
                                 </div>
-
+                                
                                 <div className="space-y-1">
                                   <div className="flex justify-between gap-3">
                                     <span className="text-slate-500">
@@ -3259,7 +3369,7 @@ case "salesCommission":
                                       {fmtMoney(sell, locale, "PLN")}
                                     </span>
                                   </div>
-
+                                
                                   <div className="flex justify-between gap-3">
                                     <span className="text-slate-500">
                                       Buy price (PLN/t):
@@ -3268,7 +3378,7 @@ case "salesCommission":
                                       {fmtMoney(buy, locale, "PLN")}
                                     </span>
                                   </div>
-
+                                
                                   <div className="flex justify-between gap-3">
                                     <span className="text-slate-500">
                                       Matched qty:
@@ -3277,7 +3387,7 @@ case "salesCommission":
                                       {fmtNum(qty, locale)}
                                     </span>
                                   </div>
-
+                                
                                   <div className="flex justify-between gap-3">
                                     <span className="text-slate-500">
                                       Total cost (PLN):
@@ -3286,7 +3396,7 @@ case "salesCommission":
                                       {fmtMoney(totalCost, locale, "PLN")}
                                     </span>
                                   </div>
-
+                                
                                   <div className="pt-1 mt-1 border-t border-slate-100 flex justify-between gap-3">
                                     <span className="font-medium text-slate-600">
                                       Cost / t:
@@ -3295,7 +3405,7 @@ case "salesCommission":
                                       {fmtMoney(costPerTon, locale, "PLN")}
                                     </span>
                                   </div>
-
+                                
                                   <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between gap-3">
                                     <span className="font-semibold">
                                       Spread (PLN/t)
@@ -3304,7 +3414,7 @@ case "salesCommission":
                                       {fmtMoney(spread, locale, "PLN")}
                                     </span>
                                   </div>
-
+                                
                                   <div className="mt-2 pt-2 border-t border-slate-100 text-slate-600">
                                     <div className="font-medium mb-1">Wzór:</div>
                                     <div className="font-mono">
@@ -3318,8 +3428,17 @@ case "salesCommission":
                                     </div>
                                   </div>
                                 </div>
-                              </div>
-                            </span>
+                                
+                                </>
+                              }
+                            >
+                                <Info
+                                  size={14}
+                                  className="text-slate-400 hover:text-slate-700 cursor-help"
+                                />
+                                
+                                
+                            </PortalTooltip>
                           </span>
                         );
                       })()}

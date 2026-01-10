@@ -12,6 +12,7 @@ import {
   Hash,
   FileText,
   Calendar as CalendarIcon,
+  Clock,
   Package,
   DollarSign,
   Percent,
@@ -331,10 +332,6 @@ export default function SalesOfferLinesBlocksPage() {
           type: "Type",
           itemNo: "Item No.",
           uom: "Unit of Measure",
-          serviceDate: "Service / Delivery Date",
-          requestedDeliveryDate: "Requested Delivery",
-          promisedDeliveryDate: "Promised Delivery",
-          shipmentDate: "Shipment Date",
           documentValidityDate: "Doc Validity Date",
           documentValidityHour: "Doc Validity Hour",
           unitPrice: "Unit Price",
@@ -998,18 +995,6 @@ return (
           </KV>
           <KV label={S.details.kv.uom} icon={Package}>
             {d.unitOfMeasure || "—"}
-          </KV>
-          <KV label={S.details.kv.serviceDate} icon={CalendarIcon}>
-            {formatDate(d.serviceDate)}
-          </KV>
-          <KV label={S.details.kv.requestedDeliveryDate} icon={CalendarIcon}>
-            {formatDate(d.requestedDeliveryDate)}
-          </KV>
-          <KV label={S.details.kv.promisedDeliveryDate} icon={CalendarIcon}>
-            {formatDate(d.promisedDeliveryDate)}
-          </KV>
-          <KV label={S.details.kv.shipmentDate} icon={CalendarIcon}>
-            {formatDate(d.shipmentDate)}
           </KV>
           <KV label={S.details.kv.documentValidityDate} icon={CalendarIcon}>
             {formatDate(d.documentValidityDate)}
@@ -1778,17 +1763,8 @@ useEffect(() => {
   );
 
   // Dates (only fill if still empty)
-  setServiceDate((prev) => prev || toInputDate(header.serviceDate));
-  setRequestedDeliveryDate(
-    (prev) => prev || toInputDate(header.requestedDeliveryDate)
-  );
-  setPromisedDeliveryDate(
-    (prev) => prev || toInputDate(header.promisedDeliveryDate)
-  );
-  setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
-  setDocumentValidityDate(
-    (prev) => prev || toInputDate(header.documentValidityDate)
-  );
+  setDocumentValidityDate((prev) => prev || toInputDate(header.documentValidityDate));
+      setDocumentValidityHour((prev) => prev || String(header.documentValidityHour || ""));
 
   // Status (fill on create / when empty)
   setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
@@ -1868,14 +1844,15 @@ useEffect(() => {
       driverCost: Number(driverCost) || 0,
       vehicleCost: Number(vehicleCost) || 0,
       additionalCosts: Number(additionalCosts) || 0,
-      costMargin: Number(costMargin) || 0,
-
-      serviceDate: serviceDate || null,
-      requestedDeliveryDate: requestedDeliveryDate || null,
-      promisedDeliveryDate: promisedDeliveryDate || null,
-      shipmentDate: shipmentDate || null,
-      documentValidityDate: documentValidityDate || null,
+      costMargin: Number(costMargin) || 0,      documentValidityDate: documentValidityDate || null,
       documentValidityHour: documentValidityHour || null,
+
+      // legacy dates (kept in DB) — only send if provided, so we don't overwrite header/defaults
+      ...(serviceDate ? { serviceDate } : {}),
+      ...(requestedDeliveryDate ? { requestedDeliveryDate } : {}),
+      ...(promisedDeliveryDate ? { promisedDeliveryDate } : {}),
+      ...(shipmentDate ? { shipmentDate } : {}),
+
 
       buyVendorNo: buyVendorNo || null,
       payVendorNo: payVendorNo || null,
@@ -2129,44 +2106,6 @@ useEffect(() => {
       {/* DATES */}
       {tab === "dates" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={SS.details.kv.serviceDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={serviceDate}
-              onChange={(e) => setServiceDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={SS.details.kv.requestedDeliveryDate}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={requestedDeliveryDate}
-              onChange={(e) => setRequestedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={SS.details.kv.promisedDeliveryDate}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={promisedDeliveryDate}
-              onChange={(e) => setPromisedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field label={SS.details.kv.shipmentDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={shipmentDate}
-              onChange={(e) => setShipmentDate(e.target.value)}
-            />
-          </Field>
           <Field
             label={SS.details.kv.documentValidityDate}
             icon={CalendarIcon}

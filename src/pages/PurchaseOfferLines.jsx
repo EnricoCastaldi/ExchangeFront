@@ -110,12 +110,8 @@ function PurchaseOfferLineForm({
         type: "Type",
         itemNo: "Item No.",
         uom: "Unit of Measure",
-        serviceDate: "Service / Delivery Date",
-        requestedDeliveryDate: "Requested Delivery",
-        promisedDeliveryDate: "Promised Delivery",
-        shipmentDate: "Shipment Date",
-        documentValidityDate: "Doc Validity Date",
-        documentValidityHour: "Doc Validity Hour",
+        validUntilDay: "Valid until day",
+        validUntilTime: "Valid until time",
         unitPrice: "Unit Price",
         quantity: "Quantity",
         lineValue: "Line Value",
@@ -218,30 +214,12 @@ function PurchaseOfferLineForm({
   );
   const [costMargin, setCostMargin] = React.useState(initial?.costMargin ?? 0);
 
-  // dates
-  const [serviceDate, setServiceDate] = React.useState(
-    initial?.serviceDate ? initial.serviceDate.slice(0, 10) : ""
+  // dates (Valid until)
+  const [validUntilDay, setValidUntilDay] = React.useState(
+    initial?.validUntilDay ? initial.validUntilDay.slice(0, 10) : ""
   );
-  const [requestedDeliveryDate, setRequestedDeliveryDate] = React.useState(
-    initial?.requestedDeliveryDate
-      ? initial.requestedDeliveryDate.slice(0, 10)
-      : ""
-  );
-  const [promisedDeliveryDate, setPromisedDeliveryDate] = React.useState(
-    initial?.promisedDeliveryDate
-      ? initial.promisedDeliveryDate.slice(0, 10)
-      : ""
-  );
-  const [shipmentDate, setShipmentDate] = React.useState(
-    initial?.shipmentDate ? initial.shipmentDate.slice(0, 10) : ""
-  );
-  const [documentValidityDate, setDocumentValidityDate] = React.useState(
-    initial?.documentValidityDate
-      ? initial.documentValidityDate.slice(0, 10)
-      : ""
-  );
-  const [documentValidityHour, setDocumentValidityHour] = React.useState(
-    initial?.documentValidityHour || ""
+  const [validUntilTime, setValidUntilTime] = React.useState(
+    initial?.validUntilTime || ""
   );
 
   // parties / links
@@ -364,19 +342,9 @@ function PurchaseOfferLineForm({
     prev || (hdrCountry ? String(hdrCountry).toUpperCase() : "")
   );
 
-    setServiceDate((prev) => prev || toInputDate(header.serviceDate));
-    setRequestedDeliveryDate(
-      (prev) => prev || toInputDate(header.requestedDeliveryDate)
-    );
-    setPromisedDeliveryDate(
-      (prev) => prev || toInputDate(header.promisedDeliveryDate)
-    );
-    setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
-    setDocumentValidityDate(
-      (prev) => prev || toInputDate(header.documentValidityDate)
-    );
-
-    setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
+    setValidUntilDay((prev) => prev || toInputDate(header.validUntilDay));
+    setValidUntilTime((prev) => prev || (header.validUntilTime || ""));
+setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
   }, [documentNo, docs]);
 
   // Load default parameter codes for the selected item
@@ -535,12 +503,9 @@ const payload = {
   additionalCosts: Number(additionalCosts) || 0,
   costMargin: Number(costMargin) || 0,
 
-  serviceDate,
-  requestedDeliveryDate,
-  promisedDeliveryDate,
-  shipmentDate,
-  documentValidityDate,
-  documentValidityHour,
+  validUntilDay: validUntilDay || null,
+  validUntilTime: validUntilTime || null,
+
 
   buyVendorNo: buyVendorNo || null,
   payVendorNo: payVendorNo || null,
@@ -610,6 +575,8 @@ const payload = {
           Number(saved.vehicleCost) !== Number(initial?.vehicleCost) ||
           Number(saved.additionalCosts) !== Number(initial?.additionalCosts) ||
           Number(saved.costMargin) !== Number(initial?.costMargin) ||
+          String(saved.validUntilDay || "") !== String(initial?.validUntilDay || "") ||
+          String(saved.validUntilTime || "") !== String(initial?.validUntilTime || "") ||
           String(saved.status || "") !== String(initial?.status || "") ||
           String(saved.itemNo || "") !== String(initial?.itemNo || "");
 
@@ -847,64 +814,34 @@ const payload = {
         </div>
       )}
 
-      {/* DATES */}
+            {/* DATES */}
       {tab === "dates" && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={SS.details.kv.serviceDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={serviceDate}
-              onChange={(e) => setServiceDate(e.target.value)}
-            />
-          </Field>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field
-            label={SS.details.kv.requestedDeliveryDate}
+            label={SS.details.kv.validUntilDay || "Valid until day"}
             icon={CalendarIcon}
           >
             <input
               type="date"
               className={INPUT_CLS}
-              value={requestedDeliveryDate}
-              onChange={(e) => setRequestedDeliveryDate(e.target.value)}
+              value={validUntilDay}
+              onChange={(e) => setValidUntilDay(e.target.value)}
             />
           </Field>
-          <Field label={SS.details.kv.promisedDeliveryDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={promisedDeliveryDate}
-              onChange={(e) => setPromisedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field label={SS.details.kv.shipmentDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={shipmentDate}
-              onChange={(e) => setShipmentDate(e.target.value)}
-            />
-          </Field>
-          <Field label={SS.details.kv.documentValidityDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={documentValidityDate}
-              onChange={(e) => setDocumentValidityDate(e.target.value)}
-            />
-          </Field>
-          <Field label={SS.details.kv.documentValidityHour} icon={CalendarIcon}>
+          <Field
+            label={SS.details.kv.validUntilTime || "Valid until time"}
+            icon={CalendarIcon}
+          >
             <input
               type="time"
               className={INPUT_CLS}
-              value={documentValidityHour}
-              onChange={(e) => setDocumentValidityHour(e.target.value)}
+              value={validUntilTime}
+              onChange={(e) => setValidUntilTime(e.target.value)}
             />
           </Field>
         </div>
       )}
-
-      {/* COSTS */}
+{/* COSTS */}
       {tab === "costs" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={SS.details.kv.tollCost} icon={Truck}>
@@ -1327,12 +1264,8 @@ export default function PurchaseOfferLinesPage() {
         type: "Type",
         itemNo: "Item No.",
         uom: "Unit of Measure",
-        serviceDate: "Service / Delivery Date",
-        requestedDeliveryDate: "Requested Delivery",
-        promisedDeliveryDate: "Promised Delivery",
-        shipmentDate: "Shipment Date",
-        documentValidityDate: "Doc Validity Date",
-        documentValidityHour: "Doc Validity Hour",
+        validUntilDay: "Valid until day",
+        validUntilTime: "Valid until time",
         unitPrice: "Unit Price",
         quantity: "Quantity",
         lineValue: "Line Value",
@@ -2010,35 +1943,11 @@ return (
                             <KV label={S.details.kv.uom} icon={Package}>
                               {d.unitOfMeasure || "—"}
                             </KV>
-                            <KV label={S.details.kv.serviceDate} icon={CalendarIcon}>
-                              {formatDate(d.serviceDate)}
+                            <KV label={S.details.kv.validUntilDay || "Valid until day"} icon={CalendarIcon}>
+                              {formatDate(d.validUntilDay)}
                             </KV>
-                            <KV
-                              label={S.details.kv.requestedDeliveryDate}
-                              icon={CalendarIcon}
-                            >
-                              {formatDate(d.requestedDeliveryDate)}
-                            </KV>
-                            <KV
-                              label={S.details.kv.promisedDeliveryDate}
-                              icon={CalendarIcon}
-                            >
-                              {formatDate(d.promisedDeliveryDate)}
-                            </KV>
-                            <KV label={S.details.kv.shipmentDate} icon={CalendarIcon}>
-                              {formatDate(d.shipmentDate)}
-                            </KV>
-                            <KV
-                              label={S.details.kv.documentValidityDate}
-                              icon={CalendarIcon}
-                            >
-                              {formatDate(d.documentValidityDate)}
-                            </KV>
-                            <KV
-                              label={S.details.kv.documentValidityHour}
-                              icon={CalendarIcon}
-                            >
-                              {d.documentValidityHour || "—"}
+                            <KV label={S.details.kv.validUntilTime || "Valid until time"} icon={CalendarIcon}>
+                              {d.validUntilTime || "—"}
                             </KV>
                           </Section>
 
@@ -3078,13 +2987,9 @@ async function createPurchaseBlocksForLine(savedLine, userCode) {
       quantity: q,
       lineValue,
 
-      // dates
-      serviceDate: savedLine.serviceDate || null,
-      requestedDeliveryDate: savedLine.requestedDeliveryDate || null,
-      promisedDeliveryDate: savedLine.promisedDeliveryDate || null,
-      shipmentDate: savedLine.shipmentDate || null,
-      documentValidityDate: savedLine.documentValidityDate || null,
-      documentValidityHour: savedLine.documentValidityHour || null,
+      // dates (Valid until)
+      validUntilDay: savedLine.validUntilDay || null,
+      validUntilTime: savedLine.validUntilTime || null,
 
       // parties / location
       buyVendorNo: savedLine.buyVendorNo || null,

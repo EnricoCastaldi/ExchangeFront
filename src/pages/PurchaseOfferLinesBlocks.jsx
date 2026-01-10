@@ -190,7 +190,6 @@ function PriorityBadge({ value }) {
   );
 }
 
-
 function KV({ label, icon: Icon, children }) {
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -312,12 +311,8 @@ export default function PurchaseOfferLinesBlocksPage() {
           type: "Type",
           itemNo: "Item No.",
           uom: "Unit of Measure",
-          serviceDate: "Service / Delivery Date",
-          requestedDeliveryDate: "Requested Delivery",
-          promisedDeliveryDate: "Promised Delivery",
-          shipmentDate: "Shipment Date",
-          documentValidityDate: "Doc Validity Date",
-          documentValidityHour: "Doc Validity Hour",
+validUntilDay: "Valid until day",
+          validUntilTime: "Valid until time",
           unitPrice: "Unit Price",
           quantity: "Quantity",
           lineValue: "Line Value",
@@ -555,7 +550,6 @@ export default function PurchaseOfferLinesBlocksPage() {
     return arr;
   }, [data.data, sortBy, sortDir]);
 
-
   // =========================
   // Bulk selection + delete
   // =========================
@@ -629,8 +623,6 @@ export default function PurchaseOfferLinesBlocksPage() {
       showNotice("error", e?.message || "Bulk delete failed");
     }
   };
-
-
 
 return (
   <div className="space-y-4">
@@ -1017,35 +1009,17 @@ return (
                             <KV label={S.details.kv.uom} icon={Package}>
                               {d.unitOfMeasure || "—"}
                             </KV>
-                            <KV label={S.details.kv.serviceDate} icon={CalendarIcon}>
-                              {formatDate(d.serviceDate)}
-                            </KV>
                             <KV
-                              label={S.details.kv.requestedDeliveryDate}
+                              label={S.details.kv.validUntilDay}
                               icon={CalendarIcon}
                             >
-                              {formatDate(d.requestedDeliveryDate)}
+                              {formatDate(d.validUntilDay)}
                             </KV>
                             <KV
-                              label={S.details.kv.promisedDeliveryDate}
+                              label={S.details.kv.validUntilTime}
                               icon={CalendarIcon}
                             >
-                              {formatDate(d.promisedDeliveryDate)}
-                            </KV>
-                            <KV label={S.details.kv.shipmentDate} icon={CalendarIcon}>
-                              {formatDate(d.shipmentDate)}
-                            </KV>
-                            <KV
-                              label={S.details.kv.documentValidityDate}
-                              icon={CalendarIcon}
-                            >
-                              {formatDate(d.documentValidityDate)}
-                            </KV>
-                            <KV
-                              label={S.details.kv.documentValidityHour}
-                              icon={CalendarIcon}
-                            >
-                              {d.documentValidityHour || "—"}
+                              {d.validUntilTime || "—"}
                             </KV>
                           </Section>
 
@@ -1436,29 +1410,13 @@ function PurchaseOfferLineBlockForm({
       return "";
     }
   };
-  const [serviceDate, setServiceDate] = useState(
-    initial?.serviceDate ? toInputDate(initial.serviceDate) : ""
-  );
-  const [requestedDeliveryDate, setRequestedDeliveryDate] = useState(
-    initial?.requestedDeliveryDate
-      ? toInputDate(initial.requestedDeliveryDate)
+const [validUntilDay, setValidUntilDay] = useState(
+    initial?.validUntilDay
+      ? toInputDate(initial.validUntilDay)
       : ""
   );
-  const [promisedDeliveryDate, setPromisedDeliveryDate] = useState(
-    initial?.promisedDeliveryDate
-      ? toInputDate(initial.promisedDeliveryDate)
-      : ""
-  );
-  const [shipmentDate, setShipmentDate] = useState(
-    initial?.shipmentDate ? toInputDate(initial.shipmentDate) : ""
-  );
-  const [documentValidityDate, setDocumentValidityDate] = useState(
-    initial?.documentValidityDate
-      ? toInputDate(initial.documentValidityDate)
-      : ""
-  );
-  const [documentValidityHour, setDocumentValidityHour] = useState(
-    initial?.documentValidityHour || ""
+  const [validUntilTime, setValidUntilTime] = useState(
+    initial?.validUntilTime || ""
   );
 
   // parties
@@ -1484,7 +1442,6 @@ function PurchaseOfferLineBlockForm({
   const [locationCountryCode, setLocationCountryCode] = useState(
     initial?.locationCountryCode || ""
   );
-
 
   // params (simple code + value)
   const [p1c, setP1c] = useState(initial?.param1Code || "");
@@ -1569,18 +1526,8 @@ function PurchaseOfferLineBlockForm({
     setLocationCountryCode((prev) =>
       prev || (hdrCountry ? String(hdrCountry).toUpperCase() : "")
     );
-
-
-    setServiceDate((prev) => prev || toInputDate(header.serviceDate));
-    setRequestedDeliveryDate(
-      (prev) => prev || toInputDate(header.requestedDeliveryDate)
-    );
-    setPromisedDeliveryDate(
-      (prev) => prev || toInputDate(header.promisedDeliveryDate)
-    );
-    setShipmentDate((prev) => prev || toInputDate(header.shipmentDate));
-    setDocumentValidityDate(
-      (prev) => prev || toInputDate(header.documentValidityDate)
+setValidUntilDay(
+      (prev) => prev || toInputDate(header.validUntilDay)
     );
 
     setStatus((prev) => (prev ? prev : canonStatus(header.status || "new")));
@@ -1618,13 +1565,8 @@ function PurchaseOfferLineBlockForm({
       vehicleCost: Number(vehicleCost) || 0,
       additionalCosts: Number(additionalCosts) || 0,
       costMargin: Number(costMargin) || 0,
-
-      serviceDate: serviceDate || null,
-      requestedDeliveryDate: requestedDeliveryDate || null,
-      promisedDeliveryDate: promisedDeliveryDate || null,
-      shipmentDate: shipmentDate || null,
-      documentValidityDate: documentValidityDate || null,
-      documentValidityHour: documentValidityHour || null,
+validUntilDay: validUntilDay || null,
+      validUntilTime: validUntilTime || null,
 
       buyVendorNo: buyVendorNo || null,
       payVendorNo: payVendorNo || null,
@@ -1867,70 +1809,24 @@ function PurchaseOfferLineBlockForm({
       {/* DATES */}
       {tab === "dates" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label={SS.details.kv.serviceDate} icon={CalendarIcon}>
+          <Field label={SS.details.kv.validUntilDay} icon={CalendarIcon}>
             <input
               type="date"
               className={INPUT_CLS}
-              value={serviceDate}
-              onChange={(e) => setServiceDate(e.target.value)}
+              value={validUntilDay}
+              onChange={(e) => setValidUntilDay(e.target.value)}
             />
           </Field>
-          <Field
-            label={SS.details.kv.requestedDeliveryDate}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={requestedDeliveryDate}
-              onChange={(e) => setRequestedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={SS.details.kv.promisedDeliveryDate}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={promisedDeliveryDate}
-              onChange={(e) => setPromisedDeliveryDate(e.target.value)}
-            />
-          </Field>
-          <Field label={SS.details.kv.shipmentDate} icon={CalendarIcon}>
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={shipmentDate}
-              onChange={(e) => setShipmentDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={SS.details.kv.documentValidityDate}
-            icon={CalendarIcon}
-          >
-            <input
-              type="date"
-              className={INPUT_CLS}
-              value={documentValidityDate}
-              onChange={(e) => setDocumentValidityDate(e.target.value)}
-            />
-          </Field>
-          <Field
-            label={SS.details.kv.documentValidityHour}
-            icon={CalendarIcon}
-          >
+          <Field label={SS.details.kv.validUntilTime} icon={CalendarIcon}>
             <input
               type="time"
               className={INPUT_CLS}
-              value={documentValidityHour}
-              onChange={(e) => setDocumentValidityHour(e.target.value)}
+              value={validUntilTime}
+              onChange={(e) => setValidUntilTime(e.target.value)}
             />
           </Field>
         </div>
-      )}
-
-      {/* AMOUNTS */}
+      )}{/* AMOUNTS */}
       {tab === "amounts" && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Field label={SS.details.kv.tollCost} icon={Truck}>
@@ -2059,7 +1955,6 @@ function PurchaseOfferLineBlockForm({
           </Field>
         </div>
       )}
-
 
       {/* PARAMS */}
       {tab === "params" && (
