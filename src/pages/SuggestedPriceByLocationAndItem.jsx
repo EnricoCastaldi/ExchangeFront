@@ -55,6 +55,102 @@ function percentileNearestRank(sortedAsc, p01) {
   return sortedAsc[idx];
 }
 
+
+/* ---------- helpers: distance + costs (ported from Exchange) ---------- */
+const ROAD_DISTANCE_CACHE = new Map(); // key -> number|null
+
+function makePairKey(aLat, aLon, bLat, bLon) {
+  if (![aLat, aLon, bLat, bLon].every(Number.isFinite)) return null;
+  return `${aLat.toFixed(6)},${aLon.toFixed(6)}|${bLat.toFixed(6)},${bLon.toFixed(6)}`;
+}
+
+function geoDistanceKm(lat1, lon1, lat2, lon2) {
+  if (
+    !Number.isFinite(lat1) ||
+    !Number.isFinite(lon1) ||
+    !Number.isFinite(lat2) ||
+    !Number.isFinite(lon2)
+  ) {
+    return null;
+  }
+  const R = 6371;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+async function fetchRoadDistanceKm(fromLat, fromLon, toLat, toLon) {
+  const params = new URLSearchParams({
+    fromLat: String(fromLat),
+    fromLon: String(fromLon),
+    toLat: String(toLat),
+    toLon: String(toLon),
+  });
+  const url = `${API}/api/maps/distance?${params.toString()}`;
+  const res = await fetch(url, { credentials: "include" });
+  const json = await safeJson(res, url);
+
+  const km =
+    Number(json.distanceKm) ||
+    (Number.isFinite(Number(json.distanceInMeters))
+      ? Number(json.distanceInMeters) / 1000
+      : NaN);
+
+  return Number.isFinite(km) ? km : null;
+}
+
+// Small concurrency helper (avoid spamming backend)
+async function mapLimit(items, limit, fn) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const i = nextIndex++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i], i);
+    }
+  }
+
+  const workers = Array.from({ length: Math.max(1, limit) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+function daysUntil(dateLike) {
+  if (!dateLike) return 0;
+  const due = new Date(dateLike);
+  if (Number.isNaN(due.getTime())) return 0;
+  const ms = due.getTime() - Date.now();
+  return ms > 0 ? Math.ceil(ms / 86400000) : 0;
+}
+
+function pickNumber(obj, keys, fallback = NaN) {
+  for (const k of keys) {
+    const v = Number(obj?.[k]);
+    if (Number.isFinite(v)) return v;
+  }
+  return fallback;
+}
+
+function getLatLon(obj) {
+  const lat = pickNumber(obj, ["lat", "latitude", "geoLat", "locationLat", "location_lat"]);
+  const lon = pickNumber(obj, ["lon", "lng", "longitude", "geoLon", "locationLon", "location_lon"]);
+  return {
+    lat: Number.isFinite(lat) ? lat : null,
+    lon: Number.isFinite(lon) ? lon : null,
+  };
+}
+
+
 /* ---------- session ---------- */
 function getSessionEmail() {
   try {
@@ -288,7 +384,7 @@ export default function SuggestedPriceByLocationAndItem() {
     cardTitle: SP.cardTitle || "Suggested Purchase Price (P70)",
     note:
       SP.note ||
-      "Note: Location is selected for later use and does not filter SalesOfferLinesBlocks right now.",
+      "Note: Location is used as pickup (origin) to calculate per-block costs (transport, location, factoring, admin). SalesOfferLinesBlocks are not filtered by location.",
     lastUpdate: SP.lastUpdate || "Last update",
     calculate: SP.calculate || "Calculate",
     calculating: SP.calculating || "Calculating…",
@@ -300,6 +396,9 @@ export default function SuggestedPriceByLocationAndItem() {
     item: SP.item || "Item",
     pickItem: SP.pickItem || "Pick item",
     metric: SP.metric || "Metric",
+    costMode: SP.costMode || "Cost adjustment",
+    costModePlus: SP.costModePlus || "Price + costs",
+    costModeMinus: SP.costModeMinus || "Price − costs",
     percentile: SP.percentile || "Percentile",
     statusOptional: SP.statusOptional || "Status (optional)",
     statusPlaceholder: SP.statusPlaceholder || 'e.g. "accepted"',
@@ -343,6 +442,9 @@ export default function SuggestedPriceByLocationAndItem() {
     thLineValue: SP.thLineValue || "Line value",
     thLocation: SP.thLocation || "Location",
     thCity: SP.thCity || "City",
+    thDistanceKm: SP.thDistanceKm || "Distance (km)",
+    thCostPerTon: SP.thCostPerTon || "Cost / t",
+    thTotalCost: SP.thTotalCost || "Total cost",
 
     thUser: SP.thUser || "User",
     thDestination: SP.thDestination || "Destination",
@@ -358,6 +460,14 @@ export default function SuggestedPriceByLocationAndItem() {
 
   const [location, setLocation] = useState(null); // destination (saved in history)
   const [item, setItem] = useState(null);
+
+  // costs/settings (shared with Exchange)
+  const [settings, setSettings] = useState({
+    transportCostPerKm: 0,
+    factoringFeePercent: 0,
+    administrativeFee: 0,
+  });
+  const [costMode, setCostMode] = useState("plus"); // plus | minus
 
   // lookups
   const [locOpen, setLocOpen] = useState(false);
@@ -451,6 +561,26 @@ export default function SuggestedPriceByLocationAndItem() {
     if (itemOpen) debouncedItemSearch(itemQuery.trim());
   }, [itemOpen, itemQuery, debouncedItemSearch]);
 
+  // Load transport/factoring/admin settings (same endpoint as Exchange)
+  useEffect(() => {
+    (async () => {
+      try {
+        const url = `${API}/api/settings`;
+        const res = await fetch(url, { credentials: "include" });
+        const json = await safeJson(res, url);
+        setSettings({
+          transportCostPerKm: Number(json?.transportCostPerKm ?? 0) || 0,
+          factoringFeePercent: Number(json?.factoringFeePercent ?? 0) || 0,
+          administrativeFee: Number(json?.administrativeFee ?? 0) || 0,
+        });
+      } catch (e) {
+        console.warn("Failed to load settings", e);
+        setSettings({ transportCostPerKm: 0, factoringFeePercent: 0, administrativeFee: 0 });
+      }
+    })();
+  }, []);
+
+
   async function fetchAllBlocksByItem(itemNo) {
     const limit = 200;
     let page = 1;
@@ -483,37 +613,155 @@ export default function SuggestedPriceByLocationAndItem() {
     return all.slice(0, cap);
   }
 
-  function buildUsedRows(blocks) {
-    const filtered = (blocks || [])
+    async function buildUsedRows(blocks) {
+    const pickup = location || null;
+    const pickupLatLon = pickup ? getLatLon(pickup) : { lat: null, lon: null };
+
+    // pickup-side costs (best effort from mlocations record)
+    const pickupLoadingCost = pickup ? pickNumber(pickup, ["loadingCost", "loading_cost", "locationLoadingCost"], 0) : 0;
+    const pickupLoadingRisk = pickup ? pickNumber(pickup, ["loadingCostRisk", "loading_cost_risk", "locationLoadingCostRisk"], 0) : 0;
+
+    const baseRows = (blocks || [])
       .filter((b) => (b?.lineType || "").toLowerCase() === "item")
       .map((b) => {
         const up = Number(b.unitPrice) || 0;
         const qty = Number(b.quantity) || 0;
         const lv = Number(b.lineValue) || up * qty;
 
-        let valueUsed = 0;
-        if (metric === "lineValue") valueUsed = lv;
-        else if (metric === "lineValuePerUnit") valueUsed = qty > 0 ? lv / qty : 0;
-        else valueUsed = up;
+        const createdAt = b.createdAt || b.dateCreated || b.updatedAt;
+
+        // sell-side unloading costs (stored on block row)
+        const sellUnloadingCost = pickNumber(
+          b,
+          ["locationUnloadingCost", "unloadingCost", "unloading_cost"],
+          0
+        );
+        const sellUnloadingRisk = pickNumber(
+          b,
+          ["locationUnloadingCostRisk", "unloadingCostRisk", "unloading_cost_risk"],
+          0
+        );
+
+        const { lat: sellLat, lon: sellLon } = getLatLon(b);
 
         return {
           ...b,
-          __valueUsed: valueUsed,
           __unitPrice: up,
           __qty: qty,
           __lineValue: lv,
-          __createdAt: b.createdAt || b.dateCreated || b.updatedAt,
+          __createdAt: createdAt,
+
+          __sellLat: sellLat,
+          __sellLon: sellLon,
+
+          __pickupLat: pickupLatLon.lat,
+          __pickupLon: pickupLatLon.lon,
+
+          __pickupLoadingCost: pickupLoadingCost,
+          __pickupLoadingRisk: pickupLoadingRisk,
+
+          __sellUnloadingCost: sellUnloadingCost,
+          __sellUnloadingRisk: sellUnloadingRisk,
+        };
+      });
+
+    // Distance (road distance via backend; fallback to geo distance)
+    const rowsWithDistance = await mapLimit(baseRows, 4, async (r) => {
+      const aLat = Number(r.__pickupLat);
+      const aLon = Number(r.__pickupLon);
+      const bLat = Number(r.__sellLat);
+      const bLon = Number(r.__sellLon);
+
+      const key = makePairKey(aLat, aLon, bLat, bLon);
+      if (!key) return { ...r, __distanceKm: null };
+
+      if (ROAD_DISTANCE_CACHE.has(key)) {
+        return { ...r, __distanceKm: ROAD_DISTANCE_CACHE.get(key) };
+      }
+
+      let km = null;
+      try {
+        km = await fetchRoadDistanceKm(aLat, aLon, bLat, bLon);
+      } catch {
+        km = geoDistanceKm(aLat, aLon, bLat, bLon);
+      }
+      ROAD_DISTANCE_CACHE.set(key, km);
+      return { ...r, __distanceKm: km };
+    });
+
+    const transportCostPerKm = Number(settings?.transportCostPerKm ?? 0) || 0;
+    const factoringFeePercent = Number(settings?.factoringFeePercent ?? 0) || 0;
+    const administrativeFee = Number(settings?.administrativeFee ?? 0) || 0;
+
+    const feePct = factoringFeePercent / 100;
+
+    const enriched = rowsWithDistance
+      .map((r) => {
+        const qty = Number(r.__qty) || 0;
+
+        // distance transport is absolute cost, later converted to /t
+        const distanceTransportCost =
+          Number.isFinite(r.__distanceKm) && transportCostPerKm > 0
+            ? (Number(r.__distanceKm) || 0) * transportCostPerKm
+            : 0;
+
+        const locationBaseCost = (Number(r.__pickupLoadingCost) || 0) + (Number(r.__sellUnloadingCost) || 0);
+        const locationRiskCost = (Number(r.__pickupLoadingRisk) || 0) + (Number(r.__sellUnloadingRisk) || 0);
+
+        const factoringDaysToDue = daysUntil(r.dueDate || r.due_date || null);
+        const factoringCost = (Number(r.__lineValue) || 0) * feePct * factoringDaysToDue;
+
+        const totalCostAbs =
+          (Number(distanceTransportCost) || 0) +
+          (Number(locationBaseCost) || 0) +
+          (Number(locationRiskCost) || 0) +
+          (Number(administrativeFee) || 0) +
+          (Number(factoringCost) || 0);
+
+        const costPerTon = qty > 0 ? totalCostAbs / qty : 0;
+
+        // Base metric value
+        let baseValue = 0;
+        let costAdj = 0;
+
+        if (metric === "lineValue") {
+          baseValue = Number(r.__lineValue) || 0;
+          costAdj = totalCostAbs;
+        } else if (metric === "lineValuePerUnit") {
+          baseValue = qty > 0 ? (Number(r.__lineValue) || 0) / qty : 0;
+          costAdj = costPerTon;
+        } else {
+          baseValue = Number(r.__unitPrice) || 0;
+          costAdj = costPerTon;
+        }
+
+        const valueUsed =
+          costMode === "minus" ? baseValue - costAdj : baseValue + costAdj;
+
+        return {
+          ...r,
+
+          __distanceTransportCost: distanceTransportCost,
+          __locationBaseCost: locationBaseCost,
+          __locationRiskCost: locationRiskCost,
+          __administrativeFee: administrativeFee,
+          __factoringCost: factoringCost,
+          __factoringDaysToDue: factoringDaysToDue,
+
+          __totalCostAbs: totalCostAbs,
+          __costPerTon: costPerTon,
+          __valueUsed: valueUsed,
         };
       })
-      .filter((b) => Number.isFinite(b.__valueUsed) && b.__valueUsed > 0);
+      .filter((r) => Number.isFinite(r.__valueUsed) && r.__valueUsed > 0);
 
-    filtered.sort((a, b) => {
+    enriched.sort((a, b) => {
       const da = a.__createdAt ? new Date(a.__createdAt).getTime() : 0;
       const db = b.__createdAt ? new Date(b.__createdAt).getTime() : 0;
       return db - da;
     });
 
-    return filtered;
+    return enriched;
   }
 
   function computeSuggestedFromUsed(used) {
@@ -615,11 +863,15 @@ export default function SuggestedPriceByLocationAndItem() {
       setErrMsg(SP.selectItemFirst || "Select Item first.");
       return;
     }
+    if (!location?.no) {
+      setErrMsg(SP.selectLocationFirst || "Select pickup Location first.");
+      return;
+    }
 
     setCalculating(true);
     try {
       const blocks = await fetchAllBlocksByItem(item.no);
-      const used = buildUsedRows(blocks);
+      const used = await buildUsedRows(blocks);
       setUsedRows(used);
 
       const r = computeSuggestedFromUsed(used);
@@ -627,7 +879,7 @@ export default function SuggestedPriceByLocationAndItem() {
       setResult({
         itemNo: item.no,
         locationNo: location?.no || "",
-        metric,
+        metric: metricKeyForHistory,
         percentile: pct,
         ...(r || { count: 0, suggested: null, stats: null }),
       });
@@ -645,7 +897,7 @@ export default function SuggestedPriceByLocationAndItem() {
               locationNo: location?.no || "",
               suggestedPrice: r.suggested,
               percentile: pct,
-              metric,
+              metric: metricKeyForHistory,
               statusFilter: status || "",
               sampleCount: r.count || 0,
               stats: r.stats || undefined,
@@ -663,12 +915,22 @@ export default function SuggestedPriceByLocationAndItem() {
     }
   }
 
-  const metricLabel =
+  const metricLabelBase =
     {
       unitPrice: SP.metricUnitPrice || "Unit Price",
       lineValuePerUnit: SP.metricLineValuePerUnit || "Line Value / Qty",
       lineValue: SP.metricLineValue || "Line Value",
     }[metric] || metric;
+
+  const costModeLabel =
+    costMode === "minus"
+      ? SP.costModeMinus || "Price − costs"
+      : SP.costModePlus || "Price + costs";
+
+  // Stored in history so we can distinguish variants without changing backend schema
+  const metricKeyForHistory = `${metric}_${costMode}`;
+
+  const metricLabel = `${metricLabelBase} (${costModeLabel})`;
 
   return (
     <div className="w-full h-full min-h-0 max-w-none flex flex-col gap-4">
@@ -688,7 +950,7 @@ export default function SuggestedPriceByLocationAndItem() {
           <button
             type="button"
             onClick={onCalculate}
-            disabled={calculating || !item?.no}
+            disabled={calculating || !item?.no || !location?.no}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
           >
             <Calculator size={14} /> {calculating ? TXT.calculating : TXT.calculate}
@@ -782,7 +1044,7 @@ export default function SuggestedPriceByLocationAndItem() {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 mt-3">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mt-3">
             <div>
               <div className="text-xs text-slate-600 mb-1">{TXT.metric}</div>
               <select
@@ -793,6 +1055,18 @@ export default function SuggestedPriceByLocationAndItem() {
                 <option value="unitPrice">{SP.metricUnitPrice || "Unit Price"}</option>
                 <option value="lineValuePerUnit">{SP.metricLineValuePerUnit || "Line Value / Qty"}</option>
                 <option value="lineValue">{SP.metricLineValue || "Line Value"}</option>
+              </select>
+            </div>
+
+            <div>
+              <div className="text-xs text-slate-600 mb-1">{TXT.costMode}</div>
+              <select
+                value={costMode}
+                onChange={(e) => setCostMode(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+              >
+                <option value="plus">{TXT.costModePlus}</option>
+                <option value="minus">{TXT.costModeMinus}</option>
               </select>
             </div>
 
@@ -837,13 +1111,17 @@ export default function SuggestedPriceByLocationAndItem() {
             <button
               type="button"
               onClick={onCalculate}
-              disabled={calculating || !item?.no}
+              disabled={calculating || !item?.no || !location?.no}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50 disabled:opacity-50"
             >
               <Calculator size={16} /> {calculating ? TXT.calculating : TXT.calculate}
             </button>
 
-            {!item?.no ? <span className="text-xs text-slate-500">{TXT.selectItemHint}</span> : null}
+            {!item?.no || !location?.no ? (
+              <span className="text-xs text-slate-500">
+                {!item?.no ? (TXT.selectItemHint) : (SP.selectLocationHint || "Select Location to calculate costs.")}
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -934,12 +1212,15 @@ export default function SuggestedPriceByLocationAndItem() {
                         <th className="text-right">{TXT.thLineValue}</th>
                         <th>{TXT.thLocation}</th>
                         <th>{TXT.thCity}</th>
+                        <th className="text-right">{TXT.thDistanceKm}</th>
+                        <th className="text-right">{TXT.thCostPerTon}</th>
+                        <th className="text-right">{TXT.thTotalCost}</th>
                       </tr>
                     </thead>
                     <tbody className="text-slate-800">
                       {filteredTableRows.length === 0 ? (
                         <tr>
-                          <td className="px-3 py-3 text-slate-500" colSpan={11}>
+                          <td className="px-3 py-3 text-slate-500" colSpan={14}>
                             {TXT.noRows}
                           </td>
                         </tr>
@@ -963,6 +1244,16 @@ export default function SuggestedPriceByLocationAndItem() {
 
                             <td className="px-3 py-2 whitespace-nowrap">{r.locationNo || "—"}</td>
                             <td className="px-3 py-2 whitespace-nowrap">{r.locationCity || "—"}</td>
+
+                            <td className="px-3 py-2 text-right">
+                              {Number.isFinite(r.__distanceKm) ? fmtNum(round2(r.__distanceKm), locale) : "—"}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {fmtMoney(round2(r.__costPerTon || 0), locale, "PLN")}
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              {fmtMoney(round2(r.__totalCostAbs || 0), locale, "PLN")}
+                            </td>
                           </tr>
                         ))
                       )}
