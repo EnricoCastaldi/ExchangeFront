@@ -945,6 +945,12 @@ export default function Buy() {
 >
   {d.validUntilTime || "—"}
 </KV>
+<KV
+  label={L.kv.paymentDays || "Payment days"}
+  icon={DollarSign}
+>
+  {d.paymentDays != null ? `${d.paymentDays}` : "—"}
+</KV>
                             </Section>
 
                             <Section title={L.buyFrom}>
@@ -1477,6 +1483,11 @@ function DocForm({ initial, onCancel, onSaved, showNotice, defaultEndOfDayTime =
     initial?.documentDate ? initial.documentDate.slice(0, 10) : todayLocalISO()
   );
 
+  const PAYMENT_DAY_OPTIONS = [7, 14, 21, 30, 60];
+  const [paymentDays, setPaymentDays] = useState(
+    initial?.paymentDays != null ? Number(initial.paymentDays) : 14
+  );
+
 // NEW: validity split into day + time
   const [validUntilDay, setValidUntilDay] = useState(
     initial?.validUntilDay
@@ -1639,6 +1650,8 @@ function DocForm({ initial, onCancel, onSaved, showNotice, defaultEndOfDayTime =
       documentDate: documentDate || null,
 validUntilDay: validUntilDay || null,
 validUntilTime: validUntilTime || null,
+
+      paymentDays: Number(paymentDays) || 14,
 
       buyVendorNo: buy.no,
       buyVendorName: buy.name || null,
@@ -1907,6 +1920,21 @@ validUntilTime: validUntilTime || null,
     onChange={(e) => { setValidUntilTimeTouched(true); setValidUntilTime(e.target.value); }}
   />
 </Field>
+
+<Field label={F.paymentDays || "Payment days"} icon={DollarSign}>
+  <select
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+    value={paymentDays}
+    onChange={(e) => setPaymentDays(Number(e.target.value))}
+  >
+    {PAYMENT_DAY_OPTIONS.map((d) => (
+      <option key={d} value={d}>
+        {d}
+      </option>
+    ))}
+  </select>
+</Field>
+
         </div>
       )}
 

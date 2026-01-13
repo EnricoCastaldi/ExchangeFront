@@ -765,7 +765,11 @@ const S_lines = t.sells?.lineForm || {};
                                 <KV label={L.kv.validUntilTime || "Valid until time"} icon={CalendarIcon}>
                                   {d.validUntilTime || "—"}
                                 </KV>
-                              </Section>
+                              
+                                <KV label={L.kv.paymentDays || "Payment days"} icon={DollarSign}>
+                                  {d.paymentDays != null && d.paymentDays !== "" ? String(d.paymentDays) : "—"}
+                                </KV>
+</Section>
 
                               <Section title={L.sellTo}>
                                 <KV label={L.kv.no} icon={IdCard}>
@@ -1363,7 +1367,16 @@ function Modal({ children, onClose, title }) {
       initial?.validUntilTime || ""
     );
 
-    // Load general settings once (defaultEndOfDayTime)
+    
+    // Payment days (header)
+    const PAYMENT_DAYS_OPTIONS = [7, 14, 21, 30, 60];
+    const [paymentDays, setPaymentDays] = useState(
+      initial?.paymentDays != null && initial?.paymentDays !== ""
+        ? Number(initial.paymentDays)
+        : 14
+    );
+
+// Load general settings once (defaultEndOfDayTime)
     useEffect(() => {
       let cancelled = false;
       (async () => {
@@ -1539,6 +1552,7 @@ function Modal({ children, onClose, title }) {
         validUntilDay: validUntilDay || null,
         validUntilTime: validUntilTime || null,
 
+        paymentDays: Number(paymentDays) || 14,
         sellCustomerNo: sell.no,
         sellCustomerName: sell.name || null,
         sellCustomerName2: sell.name2 || null,
@@ -1807,7 +1821,22 @@ function Modal({ children, onClose, title }) {
                 }}
               />
             </Field>
-          </div>
+          
+            <Field label={F.paymentDays || "Payment days"} icon={DollarSign}>
+              <select
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                value={paymentDays}
+                onChange={(e) => setPaymentDays(Number(e.target.value))}
+              >
+                {PAYMENT_DAYS_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+</div>
         )}
 
         {/* SELL-TO */}
