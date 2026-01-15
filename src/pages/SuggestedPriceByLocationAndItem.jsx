@@ -55,7 +55,6 @@ function percentileNearestRank(sortedAsc, p01) {
   return sortedAsc[idx];
 }
 
-
 /* ---------- helpers: distance + costs (ported from Exchange) ---------- */
 const ROAD_DISTANCE_CACHE = new Map(); // key -> number|null
 
@@ -149,7 +148,6 @@ function getLatLon(obj) {
     lon: Number.isFinite(lon) ? lon : null,
   };
 }
-
 
 /* ---------- session ---------- */
 function getSessionEmail() {
@@ -373,6 +371,57 @@ function LookupInput({
   );
 }
 
+
+/* ===================== Calculation overlay ===================== */
+function CalculationOverlay({ open, title, subtitle, steps = [] }) {
+  if (!open) return null;
+
+  return (
+    <div className="absolute inset-0 z-[50] flex items-center justify-center">
+      <div className="absolute inset-0 bg-white/70 backdrop-blur-sm" />
+
+      <div className="relative w-[92%] max-w-xl rounded-2xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+        <div className="h-1 w-full bg-slate-100 overflow-hidden">
+          <div className="h-full w-1/3 bg-slate-300 animate-[pulse_1.2s_ease-in-out_infinite]" />
+        </div>
+
+        <div className="p-5">
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5 h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center">
+              <div className="h-5 w-5 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin" />
+            </div>
+
+            <div className="flex-1">
+              <div className="text-base font-semibold text-slate-900">{title || "Calculating…"}</div>
+              <div className="text-sm text-slate-600 mt-0.5">
+                {subtitle || "Please wait while we compute suggested price and costs."}
+              </div>
+
+              {steps?.length ? (
+                <div className="mt-4 space-y-2">
+                  {steps.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                    >
+                      <div className="h-2.5 w-2.5 rounded-full bg-slate-400 animate-[pulse_1.4s_ease-in-out_infinite]" />
+                      <div className="text-sm text-slate-700">{s}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="mt-4 text-xs text-slate-500">
+                This can take longer for large datasets or when distances must be fetched.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ===================== main page ===================== */
 export default function SuggestedPriceByLocationAndItem() {
   const { t, locale } = useI18n();
@@ -488,6 +537,7 @@ export default function SuggestedPriceByLocationAndItem() {
 
   // result + used records
   const [calculating, setCalculating] = useState(false);
+  const [calcStage, setCalcStage] = useState(""); // ✅ user-visible stage text
   const [errMsg, setErrMsg] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
   const [result, setResult] = useState(null);
@@ -512,7 +562,8 @@ export default function SuggestedPriceByLocationAndItem() {
       debounce(async (q) => {
         setLocLoading(true);
         try {
-          const url = `${API}/api/mlocations?q=${encodeURIComponent(q)}&page=1&limit=10`;
+          // ✅ backend expects "query"
+          const url = `${API}/api/mlocations?query=${encodeURIComponent(q)}&page=1&limit=10`;
           const res = await fetch(url, { credentials: "include" });
           const json = await safeJson(res, url);
           const rows = (json.data || []).map((r) => ({
@@ -535,7 +586,8 @@ export default function SuggestedPriceByLocationAndItem() {
       debounce(async (q) => {
         setItemLoading(true);
         try {
-          const url = `${API}/api/mitems?q=${encodeURIComponent(q)}&page=1&limit=10`;
+          // ✅ (recommended) backend typically expects "query"
+          const url = `${API}/api/mitems?query=${encodeURIComponent(q)}&page=1&limit=10`;
           const res = await fetch(url, { credentials: "include" });
           const json = await safeJson(res, url);
           const rows = (json.data || []).map((r) => ({
@@ -580,7 +632,6 @@ export default function SuggestedPriceByLocationAndItem() {
     })();
   }, []);
 
-
   async function fetchAllBlocksByItem(itemNo) {
     const limit = 200;
     let page = 1;
@@ -613,13 +664,17 @@ export default function SuggestedPriceByLocationAndItem() {
     return all.slice(0, cap);
   }
 
-    async function buildUsedRows(blocks) {
+  async function buildUsedRows(blocks) {
     const pickup = location || null;
     const pickupLatLon = pickup ? getLatLon(pickup) : { lat: null, lon: null };
 
     // pickup-side costs (best effort from mlocations record)
-    const pickupLoadingCost = pickup ? pickNumber(pickup, ["loadingCost", "loading_cost", "locationLoadingCost"], 0) : 0;
-    const pickupLoadingRisk = pickup ? pickNumber(pickup, ["loadingCostRisk", "loading_cost_risk", "locationLoadingCostRisk"], 0) : 0;
+    const pickupLoadingCost = pickup
+      ? pickNumber(pickup, ["loadingCost", "loading_cost", "locationLoadingCost"], 0)
+      : 0;
+    const pickupLoadingRisk = pickup
+      ? pickNumber(pickup, ["loadingCostRisk", "loading_cost_risk", "locationLoadingCostRisk"], 0)
+      : 0;
 
     const baseRows = (blocks || [])
       .filter((b) => (b?.lineType || "").toLowerCase() === "item")
@@ -631,11 +686,7 @@ export default function SuggestedPriceByLocationAndItem() {
         const createdAt = b.createdAt || b.dateCreated || b.updatedAt;
 
         // sell-side unloading costs (stored on block row)
-        const sellUnloadingCost = pickNumber(
-          b,
-          ["locationUnloadingCost", "unloadingCost", "unloading_cost"],
-          0
-        );
+        const sellUnloadingCost = pickNumber(b, ["locationUnloadingCost", "unloadingCost", "unloading_cost"], 0);
         const sellUnloadingRisk = pickNumber(
           b,
           ["locationUnloadingCostRisk", "unloadingCostRisk", "unloading_cost_risk"],
@@ -735,8 +786,7 @@ export default function SuggestedPriceByLocationAndItem() {
           costAdj = costPerTon;
         }
 
-        const valueUsed =
-          costMode === "minus" ? baseValue - costAdj : baseValue + costAdj;
+        const valueUsed = costMode === "minus" ? baseValue - costAdj : baseValue + costAdj;
 
         return {
           ...r,
@@ -854,7 +904,12 @@ export default function SuggestedPriceByLocationAndItem() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item?.no, location?.no, histLimit, histOnlyMine, histPercentile]);
 
+  // Stored in history so we can distinguish variants without changing backend schema
+  const metricKeyForHistory = `${metric}_${costMode}`;
+
   async function onCalculate() {
+    if (calculating) return; // ✅ prevent double-clicks
+
     setErrMsg("");
     setResult(null);
     setUsedRows([]);
@@ -869,11 +924,17 @@ export default function SuggestedPriceByLocationAndItem() {
     }
 
     setCalculating(true);
+    setCalcStage(SP.calculatingStageStart || "Starting calculation…");
+
     try {
+      setCalcStage(SP.calculatingStageBlocks || "Loading offer blocks…");
       const blocks = await fetchAllBlocksByItem(item.no);
+
+      setCalcStage(SP.calculatingStageCosts || "Computing distances and costs…");
       const used = await buildUsedRows(blocks);
       setUsedRows(used);
 
+      setCalcStage(SP.calculatingStageStats || "Computing percentile statistics…");
       const r = computeSuggestedFromUsed(used);
 
       setResult({
@@ -888,6 +949,7 @@ export default function SuggestedPriceByLocationAndItem() {
 
       // ✅ save history
       if (r?.suggested != null) {
+        setCalcStage(SP.calculatingStageSave || "Saving history…");
         const email = getSessionEmail();
         if (email) {
           try {
@@ -908,10 +970,16 @@ export default function SuggestedPriceByLocationAndItem() {
           }
         }
       }
+
+      setCalcStage(SP.calculatingStageDone || "Done.");
     } catch (e) {
       setErrMsg(e?.message || (SP.calculationFailed || "Calculation failed"));
     } finally {
-      setCalculating(false);
+      // allow overlay to show "Done." briefly (optional)
+      setTimeout(() => {
+        setCalcStage("");
+        setCalculating(false);
+      }, 250);
     }
   }
 
@@ -922,31 +990,22 @@ export default function SuggestedPriceByLocationAndItem() {
       lineValue: SP.metricLineValue || "Line Value",
     }[metric] || metric;
 
-  const costModeLabel =
-    costMode === "minus"
-      ? SP.costModeMinus || "Price − costs"
-      : SP.costModePlus || "Price + costs";
-
-  // Stored in history so we can distinguish variants without changing backend schema
-  const metricKeyForHistory = `${metric}_${costMode}`;
-
+  const costModeLabel = costMode === "minus" ? SP.costModeMinus || "Price − costs" : SP.costModePlus || "Price + costs";
   const metricLabel = `${metricLabelBase} (${costModeLabel})`;
 
   return (
     <div className="w-full h-full min-h-0 max-w-none flex flex-col gap-4">
       {errMsg ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {errMsg}
-        </div>
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errMsg}</div>
       ) : null}
 
       {/* topbar */}
       <div className="flex flex-wrap items-center justify-between text-xs text-slate-600">
         <div>
-          {TXT.lastUpdate}:{" "}
-          <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
+          {TXT.lastUpdate}: <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
         </div>
         <div className="flex items-center gap-3">
+          {/* smaller topbar calculate (still available) */}
           <button
             type="button"
             onClick={onCalculate}
@@ -955,6 +1014,7 @@ export default function SuggestedPriceByLocationAndItem() {
           >
             <Calculator size={14} /> {calculating ? TXT.calculating : TXT.calculate}
           </button>
+
           <button
             type="button"
             onClick={() => {
@@ -976,7 +1036,20 @@ export default function SuggestedPriceByLocationAndItem() {
       </div>
 
       {/* main card fills space */}
-      <div className="w-full flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white overflow-visible flex flex-col">
+      <div className="relative w-full flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white overflow-visible flex flex-col">
+        {/* ✅ overlay while calculating */}
+        <CalculationOverlay
+          open={calculating}
+          title={SP.calculatingTitle || "Calculating suggested price"}
+          subtitle={calcStage || (SP.calculatingSubtitle || "Fetching blocks, computing costs and percentiles…")}
+          steps={[
+            SP.calculatingStep1 || "Loading offer blocks for selected item",
+            SP.calculatingStep2 || "Computing distances and cost adjustments",
+            SP.calculatingStep3 || "Calculating percentile statistics and suggested price",
+            SP.calculatingStep4 || "Saving history entry (if enabled)",
+          ]}
+        />
+
         {/* header */}
         <div className="px-4 py-3 border-b bg-slate-50">
           <div className="flex items-center justify-between gap-3">
@@ -1107,20 +1180,34 @@ export default function SuggestedPriceByLocationAndItem() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 mt-3">
+          {/* ✅ Primary CTA row */}
+          <div className="flex flex-wrap items-center gap-3 mt-4">
             <button
               type="button"
               onClick={onCalculate}
               disabled={calculating || !item?.no || !location?.no}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm hover:bg-slate-50 disabled:opacity-50"
+              className={[
+                "inline-flex items-center justify-center gap-2",
+                "px-4 py-2.5 rounded-xl",
+                "text-sm font-semibold",
+                "border shadow-sm",
+                "transition-all",
+                calculating ? "cursor-wait" : "",
+                (calculating || !item?.no || !location?.no)
+                  ? "bg-slate-200 text-slate-500 border-slate-200 opacity-70"
+                  : "bg-slate-900 text-white border-slate-900 hover:bg-slate-800 hover:shadow-md active:scale-[0.99]",
+              ].join(" ")}
             >
-              <Calculator size={16} /> {calculating ? TXT.calculating : TXT.calculate}
+              <Calculator size={18} className={calculating ? "animate-[pulse_1.2s_ease-in-out_infinite]" : ""} />
+              {calculating ? TXT.calculating : TXT.calculate}
             </button>
 
             {!item?.no || !location?.no ? (
               <span className="text-xs text-slate-500">
-                {!item?.no ? (TXT.selectItemHint) : (SP.selectLocationHint || "Select Location to calculate costs.")}
+                {!item?.no ? TXT.selectItemHint : SP.selectLocationHint || "Select Location to calculate costs."}
               </span>
+            ) : calculating ? (
+              <span className="text-xs text-slate-500">{calcStage || "Working…"}</span>
             ) : null}
           </div>
         </div>
@@ -1151,7 +1238,7 @@ export default function SuggestedPriceByLocationAndItem() {
                     [TXT.min, result.stats.min],
                     [TXT.avg, result.stats.avg],
                     [TXT.p50, result.stats.p50],
-                    ["P" + Math.round(pct * 100), result.stats.p70], // show selected percentile label
+                    ["P" + Math.round(pct * 100), result.stats.p70],
                     [TXT.p90, result.stats.p90],
                     [TXT.max, result.stats.max],
                   ].map(([k, v]) => (
@@ -1248,12 +1335,8 @@ export default function SuggestedPriceByLocationAndItem() {
                             <td className="px-3 py-2 text-right">
                               {Number.isFinite(r.__distanceKm) ? fmtNum(round2(r.__distanceKm), locale) : "—"}
                             </td>
-                            <td className="px-3 py-2 text-right">
-                              {fmtMoney(round2(r.__costPerTon || 0), locale, "PLN")}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              {fmtMoney(round2(r.__totalCostAbs || 0), locale, "PLN")}
-                            </td>
+                            <td className="px-3 py-2 text-right">{fmtMoney(round2(r.__costPerTon || 0), locale, "PLN")}</td>
+                            <td className="px-3 py-2 text-right">{fmtMoney(round2(r.__totalCostAbs || 0), locale, "PLN")}</td>
                           </tr>
                         ))
                       )}
