@@ -1005,15 +1005,7 @@ export default function SuggestedPriceByLocationAndItem() {
           {TXT.lastUpdate}: <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
         </div>
         <div className="flex items-center gap-3">
-          {/* smaller topbar calculate (still available) */}
-          <button
-            type="button"
-            onClick={onCalculate}
-            disabled={calculating || !item?.no || !location?.no}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
-          >
-            <Calculator size={14} /> {calculating ? TXT.calculating : TXT.calculate}
-          </button>
+
 
           <button
             type="button"
