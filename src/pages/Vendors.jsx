@@ -15,12 +15,11 @@ import {
   Map,
   Phone,
   Wallet,
-  Image, // tab icons
   Hash,
   User,
   FileText,
   MapPin,
-  Building, // field icons
+  Building,
   Mail,
   Globe,
   PhoneCall,
@@ -35,8 +34,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   SlidersHorizontal,
-  Filter,
-  Eraser,
 } from "lucide-react";
 
 const API =
@@ -45,9 +42,51 @@ const API =
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
 
+/**
+ * Vendors.jsx
+ * Adds NEW field: vendorType
+ * - filter in list
+ * - column + chip in table
+ * - field in VendorForm Basics tab
+ * - payload mapping for POST/PUT
+ */
 export default function Vendors() {
   const { t, locale } = useI18n();
   const V = t.vendors || {};
+
+  // Vendor type labels (from i18n with safe fallbacks)
+  const VTYPE_ORDER = ["producer", "trader", "carrier", "service", "other"];
+  const VT = V.vendorTypeLabels || {
+    producer: "Producer",
+    trader: "Trader",
+    carrier: "Carrier",
+    service: "Services",
+    other: "Other",
+  };
+  const vendorTypeLabel = (v) => {
+    const key = String(v || "").toLowerCase();
+    return VT[key] || v || "—";
+  };
+  function vendorTypeChip(v) {
+    const key = String(v || "").toLowerCase();
+    const cls =
+      key === "producer"
+        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+        : key === "trader"
+        ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+        : key === "carrier"
+        ? "bg-amber-50 text-amber-700 border border-amber-200"
+        : key === "service"
+        ? "bg-purple-50 text-purple-700 border border-purple-200"
+        : "bg-slate-50 text-slate-700 border border-slate-200";
+
+    return (
+      <span className={`px-2 py-1 rounded text-xs font-semibold ${cls}`}>
+        {vendorTypeLabel(key)}
+      </span>
+    );
+  }
+
   // localized helpers for filters (safe fallbacks)
   const F = {
     searchPh:
@@ -58,6 +97,7 @@ export default function Vendors() {
       "Country code",
     regionPh:
       V?.controls?.regionPlaceholder || V?.modal?.fields?.region || "Region",
+    vendorTypePh: V?.controls?.vendorTypePlaceholder || "Vendor type",
     all: V?.controls?.allStatuses || "All statuses",
     blocked: {
       none: V?.blockedLabels?.none || "OK",
@@ -74,6 +114,7 @@ export default function Vendors() {
 
   const L = V?.details || {
     name2: "Name 2",
+    vendorType: "Vendor type",
     address: "Address",
     address2: "Address 2",
     postCode: "Post code",
@@ -104,6 +145,7 @@ export default function Vendors() {
   const [q, setQ] = useState("");
   const [blocked, setBlocked] = useState(""); // '', 'none','ship','invoice','all'
   const [country, setCountry] = useState("");
+  const [vendorType, setVendorType] = useState(""); // NEW
   const [region, setRegion] = useState("");
   const [rrFilter, setRrFilter] = useState(""); // '', 'true', 'false'
   const [page, setPage] = useState(1);
@@ -116,13 +158,14 @@ export default function Vendors() {
   };
 
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [blocked, country, region, rrFilter].filter(
+  const activeFilterCount = [blocked, country, vendorType, region, rrFilter].filter(
     Boolean
   ).length;
 
   const clearAllFilters = () => {
     setBlocked("");
     setCountry("");
+    setVendorType("");
     setRegion("");
     setRrFilter("");
     setPage(1);
@@ -154,6 +197,7 @@ export default function Vendors() {
       if (q) params.set("q", q);
       if (blocked) params.set("blocked", blocked);
       if (country) params.set("country", country);
+      if (vendorType) params.set("vendorType", vendorType); // NEW
       if (region) params.set("region", region);
       if (rrFilter) params.set("rr", rrFilter);
       params.set("sortBy", sortBy);
@@ -171,7 +215,7 @@ export default function Vendors() {
 
   useEffect(() => {
     fetchData(); // eslint-disable-next-line
-  }, [page, limit, blocked, country, region, rrFilter, sortBy, sortDir]);
+  }, [page, limit, blocked, country, vendorType, region, rrFilter, sortBy, sortDir]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -218,6 +262,7 @@ export default function Vendors() {
     const keyMap = {
       no: "no",
       name: "name",
+      vendorType: "vendorType", // NEW
       email: "email",
       phone: "phoneNo",
       country: "countryRegionCode",
@@ -334,6 +379,19 @@ export default function Vendors() {
             )}
           </button>
 
+          {/* Clear filters */}
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => clearAllFilters()}
+              className="inline-flex items-center gap-2 h-9 px-3 rounded-xl border border-slate-200 bg-white text-sm hover:bg-slate-50"
+              title={V?.controls?.clearFilters || "Clear filters"}
+            >
+              <X size={16} />
+              {V?.controls?.clearFilters || "Clear"}
+            </button>
+          )}
+
           {/* Add vendor — emphasized primary button */}
           <button
             type="button"
@@ -348,7 +406,7 @@ export default function Vendors() {
         {/* Row 2: Filters row (always visible on md+, collapsible on mobile) */}
         <div
           id="vendor-filters-panel"
-          className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-4 ${
+          className={`mt-2 grid grid-cols-1 gap-2 transition-all md:grid-cols-5 ${
             showFilters ? "grid" : "hidden md:grid"
           }`}
         >
@@ -379,6 +437,24 @@ export default function Vendors() {
             />
           </div>
 
+          {/* vendor type (NEW) */}
+          <select
+            value={vendorType}
+            onChange={(e) => {
+              setVendorType(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
+            title={F.vendorTypePh}
+          >
+            <option value="">{F.vendorTypePh}</option>
+            {VTYPE_ORDER.map((k) => (
+              <option key={k} value={k}>
+                {vendorTypeLabel(k)}
+              </option>
+            ))}
+          </select>
+
           {/* region */}
           <div className="relative">
             <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -406,7 +482,7 @@ export default function Vendors() {
           </select>
         </div>
 
-        {/* Active filter chips (optional) */}
+        {/* Active filter chips */}
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {blocked && (
             <Chip
@@ -422,6 +498,15 @@ export default function Vendors() {
               clearTitle={V?.modal?.cancel || "Clear"}
               onClear={() => setCountry("")}
               label={`${V?.table?.country || "Country"}: ${country}`}
+            />
+          )}
+          {vendorType && (
+            <Chip
+              clearTitle={V?.modal?.cancel || "Clear"}
+              onClear={() => setVendorType("")}
+              label={`${V?.table?.vendorType || "Type"}: ${vendorTypeLabel(
+                vendorType
+              )}`}
             />
           )}
           {region && (
@@ -452,7 +537,6 @@ export default function Vendors() {
             <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <Th />
-                {/* expand toggle */}
                 <SortableTh id="no" {...{ sortBy, sortDir, onSort }}>
                   {V?.table?.no || "No."}
                 </SortableTh>
@@ -470,6 +554,9 @@ export default function Vendors() {
                 </SortableTh>
                 <SortableTh id="city" {...{ sortBy, sortDir, onSort }}>
                   {V?.table?.city || "City"}
+                </SortableTh>
+                                <SortableTh id="vendorType" {...{ sortBy, sortDir, onSort }}>
+                  {V?.table?.vendorType || "Type"}
                 </SortableTh>
                 <SortableTh id="blocked" {...{ sortBy, sortDir, onSort }}>
                   {V?.table?.blocked || "Blocked"}
@@ -500,13 +587,13 @@ export default function Vendors() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={13} className="p-6 text-center text-slate-500">
+                  <td colSpan={14} className="p-6 text-center text-slate-500">
                     {V?.table?.loading || "Loading…"}
                   </td>
                 </tr>
               ) : (data.data?.length || 0) === 0 ? (
                 <tr>
-                  <td colSpan={13} className="p-6 text-center text-slate-500">
+                  <td colSpan={14} className="p-6 text-center text-slate-500">
                     {V?.table?.empty || "No vendors"}
                   </td>
                 </tr>
@@ -539,6 +626,7 @@ export default function Vendors() {
                       <Td className="text-slate-600">{v.phoneNo || "—"}</Td>
                       <Td>{v.countryRegionCode || "—"}</Td>
                       <Td>{v.city || "—"}</Td>
+                      <Td>{vendorTypeChip(v.vendorType)}</Td>
                       <Td>{blockedChip(v.blocked, V)}</Td>
                       <Td className="text-center">
                         <BoolIcon value={!!v.owzSigned} variant="danger" />
@@ -578,10 +666,13 @@ export default function Vendors() {
 
                     {expandedId === v._id && (
                       <tr key={`${v._id}-details`}>
-                        <td colSpan={13} className="bg-slate-50 border-t">
+                        <td colSpan={14} className="bg-slate-50 border-t">
                           <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
                             <KV label={L.name2} icon={FileText}>
                               {v.name2 || "—"}
+                            </KV>
+                            <KV label={L.vendorType} icon={Tag}>
+                              {vendorTypeLabel(v.vendorType)}
                             </KV>
                             <KV label={L.address} icon={Building}>
                               {v.address || "—"}
@@ -612,10 +703,7 @@ export default function Vendors() {
                               {v.priority ?? "—"}
                             </KV>
                             <KV label={L.owzSigned} icon={CheckCircle2}>
-                              <BoolIcon
-                                value={!!v.owzSigned}
-                                variant="danger"
-                              />
+                              <BoolIcon value={!!v.owzSigned} variant="danger" />
                             </KV>
                             <KV
                               label={L.frameworkAgreementSigned}
@@ -654,17 +742,13 @@ export default function Vendors() {
                               {v.shippingAgentCode || "—"}
                             </KV>
                             <KV label={L.rr} icon={BadgePercent}>
-                              {v.rr
-                                ? V?.labels?.yes || "Yes"
-                                : V?.labels?.no || "No"}
+                              {v.rr ? V?.labels?.yes || "Yes" : V?.labels?.no || "No"}
                             </KV>
 
                             {v.hasPicture ? (
                               <div className="col-span-1 md:col-span-3 flex items-center gap-3">
                                 <ImageIcon size={14} />
-                                <span className="font-medium">
-                                  {L.picture}:
-                                </span>
+                                <span className="font-medium">{L.picture}:</span>
                                 <img
                                   src={`${API}/api/mvendors/${v._id}/picture`}
                                   alt="vendor"
@@ -691,8 +775,7 @@ export default function Vendors() {
         {/* Footer / Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
           <div className="text-xs text-slate-500">
-            {(V?.footer?.meta &&
-              V.footer.meta(data.total, data.page, data.pages)) ||
+            {(V?.footer?.meta && V.footer.meta(data.total, data.page, data.pages)) ||
               `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
           </div>
           <div className="flex items-center gap-2">
@@ -746,6 +829,8 @@ export default function Vendors() {
             }}
             onSubmit={handleSubmit}
             V={V}
+            vendorTypeLabel={vendorTypeLabel}
+            vendorTypeKeys={VTYPE_ORDER}
           />
         </Modal>
       )}
@@ -864,10 +949,7 @@ function SortableTh({ id, sortBy, sortDir, onSort, children, className = "" }) {
       : "descending"
     : "none";
   return (
-    <th
-      aria-sort={ariaSort}
-      className={`text-left px-4 py-3 font-medium ${className}`}
-    >
+    <th aria-sort={ariaSort} className={`text-left px-4 py-3 font-medium ${className}`}>
       <button
         type="button"
         onClick={() => onSort(id)}
@@ -906,14 +988,10 @@ function Modal({ children, onClose, title, fullscreen = false }) {
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
-    isFull
-      ? "w-screen h-screen max-w-none rounded-none"
-      : "w-full max-w-4xl rounded-2xl",
+    isFull ? "w-screen h-screen max-w-none rounded-none" : "w-full max-w-4xl rounded-2xl",
   ].join(" ");
 
-  const bodyCls = isFull
-    ? "p-4 h-[calc(100vh-52px)] overflow-auto" // ~52px header
-    : "p-4 max-h-[75vh] overflow-auto";
+  const bodyCls = isFull ? "p-4 h-[calc(100vh-52px)] overflow-auto" : "p-4 max-h-[75vh] overflow-auto";
 
   return (
     <div
@@ -940,12 +1018,7 @@ function Modal({ children, onClose, title, fullscreen = false }) {
             >
               {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded hover:bg-slate-100"
-              title="Close"
-              aria-label="Close"
-            >
+            <button onClick={onClose} className="p-2 rounded hover:bg-slate-100" title="Close" aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -957,7 +1030,7 @@ function Modal({ children, onClose, title, fullscreen = false }) {
   );
 }
 
-function VendorForm({ initial, onSubmit, onCancel, V }) {
+function VendorForm({ initial, onSubmit, onCancel, V, vendorTypeLabel, vendorTypeKeys }) {
   const isEdit = Boolean(initial?._id);
 
   // ----- tabs -----
@@ -965,13 +1038,10 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
     { id: "basics", label: V?.modal?.tabs?.basics || "Basics", Icon: IdCard },
     { id: "address", label: V?.modal?.tabs?.address || "Address", Icon: Map },
     { id: "contact", label: V?.modal?.tabs?.contact || "Contact", Icon: Phone },
-    {
-      id: "finance",
-      label: V?.modal?.tabs?.finance || "Finance & Codes",
-      Icon: Wallet,
-    },
-    { id: "picture", label: V?.modal?.tabs?.picture || "Picture", Icon: Image },
+    { id: "finance", label: V?.modal?.tabs?.finance || "Finance & Codes", Icon: Wallet },
+    { id: "picture", label: V?.modal?.tabs?.picture || "Picture", Icon: ImageIcon },
   ];
+
   const [errors, setErrors] = useState({});
   const [tab, setTab] = useState(TABS[0].id);
 
@@ -979,10 +1049,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
     e.preventDefault();
     const idx = TABS.findIndex((t) => t.id === tab);
-    const next =
-      e.key === "ArrowRight"
-        ? (idx + 1) % TABS.length
-        : (idx - 1 + TABS.length) % TABS.length;
+    const next = e.key === "ArrowRight" ? (idx + 1) % TABS.length : (idx - 1 + TABS.length) % TABS.length;
     setTab(TABS[next].id);
   };
 
@@ -990,15 +1057,14 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
   const [no, setNo] = useState(initial?.no || "");
   const [name, setName] = useState(initial?.name || "");
   const [name2, setName2] = useState(initial?.name2 || "");
+  const [vendorType, setVendorType] = useState(initial?.vendorType || ""); // NEW
 
   const [address, setAddress] = useState(initial?.address || "");
   const [address2, setAddress2] = useState(initial?.address2 || "");
   const [city, setCity] = useState(initial?.city || "");
   const [postCode, setPostCode] = useState(initial?.postCode || "");
   const [region, setRegion] = useState(initial?.region || "");
-  const [countryRegionCode, setCountryRegionCode] = useState(
-    initial?.countryRegionCode || ""
-  );
+  const [countryRegionCode, setCountryRegionCode] = useState(initial?.countryRegionCode || "");
 
   const [phoneNo, setPhoneNo] = useState(initial?.phoneNo || "");
   const [email, setEmail] = useState(initial?.email || "");
@@ -1007,43 +1073,23 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
 
   const [nip, setNip] = useState(initial?.nip || "");
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit ?? 0);
-  const [currencyCode, setCurrencyCode] = useState(
-    initial?.currencyCode || "USD"
-  );
-  const [vendorPostingGroup, setVendorPostingGroup] = useState(
-    initial?.vendorPostingGroup || ""
-  );
-  const [vendorPriceGroup, setVendorPriceGroup] = useState(
-    initial?.vendorPriceGroup || ""
-  );
+  const [currencyCode, setCurrencyCode] = useState(initial?.currencyCode || "USD");
+  const [vendorPostingGroup, setVendorPostingGroup] = useState(initial?.vendorPostingGroup || "");
+  const [vendorPriceGroup, setVendorPriceGroup] = useState(initial?.vendorPriceGroup || "");
   const [languageCode, setLanguageCode] = useState(initial?.languageCode || "");
-  const [paymentTermsCode, setPaymentTermsCode] = useState(
-    initial?.paymentTermsCode || ""
-  );
-  const [paymentMethodCode, setPaymentMethodCode] = useState(
-    initial?.paymentMethodCode || ""
-  );
-  const [vendorDiscGroup, setVendorDiscGroup] = useState(
-    initial?.vendorDiscGroup || ""
-  );
-  const [purchaserCode, setPurchaserCode] = useState(
-    initial?.purchaserCode || ""
-  );
-  const [shipmentMethodCode, setShipmentMethodCode] = useState(
-    initial?.shipmentMethodCode || ""
-  );
-  const [shippingAgentCode, setShippingAgentCode] = useState(
-    initial?.shippingAgentCode || ""
-  );
+  const [paymentTermsCode, setPaymentTermsCode] = useState(initial?.paymentTermsCode || "");
+  const [paymentMethodCode, setPaymentMethodCode] = useState(initial?.paymentMethodCode || "");
+  const [vendorDiscGroup, setVendorDiscGroup] = useState(initial?.vendorDiscGroup || "");
+  const [purchaserCode, setPurchaserCode] = useState(initial?.purchaserCode || "");
+  const [shipmentMethodCode, setShipmentMethodCode] = useState(initial?.shipmentMethodCode || "");
+  const [shippingAgentCode, setShippingAgentCode] = useState(initial?.shippingAgentCode || "");
   const [blocked, setBlocked] = useState(initial?.blocked || "none");
   const [priority, setPriority] = useState(initial?.priority ?? 0);
   const [owzSigned, setOwzSigned] = useState(
     typeof initial?.owzSigned === "boolean" ? initial.owzSigned : false
   );
   const [frameworkAgreementSigned, setFrameworkAgreementSigned] = useState(
-    typeof initial?.frameworkAgreementSigned === "boolean"
-      ? initial.frameworkAgreementSigned
-      : false
+    typeof initial?.frameworkAgreementSigned === "boolean" ? initial.frameworkAgreementSigned : false
   );
   const [rr, setRr] = useState(Boolean(initial?.rr));
 
@@ -1094,6 +1140,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
       no: no.trim(),
       name: name.trim(),
       name2: name2.trim() || null,
+      vendorType: vendorType ? String(vendorType).toLowerCase() : null, // NEW
 
       address: address.trim() || null,
       address2: address2.trim() || null,
@@ -1124,9 +1171,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
       shippingAgentCode: shippingAgentCode.trim() || null,
 
       blocked,
-      priority: Number.isNaN(parseInt(priority, 10))
-        ? 0
-        : parseInt(priority, 10),
+      priority: Number.isNaN(parseInt(priority, 10)) ? 0 : parseInt(priority, 10),
       owzSigned: Boolean(owzSigned),
       frameworkAgreementSigned: Boolean(frameworkAgreementSigned),
       rr: Boolean(rr),
@@ -1146,9 +1191,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
     (async () => {
       try {
         // zero-padded -> lexicographic sort works
-        const res = await fetch(
-          `${API}/api/mvendors?limit=1&sortBy=no&sortDir=desc`
-        );
+        const res = await fetch(`${API}/api/mvendors?limit=1&sortBy=no&sortDir=desc`);
         const json = await res.json();
         const last = json?.data?.[0]?.no || null;
         const next = nextVendorNoFrom(last);
@@ -1194,10 +1237,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
                       : "text-slate-600 hover:text-slate-900 hover:bg-white/60",
                   ].join(" ")}
                 >
-                  <t.Icon
-                    size={16}
-                    className={active ? "opacity-80" : "opacity-60"}
-                  />
+                  <t.Icon size={16} className={active ? "opacity-80" : "opacity-60"} />
                   {t.label}
                   {active && (
                     <span className="pointer-events-none absolute inset-x-2 bottom-0 h-0.5 bg-gradient-to-r from-slate-300 via-slate-400 to-slate-300 rounded-full" />
@@ -1208,9 +1248,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
           </div>
 
           <div className="ml-auto text-xs text-slate-500">
-            {isEdit
-              ? V?.modal?.save || "Save changes"
-              : V?.modal?.add || "Create vendor"}
+            {isEdit ? V?.modal?.save || "Save changes" : V?.modal?.add || "Create vendor"}
           </div>
         </div>
       </div>
@@ -1234,7 +1272,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
         hidden={tab !== "basics"}
         className="space-y-4"
       >
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
           <Field
             label={V?.modal?.fields?.no || "No."}
             icon={Hash}
@@ -1252,11 +1290,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
             />
           </Field>
 
-          <Field
-            label={V?.modal?.fields?.name || "Name *"}
-            icon={User}
-            error={errors.name}
-          >
+          <Field label={V?.modal?.fields?.name || "Name *"} icon={User} error={errors.name}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={name}
@@ -1264,6 +1298,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               required
             />
           </Field>
+
           <Field label={V?.modal?.fields?.name2 || "Name 2"} icon={FileText}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1271,6 +1306,23 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               onChange={(e) => setName2(e.target.value)}
             />
           </Field>
+
+          {/* NEW: Vendor type */}
+          <Field label={V?.modal?.fields?.vendorType || "Vendor type"} icon={Tag}>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={vendorType}
+              onChange={(e) => setVendorType(e.target.value)}
+            >
+              <option value="">{V?.modal?.fields?.choose || "Choose"}</option>
+              {(vendorTypeKeys || []).map((k) => (
+                <option key={k} value={k}>
+                  {vendorTypeLabel ? vendorTypeLabel(k) : k}
+                </option>
+              ))}
+            </select>
+          </Field>
+
           <Field label={V?.modal?.fields?.blocked || "Blocked"} icon={Tag}>
             <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1283,6 +1335,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               <option value="all">all</option>
             </select>
           </Field>
+
           <Field label={V?.modal?.fields?.rr || "RR"} icon={BadgePercent}>
             <div className="flex items-center gap-2">
               <input
@@ -1292,10 +1345,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
                 checked={rr}
                 onChange={(e) => setRr(e.target.checked)}
               />
-              <label
-                htmlFor="rr"
-                className="text-sm text-slate-700 select-none"
-              >
+              <label htmlFor="rr" className="text-sm text-slate-700 select-none">
                 {rr ? V?.labels?.yes || "Yes" : V?.labels?.no || "No"}
               </label>
             </div>
@@ -1319,10 +1369,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               onChange={(e) => setAddress(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.address2 || "Address 2"}
-            icon={Building}
-          >
+          <Field label={V?.modal?.fields?.address2 || "Address 2"} icon={Building}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={address2}
@@ -1350,16 +1397,11 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               onChange={(e) => setRegion(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.countryRegionCode || "Country/Region code"}
-            icon={Globe}
-          >
+          <Field label={V?.modal?.fields?.countryRegionCode || "Country/Region code"} icon={Globe}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={countryRegionCode}
-              onChange={(e) =>
-                setCountryRegionCode(e.target.value.toUpperCase())
-              }
+              onChange={(e) => setCountryRegionCode(e.target.value.toUpperCase())}
             />
           </Field>
         </div>
@@ -1374,21 +1416,14 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field
-            label={V?.modal?.fields?.phoneNo || "Phone No."}
-            icon={PhoneCall}
-          >
+          <Field label={V?.modal?.fields?.phoneNo || "Phone No."} icon={PhoneCall}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={phoneNo}
               onChange={(e) => setPhoneNo(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.email || "Email"}
-            icon={Mail}
-            error={errors.email}
-          >
+          <Field label={V?.modal?.fields?.email || "Email"} icon={Mail} error={errors.email}>
             <input
               type="email"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1396,11 +1431,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               onChange={(e) => setEmail(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.email2 || "Email 2"}
-            icon={Mail}
-            error={errors.email2}
-          >
+          <Field label={V?.modal?.fields?.email2 || "Email 2"} icon={Mail} error={errors.email2}>
             <input
               type="email"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1434,10 +1465,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
         className="space-y-4"
       >
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <Field
-            label={V?.modal?.fields?.creditLimit || "Credit limit"}
-            icon={CreditCard}
-          >
+          <Field label={V?.modal?.fields?.creditLimit || "Credit limit"} icon={CreditCard}>
             <input
               type="number"
               step="0.01"
@@ -1446,20 +1474,14 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               onChange={(e) => setCreditLimit(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.currencyCode || "Currency code"}
-            icon={DollarSign}
-          >
+          <Field label={V?.modal?.fields?.currencyCode || "Currency code"} icon={DollarSign}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={currencyCode}
               onChange={(e) => setCurrencyCode(e.target.value.toUpperCase())}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.priority || "Priority"}
-            icon={BadgePercent}
-          >
+          <Field label={V?.modal?.fields?.priority || "Priority"} icon={BadgePercent}>
             <input
               type="number"
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -1467,10 +1489,7 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
               onChange={(e) => setPriority(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.owzSigned || "OWZ signed"}
-            icon={CheckCircle2}
-          >
+          <Field label={V?.modal?.fields?.owzSigned || "OWZ signed"} icon={CheckCircle2}>
             <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={owzSigned ? "yes" : "no"}
@@ -1482,27 +1501,20 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
           </Field>
 
           <Field
-            label={
-              V?.modal?.fields?.frameworkAgreementSigned ||
-              "Framework agreement signed"
-            }
+            label={V?.modal?.fields?.frameworkAgreementSigned || "Framework agreement signed"}
             icon={CheckCircle2}
           >
             <select
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={frameworkAgreementSigned ? "yes" : "no"}
-              onChange={(e) =>
-                setFrameworkAgreementSigned(e.target.value === "yes")
-              }
+              onChange={(e) => setFrameworkAgreementSigned(e.target.value === "yes")}
             >
               <option value="yes">{V?.labels?.yes || "Yes"}</option>
               <option value="no">{V?.labels?.no || "No"}</option>
             </select>
           </Field>
-          <Field
-            label={V?.modal?.fields?.paymentMethodCode || "Payment method code"}
-            icon={CreditCard}
-          >
+
+          <Field label={V?.modal?.fields?.paymentMethodCode || "Payment method code"} icon={CreditCard}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={paymentMethodCode}
@@ -1510,42 +1522,28 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
             />
           </Field>
 
-          <Field
-            label={
-              V?.modal?.fields?.vendorPostingGroup || "Vendor posting group"
-            }
-            icon={Tag}
-          >
+          <Field label={V?.modal?.fields?.vendorPostingGroup || "Vendor posting group"} icon={Tag}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={vendorPostingGroup}
               onChange={(e) => setVendorPostingGroup(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.vendorPriceGroup || "Vendor price group"}
-            icon={Tag}
-          >
+          <Field label={V?.modal?.fields?.vendorPriceGroup || "Vendor price group"} icon={Tag}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={vendorPriceGroup}
               onChange={(e) => setVendorPriceGroup(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.languageCode || "Language code"}
-            icon={Languages}
-          >
+          <Field label={V?.modal?.fields?.languageCode || "Language code"} icon={Languages}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={languageCode}
               onChange={(e) => setLanguageCode(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.paymentTermsCode || "Payment terms code"}
-            icon={CreditCard}
-          >
+          <Field label={V?.modal?.fields?.paymentTermsCode || "Payment terms code"} icon={CreditCard}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={paymentTermsCode}
@@ -1553,42 +1551,28 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
             />
           </Field>
 
-          <Field
-            label={V?.modal?.fields?.purchaserCode || "Purchaser code"}
-            icon={UserRound}
-          >
+          <Field label={V?.modal?.fields?.purchaserCode || "Purchaser code"} icon={UserRound}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={purchaserCode}
               onChange={(e) => setPurchaserCode(e.target.value)}
             />
           </Field>
-          <Field
-            label={
-              V?.modal?.fields?.shipmentMethodCode || "Shipment method code"
-            }
-            icon={Truck}
-          >
+          <Field label={V?.modal?.fields?.shipmentMethodCode || "Shipment method code"} icon={Truck}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={shipmentMethodCode}
               onChange={(e) => setShipmentMethodCode(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.shippingAgentCode || "Shipping agent code"}
-            icon={Ship}
-          >
+          <Field label={V?.modal?.fields?.shippingAgentCode || "Shipping agent code"} icon={Ship}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={shippingAgentCode}
               onChange={(e) => setShippingAgentCode(e.target.value)}
             />
           </Field>
-          <Field
-            label={V?.modal?.fields?.vendorDiscGroup || "Vendor disc. group"}
-            icon={BadgePercent}
-          >
+          <Field label={V?.modal?.fields?.vendorDiscGroup || "Vendor disc. group"} icon={BadgePercent}>
             <input
               className="w-full rounded-lg border border-slate-300 px-3 py-2"
               value={vendorDiscGroup}
@@ -1608,21 +1592,18 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field
-            label={V?.modal?.fields?.picture || "Picture"} // or C/T accordingly
-            icon={Image}
-            iconInside={false} // <- hide the tiny inside icon
-            autoHeight={true} // <- keep dropzone natural height
+            label={V?.modal?.fields?.picture || "Picture"}
+            icon={ImageIcon}
+            iconInside={false}
+            autoHeight={true}
           >
             <PictureDrop
               title={V?.modal?.choosePicture || "Choose picture"}
               replaceTitle={V?.modal?.replacePicture || "Replace picture"}
               help={
-                V?.modal?.pictureHelp ||
-                "PNG/JPG/WebP • up to ~2 MB • square works best"
+                V?.modal?.pictureHelp || "PNG/JPG/WebP • up to ~2 MB • square works best"
               }
-              previewSrc={
-                !removePicture ? pictureBase64 || existingPicUrl : null
-              }
+              previewSrc={!removePicture ? pictureBase64 || existingPicUrl : null}
               onPickFile={(file) => onPickPicture(file)}
               canRemove={isEdit && !!existingPicUrl}
               removing={removePicture}
@@ -1643,13 +1624,8 @@ function VendorForm({ initial, onSubmit, onCancel, V }) {
         >
           {V?.modal?.cancel || "Cancel"}
         </button>
-        <button
-          type="submit"
-          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
-        >
-          {isEdit
-            ? V?.modal?.save || "Save changes"
-            : V?.modal?.add || "Create vendor"}
+        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+          {isEdit ? V?.modal?.save || "Save changes" : V?.modal?.add || "Create vendor"}
         </button>
       </div>
     </form>
@@ -1671,9 +1647,7 @@ function NoBadge({ value }) {
     <span
       className={[
         "inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono border",
-        isEmpty
-          ? "text-slate-400 bg-slate-50 border-slate-200"
-          : "font-semibold text-sky-700 bg-sky-50 border-sky-200",
+        isEmpty ? "text-slate-400 bg-slate-50 border-slate-200" : "font-semibold text-sky-700 bg-sky-50 border-sky-200",
       ].join(" ")}
     >
       <Hash size={12} className={isEmpty ? "text-slate-300" : "text-sky-500"} />
@@ -1683,24 +1657,18 @@ function NoBadge({ value }) {
 }
 
 function BoolIcon({ value, variant = "default" }) {
-  const base =
-    "inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs";
+  const base = "inline-flex items-center justify-center w-6 h-6 rounded-full border text-xs";
 
   if (value) {
     return (
-      <span
-        className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"}
-        title="Yes"
-      >
+      <span className={base + " border-emerald-200 bg-emerald-50 text-emerald-600"} title="Yes">
         ✓
       </span>
     );
   }
 
   const falseClass =
-    variant === "danger"
-      ? " border-red-200 bg-red-50 text-red-500" // light red ✕
-      : " border-slate-200 bg-slate-50 text-slate-400"; // default grey ✕
+    variant === "danger" ? " border-red-200 bg-red-50 text-red-500" : " border-slate-200 bg-slate-50 text-slate-400";
 
   return (
     <span className={base + falseClass} title="No">
@@ -1713,15 +1681,14 @@ function PictureDrop({
   title = "Choose picture",
   replaceTitle = "Replace picture",
   help = "PNG/JPG/WebP • up to ~2 MB • square works best",
-  previewSrc, // string | null  (existingPicUrl or pictureBase64)
-  onPickFile, // (File|null) => void
-  canRemove = false, // show remove/undo for existing server image
-  removing = false, // toggle "remove" state
-  onToggleRemove, // () => void
-  hasNewSelection = false, // pictureBase64 present
-  onClearSelection, // () => void
+  previewSrc,
+  onPickFile,
+  canRemove = false,
+  removing = false,
+  onToggleRemove,
+  hasNewSelection = false,
+  onClearSelection,
 }) {
-  // make file input accessible & trigger-able
   const inputId = React.useId();
 
   return (
@@ -1731,11 +1698,7 @@ function PictureDrop({
         <div className="shrink-0">
           <div className="w-24 h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 bg-slate-50 flex items-center justify-center">
             {previewSrc && !removing ? (
-              <img
-                src={previewSrc}
-                alt=""
-                className="w-full h-full object-cover"
-              />
+              <img src={previewSrc} alt="" className="w-full h-full object-cover" />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-400 text-xs">
                 <ImageIcon size={22} />
@@ -1805,15 +1768,15 @@ function Field({
   error,
   help,
   children,
-  iconInside = true, // NEW: draw icon inside the input? (default true)
-  autoHeight = false, // NEW: skip the fixed h-10 height? (default false)
+  iconInside = true,
+  autoHeight = false,
 }) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
         className: [
           children.props.className || "",
           iconInside && Icon ? " pl-9" : "",
-          !autoHeight ? " h-10" : "", // only force height for real inputs
+          !autoHeight ? " h-10" : "",
           error ? " border-red-300 focus:border-red-400" : "",
         ].join(" "),
       })
@@ -1821,13 +1784,11 @@ function Field({
 
   return (
     <label className="text-sm block">
-      {/* label line (keep the small icon here) */}
       <div className="mb-1 text-slate-600 flex items-center gap-2">
         {Icon && <Icon size={14} className="text-slate-400" />}
         {label}
       </div>
 
-      {/* input wrapper; only inject inside icon when requested */}
       <div className="relative">
         {iconInside && Icon && (
           <Icon

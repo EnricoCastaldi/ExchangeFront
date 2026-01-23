@@ -485,523 +485,1192 @@ const S_lines = t.sells?.lineForm || {};
           </div>
         </form>
 
-        {/* Table */}
-        <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-slate-50 text-slate-600">
-                <tr>
-                  <Th />
-                  <SortableTh id="documentNo" {...{ sortBy, sortDir, onSort }}>
-                    {L.documentNo}
-                  </SortableTh>
-                  <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
-                    {L.status}
-                  </SortableTh>
-                  <SortableTh id="sellCustomer" {...{ sortBy, sortDir, onSort }}>
-                    {L.sellTo}
-                  </SortableTh>
-                  <SortableTh id="billCustomer" {...{ sortBy, sortDir, onSort }}>
-                    {L.billTo}
-                  </SortableTh>
-                  <SortableTh id="documentDate" {...{ sortBy, sortDir, onSort }}>
-                    {L.documentDate}
-                  </SortableTh>
-                  <SortableTh id="validUntilDay" {...{ sortBy, sortDir, onSort }}>
-                    {L.validUntil}
-                  </SortableTh>
-                  <SortableTh
-                    id="currencyCode"
-                    {...{ sortBy, sortDir, onSort }}
-                    className="text-center"
-                  >
-                    {L.currency}
-                  </SortableTh>
+{/* ===================== RESPONSIVE TABLE (Full) ===================== */}
+<div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
+  {/* -------------------- MOBILE (cards/accordion) -------------------- */}
+  <div className="min-[1399px]:hidden">
+    {loading ? (
+      <div className="p-6 text-center text-slate-500">{L.loading}</div>
+    ) : (data.data?.length || 0) === 0 ? (
+      <div className="p-6 text-center text-slate-500">{L.empty}</div>
+    ) : (
+      <div className="divide-y">
+        {(rows || data.data).map((d) => {
+          const isOpen = expandedId === d._id;
 
-                  <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
-                    {L.created}
-                  </SortableTh>
-                  <Th className="pr-3">{L.actions}</Th>
-                </tr>
-              </thead>
+          return (
+            <div key={d._id} className="p-3">
+              {/* Card header */}
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-100"
+                  onClick={() =>
+                    setExpandedId((id) => {
+                      const next = id === d._id ? null : d._id;
+                      if (next) ensureLines(d.documentNo);
+                      return next;
+                    })
+                  }
+                  aria-label="Toggle details"
+                  title="Toggle details"
+                >
+                  {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                </button>
 
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td
-                      colSpan={COL_COUNT}
-                      className="p-6 text-center text-slate-500"
-                    >
-                      {L.loading}
-                    </td>
-                  </tr>
-                ) : (data.data?.length || 0) === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={COL_COUNT}
-                      className="p-6 text-center text-slate-500"
-                    >
-                      {L.empty}
-                    </td>
-                  </tr>
-                ) : (
-                  (rows || data.data).map((d) => (
-                    <React.Fragment key={d._id}>
-                      <tr className="border-t">
-                        <Td className="w-8">
-  <button
-    className="p-1 rounded hover:bg-slate-100"
-    onClick={() =>
-      setExpandedId((id) => {
-        const next = id === d._id ? null : d._id;
-        if (next) ensureLines(d.documentNo);   // <-- this line calls the loader
-        return next;
-      })
-    }
-    aria-label="Toggle details"
-    title="Toggle details"
-  >
-    {expandedId === d._id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-  </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-mono text-sm truncate">
+                        {d.documentNo || "—"}
+                      </div>
+                      <div className="mt-1">
+                        <StatusBadge value={d.status} map={L.statusMap} />
+                      </div>
+                    </div>
 
-                        </Td>
-                        <Td className="font-mono">{d.documentNo}</Td>
-                        <Td>
-                          <StatusBadge value={d.status} map={L.statusMap} />
-                        </Td>
-                        <Td className="truncate max-w-[220px]">
-                          {d.sellCustomerName || d.sellCustomerNo || "—"}
-                        </Td>
-                        <Td className="truncate max-w-[220px]">
-                          {d.billCustomerName || d.billCustomerNo || "—"}
-                        </Td>
-                        <Td>{formatDate(d.documentDate, locale, "—")}</Td>
-                        <Td>{formatDate(d.validUntilDay, locale, "—")}{d.validUntilTime ? ` ${d.validUntilTime}` : ""}</Td>
-                        <Td className="text-center font-medium">
+                    {/* Actions */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg hover:bg-slate-100"
+                        onClick={() => {
+                          setEditing(d);
+                          setOpenForm(true);
+                        }}
+                        title="Edit"
+                        aria-label="Edit"
+                      >
+                        <Pencil size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg hover:bg-slate-100"
+                        onClick={() => setOpenPdfFor(d)}
+                        title="Generate PDF"
+                        aria-label="Generate PDF"
+                      >
+                        <FileText size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                        onClick={() => onDelete(d._id)}
+                        title="Delete"
+                        aria-label="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary fields */}
+                  <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-700">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                      <div className="text-slate-500">{L.sellTo}</div>
+                      <div className="font-medium truncate">
+                        {d.sellCustomerName || d.sellCustomerNo || "—"}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                      <div className="text-slate-500">{L.billTo}</div>
+                      <div className="font-medium truncate">
+                        {d.billCustomerName || d.billCustomerNo || "—"}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                        <div className="text-slate-500">{L.documentDate}</div>
+                        <div className="font-medium">
+                          {formatDate(d.documentDate, locale, "—")}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                        <div className="text-slate-500">
+                          {L.validUntil || "Valid until"}
+                        </div>
+                        <div className="font-medium">
+                          {formatDate(d.validUntilDay, locale, "—")}
+                          {d.validUntilTime ? ` ${d.validUntilTime}` : ""}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                        <div className="text-slate-500">{L.currency}</div>
+                        <div className="font-medium whitespace-nowrap">
                           {d.currencyCode || "—"}{" "}
                           <span className="text-slate-500">
-                            {d.currencyFactor
-                              ? `• ${fmtDOT(d.currencyFactor, 4)}`
-                              : ""}
+                            {d.currencyFactor ? `• ${fmtDOT(d.currencyFactor, 4)}` : ""}
                           </span>
-                        </Td>
+                        </div>
+                      </div>
 
-                        <Td>{formatDate(d.createdAt, locale, "—")}</Td>
-                        <Td>
-                          <div className="flex justify-end gap-2 pr-3">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                        <div className="text-slate-500">{L.created}</div>
+                        <div className="font-medium">
+                          {formatDate(d.createdAt, locale, "—")}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Expanded */}
+              {isOpen && (
+                <div className="mt-3">
+                  <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50">
+                    <div className="grid grid-cols-1 gap-3 text-xs text-slate-700">
+                      {/* LINES */}
+                      <Section
+                        title={
+                          <div className="flex items-center justify-between">
+                            <span>
+                              {LL.title || "Lines (sum)"}{" "}
+                              {(lineCache[d.documentNo]?.rows || []).length || 0}
+                            </span>
                             <button
-                              className="p-2 rounded-lg hover:bg-slate-100"
+                              type="button"
                               onClick={() => {
-                                setEditing(d);
-                                setOpenForm(true);
+                                setLineInitial({
+                                  documentNo: d.documentNo,
+                                  status: canonStatus(d.status || "new"),
+                                });
+                                setOpenLineForm(true);
                               }}
-                              title="Edit"
+                              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-700"
+                              title={LL.addBtn || "Add Line"}
+                              aria-label={LL.addBtn || "Add Line"}
                             >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-  className="p-2 rounded-lg hover:bg-slate-100"
-  onClick={() => setOpenPdfFor(d)}
-  title="Generate PDF"
-  aria-label="Generate PDF"
->
-  <FileText size={16} />
-</button>
-                            <button
-                              className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
-                              onClick={() => onDelete(d._id)}
-                              title="Delete"
-                            >
-                              <Trash2 size={16} />
+                              <Plus size={14} /> {LL.addBtn || "Add Line"}
                             </button>
                           </div>
-                        </Td>
-                      </tr>
+                        }
+                      >
+                        {(() => {
+                          const docNo = d.documentNo;
+                          const cache = lineCache[docNo] || {
+                            loading: false,
+                            error: null,
+                            rows: [],
+                          };
 
-                      {expandedId === d._id && (
-                        <tr>
-                          <td
-                            colSpan={COL_COUNT}
-                            className="bg-slate-50 border-t"
-                          >
-                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-<Section
-  className="md:col-span-3"
-  title={
-    <div className="flex items-center justify-between">
-      <span>
-        {LL.title || "Lines (sum)"} {(lineCache[d.documentNo]?.rows || []).length || 0}
-      </span>
-      <button
-        type="button"
-        onClick={() => {
-          setLineInitial({ documentNo: d.documentNo, status: canonStatus(d.status || "new") });
-          setOpenLineForm(true);
+                          if (cache.loading)
+                            return (
+                              <div className="text-sm text-slate-500 px-1 py-1">
+                                {LL.loading || "Loading lines…"}
+                              </div>
+                            );
+                          if (cache.error)
+                            return (
+                              <div className="text-sm text-red-600 px-1 py-1">
+                                {cache.error}
+                              </div>
+                            );
+                          if (!cache.rows || cache.rows.length === 0)
+                            return (
+                              <div className="text-sm text-slate-500 px-1 py-1">
+                                {LL.empty || "No lines"}
+                              </div>
+                            );
+
+                          const sumLineValue = cache.rows.reduce(
+                            (a, r) => a + (Number(r.lineValue) || 0),
+                            0
+                          );
+                          const sumTransport = cache.rows.reduce(
+                            (a, r) => a + (Number(r.transportCost) || 0),
+                            0
+                          );
+
+                          return (
+                            <div className="overflow-x-auto rounded-lg border border-slate-200">
+                              <table className="min-w-[780px] w-full text-xs">
+                                <thead className="bg-slate-50 text-slate-600">
+                                  <tr>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.lineNo || "Line No."}
+                                    </th>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.status || "Status"}
+                                    </th>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.priority || "Priority"}
+                                    </th>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.type || "Type"}
+                                    </th>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.item || "Item"}
+                                    </th>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.uom || "UOM"}
+                                    </th>
+                                    <th className="text-right px-3 py-2 font-medium">
+                                      {LH.unitPrice || "Unit Price"}
+                                    </th>
+                                    <th className="text-right px-3 py-2 font-medium">
+                                      {LH.qty || "Qty"}
+                                    </th>
+                                    <th className="text-right px-3 py-2 font-medium">
+                                      {LH.lineValue || "Line Value"}
+                                    </th>
+                                    <th className="text-right px-3 py-2 font-medium">
+                                      {LH.transport || "Transport"}
+                                    </th>
+                                    <th className="text-left px-3 py-2 font-medium">
+                                      {LH.updated || "Updated"}
+                                    </th>
+                                    <th className="text-right px-3 py-2 font-medium">
+                                      {LH.actions || "Actions"}
+                                    </th>
+                                  </tr>
+                                </thead>
+
+                                <tbody>
+                                  {cache.rows.map((ln) => (
+                                    <tr key={ln._id} className="border-t">
+                                      <td className="px-3 py-2 font-mono">
+                                        {ln.lineNo ?? "—"}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <StatusBadge value={ln.status} map={L.statusMap} />
+                                      </td>
+                                      <td
+                                        className={[
+                                          "px-3 py-2 text-center font-mono",
+                                          ln.priority === 2
+                                            ? "font-semibold text-red-700"
+                                            : ln.priority === 1
+                                            ? "font-semibold text-amber-700"
+                                            : "text-slate-600",
+                                        ].join(" ")}
+                                      >
+                                        {ln.priority ?? 0}
+                                      </td>
+                                      <td className="px-3 py-2 capitalize">
+                                        {ln.lineType || "—"}
+                                      </td>
+                                      <td className="px-3 py-2 truncate max-w-[220px]">
+                                        {ln.itemNo || "—"}
+                                      </td>
+                                      <td className="px-3 py-2 font-mono">
+                                        {ln.unitOfMeasure || "—"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {fmtDOT(ln.unitPrice, 2)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {fmtDOT(ln.quantity, 3)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-medium">
+                                        {fmtDOT(ln.lineValue, 2)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right">
+                                        {fmtDOT(ln.transportCost, 2)}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        {formatDate(ln.updatedAt || ln.dateModified, locale, "—")}
+                                      </td>
+                                      <td className="px-3 py-2">
+                                        <div className="flex justify-end">
+                                          <button
+                                            type="button"
+                                            className="p-1.5 rounded-lg hover:bg-slate-100"
+                                            title="Edit line"
+                                            aria-label="Edit line"
+                                            onClick={() => {
+                                              setLineInitial(ln);
+                                              setOpenLineForm(true);
+                                            }}
+                                          >
+                                            <Pencil size={16} />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+
+                                <tfoot className="bg-slate-50">
+                                  <tr className="border-t">
+                                    <td className="px-3 py-2 text-right font-semibold" colSpan={8}>
+                                      {LL.totalsLabel || "Totals:"}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-semibold">
+                                      {fmtDOT(sumLineValue, 2)}
+                                    </td>
+                                    <td className="px-3 py-2 text-right font-semibold">
+                                      {fmtDOT(sumTransport, 2)}
+                                    </td>
+                                    <td className="px-3 py-2" colSpan={2} />
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          );
+                        })()}
+                      </Section>
+
+                      {/* HEADER */}
+                      <Section title="Header">
+                        <KV label={L.kv.externalDocumentNo} icon={Hash}>
+                          {d.externalDocumentNo || "—"}
+                        </KV>
+                        <KV label={L.kv.documentInfo} icon={FileText}>
+                          {d.documentInfo || "—"}
+                        </KV>
+                        <KV label={L.kv.createdBy} icon={UserIcon}>
+                          {d.userCreated || "—"}
+                        </KV>
+                        <KV label={L.kv.createdAt} icon={CalendarIcon}>
+                          {formatDate(d.dateCreated, locale, "—")}
+                        </KV>
+                        <KV label={L.kv.modifiedBy} icon={UserIcon}>
+                          {d.userModified || "—"}
+                        </KV>
+                        <KV label={L.kv.modifiedAt} icon={CalendarIcon}>
+                          {formatDate(d.dateModified, locale, "—")}
+                        </KV>
+
+                        <KV label={L.kv.currency} icon={DollarSign}>
+                          {d.currencyCode || "—"}{" "}
+                          {d.currencyFactor ? `(${fmtDOT(d.currencyFactor, 6)})` : ""}
+                        </KV>
+
+                        <KV label={L.kv.documentDate || "Document Date"} icon={CalendarIcon}>
+                          {formatDate(d.documentDate, locale, "—")}
+                        </KV>
+                        <KV label={L.kv.validUntilDay || "Valid until day"} icon={CalendarIcon}>
+                          {formatDate(d.validUntilDay, locale, "—")}
+                        </KV>
+                        <KV label={L.kv.validUntilTime || "Valid until time"} icon={CalendarIcon}>
+                          {d.validUntilTime || "—"}
+                        </KV>
+                        <KV label={L.kv.paymentDays || "Payment days"} icon={DollarSign}>
+                          {d.paymentDays != null && d.paymentDays !== "" ? String(d.paymentDays) : "—"}
+                        </KV>
+                      </Section>
+
+                      {/* SELL-TO */}
+                      <Section title={L.sellTo}>
+                        <KV label={L.kv.no} icon={IdCard}>
+                          {d.sellCustomerNo || "—"}
+                        </KV>
+                        <KV label={L.kv.name} icon={UserIcon}>
+                          {d.sellCustomerName || "—"}
+                        </KV>
+                        <KV label={L.kv.name2} icon={UserIcon}>
+                          {d.sellCustomerName2 || "—"}
+                        </KV>
+                        <KV label={L.kv.address} icon={Building}>
+                          {d.sellCustomerAddress || "—"}
+                        </KV>
+                        <KV label={L.kv.address2} icon={Building}>
+                          {d.sellCustomerAddress2 || "—"}
+                        </KV>
+                        <KV label={L.kv.city} icon={MapPin}>
+                          {d.sellCustomerCity || "—"}
+                        </KV>
+                        <KV label={L.kv.region} icon={MapPin}>
+                          {d.sellCustomerRegion || "—"}
+                        </KV>
+                        <KV label={L.kv.postCode} icon={Hash}>
+                          {d.sellCustomerPostCode || "—"}
+                        </KV>
+                        <KV label={L.kv.country} icon={Globe}>
+                          {d.sellCustomerCountry || "—"}
+                        </KV>
+                        <KV label={L.kv.email} icon={Mail}>
+                          {d.sellCustomerEmail || "—"}
+                        </KV>
+                        <KV label={L.kv.phone} icon={PhoneCall}>
+                          {d.sellCustomerPhoneNo || "—"}
+                        </KV>
+                      </Section>
+
+                      {/* BILL-TO */}
+                      <Section title={L.billTo}>
+                        <KV label={L.kv.no} icon={IdCard}>
+                          {d.billCustomerNo || "—"}
+                        </KV>
+                        <KV label={L.kv.name} icon={UserIcon}>
+                          {d.billCustomerName || "—"}
+                        </KV>
+                        <KV label={L.kv.name2} icon={UserIcon}>
+                          {d.billCustomerName2 || "—"}
+                        </KV>
+                        <KV label={L.kv.address} icon={Building}>
+                          {d.billCustomerAddress || "—"}
+                        </KV>
+                        <KV label={L.kv.address2} icon={Building}>
+                          {d.billCustomerAddress2 || "—"}
+                        </KV>
+                        <KV label={L.kv.city} icon={MapPin}>
+                          {d.billCustomerCity || "—"}
+                        </KV>
+                        <KV label={L.kv.region} icon={MapPin}>
+                          {d.billCustomerRegion || "—"}
+                        </KV>
+                        <KV label={L.kv.postCode} icon={Hash}>
+                          {d.billCustomerPostCode || "—"}
+                        </KV>
+                        <KV label={L.kv.country} icon={Globe}>
+                          {d.billCustomerCountry || "—"}
+                        </KV>
+                        <KV label={L.kv.email} icon={Mail}>
+                          {d.billCustomerEmail || "—"}
+                        </KV>
+                        <KV label={L.kv.phone} icon={PhoneCall}>
+                          {d.billCustomerPhoneNo || "—"}
+                        </KV>
+                        <KV label={L.kv.nip} icon={Hash}>
+                          {d.billCustomerNip || "—"}
+                        </KV>
+                      </Section>
+
+                      {/* LOCATION */}
+                      <Section title={L.location}>
+                        <KV label={L.kv.no} icon={IdCard}>
+                          {d.locationNo || "—"}
+                        </KV>
+                        <KV label={L.kv.name} icon={Building}>
+                          {d.locationName || "—"}
+                        </KV>
+                        <KV label={L.kv.name2} icon={Building}>
+                          {d.locationName2 || "—"}
+                        </KV>
+                        <KV label={L.kv.address} icon={Building}>
+                          {d.locationAddress || "—"}
+                        </KV>
+                        <KV label={L.kv.address2} icon={Building}>
+                          {d.locationAddress2 || "—"}
+                        </KV>
+                        <KV label={L.kv.city} icon={MapPin}>
+                          {d.locationCity || "—"}
+                        </KV>
+                        <KV label={L.kv.region} icon={MapPin}>
+                          {d.locationRegion || "—"}
+                        </KV>
+                        <KV label={L.kv.postCode} icon={Hash}>
+                          {d.locationPostCode || "—"}
+                        </KV>
+                        <KV label={L.kv.country} icon={Globe}>
+                          {d.locationCountry || "—"}
+                        </KV>
+                        <KV label={L.kv.email} icon={Mail}>
+                          {d.locationEmail || "—"}
+                        </KV>
+                        <KV label={L.kv.phone} icon={PhoneCall}>
+                          {d.locationPhoneNo || "—"}
+                        </KV>
+                      </Section>
+
+                      {/* SHIPMENT */}
+                      <Section title={L.shipment}>
+                        <KV label={L.kv.method} icon={Truck}>
+                          {d.shipmentMethod || "—"}
+                        </KV>
+                        <KV label={L.kv.agent} icon={Ship}>
+                          {d.shipmentAgent || "—"}
+                        </KV>
+                      </Section>
+
+                      {/* TRANSPORT */}
+                      <Section title={L.transport}>
+                        <KV label={L.kv.transportNo} icon={IdCard}>
+                          {d.transportNo || "—"}
+                        </KV>
+                        <KV label={L.kv.transportName} icon={UserIcon}>
+                          {d.transportName || "—"}
+                        </KV>
+                        <KV label={L.kv.transportId} icon={IdCard}>
+                          {d.transportId || "—"}
+                        </KV>
+                        <KV label={L.kv.driverName} icon={UserIcon}>
+                          {d.transportDriverName || "—"}
+                        </KV>
+                        <KV label={L.kv.driverId} icon={IdCard}>
+                          {d.transportDriverId || "—"}
+                        </KV>
+                        <KV label={L.kv.driverEmail} icon={Mail}>
+                          {d.transportDriverEmail || "—"}
+                        </KV>
+                        <KV label={L.kv.driverPhone} icon={PhoneCall}>
+                          {d.transportDriverPhoneNo || "—"}
+                        </KV>
+                      </Section>
+
+                      {/* BROKER */}
+                      <Section title={L.broker}>
+                        <KV label={L.kv.brokerNo} icon={IdCard}>
+                          {d.brokerNo || "—"}
+                        </KV>
+                        <KV label={L.kv.name} icon={UserIcon}>
+                          {d.brokerName || "—"}
+                        </KV>
+                        <KV label={L.kv.name2} icon={UserIcon}>
+                          {d.brokerName2 || "—"}
+                        </KV>
+                        <KV label={L.kv.address} icon={Building}>
+                          {d.brokerAddress || "—"}
+                        </KV>
+                        <KV label={L.kv.address2} icon={Building}>
+                          {d.brokerAddress2 || "—"}
+                        </KV>
+                        <KV label={L.kv.city} icon={MapPin}>
+                          {d.brokerCity || "—"}
+                        </KV>
+                        <KV label={L.kv.region} icon={MapPin}>
+                          {d.brokerRegion || "—"}
+                        </KV>
+                        <KV label={L.kv.postCode} icon={Hash}>
+                          {d.brokerPostCode || "—"}
+                        </KV>
+                        <KV label={L.kv.country} icon={Globe}>
+                          {d.brokerCountry || "—"}
+                        </KV>
+                        <KV label={L.kv.email} icon={Mail}>
+                          {d.brokerEmail || "—"}
+                        </KV>
+                        <KV label={L.kv.phone} icon={PhoneCall}>
+                          {d.brokerPhoneNo || "—"}
+                        </KV>
+                      </Section>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+
+  {/* -------------------- DESKTOP (table) -------------------- */}
+  <div className="hidden min-[1399px]:block">
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-sm">
+        <thead className="bg-slate-50 text-slate-600">
+          <tr>
+            <Th />
+            <SortableTh id="documentNo" {...{ sortBy, sortDir, onSort }}>
+              {L.documentNo}
+            </SortableTh>
+            <SortableTh id="status" {...{ sortBy, sortDir, onSort }}>
+              {L.status}
+            </SortableTh>
+            <SortableTh id="sellCustomer" {...{ sortBy, sortDir, onSort }}>
+              {L.sellTo}
+            </SortableTh>
+            <SortableTh id="billCustomer" {...{ sortBy, sortDir, onSort }}>
+              {L.billTo}
+            </SortableTh>
+            <SortableTh id="documentDate" {...{ sortBy, sortDir, onSort }}>
+              {L.documentDate}
+            </SortableTh>
+            <SortableTh id="validUntilDay" {...{ sortBy, sortDir, onSort }}>
+              {L.validUntil}
+            </SortableTh>
+            <SortableTh
+              id="currencyCode"
+              {...{ sortBy, sortDir, onSort }}
+              className="text-center"
+            >
+              {L.currency}
+            </SortableTh>
+            <SortableTh id="createdAt" {...{ sortBy, sortDir, onSort }}>
+              {L.created}
+            </SortableTh>
+            <Th className="pr-3">{L.actions}</Th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {loading ? (
+            <tr>
+              <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                {L.loading}
+              </td>
+            </tr>
+          ) : (data.data?.length || 0) === 0 ? (
+            <tr>
+              <td colSpan={COL_COUNT} className="p-6 text-center text-slate-500">
+                {L.empty}
+              </td>
+            </tr>
+          ) : (
+            (rows || data.data).map((d) => (
+              <React.Fragment key={d._id}>
+                <tr className="border-t">
+                  <Td className="w-8">
+                    <button
+                      className="p-1 rounded hover:bg-slate-100"
+                      onClick={() =>
+                        setExpandedId((id) => {
+                          const next = id === d._id ? null : d._id;
+                          if (next) ensureLines(d.documentNo);
+                          return next;
+                        })
+                      }
+                      aria-label="Toggle details"
+                      title="Toggle details"
+                    >
+                      {expandedId === d._id ? (
+                        <ChevronDown size={16} />
+                      ) : (
+                        <ChevronRight size={16} />
+                      )}
+                    </button>
+                  </Td>
+
+                  <Td className="font-mono">{d.documentNo}</Td>
+
+                  <Td>
+                    <StatusBadge value={d.status} map={L.statusMap} />
+                  </Td>
+
+                  <Td className="truncate max-w-[220px]">
+                    {d.sellCustomerName || d.sellCustomerNo || "—"}
+                  </Td>
+
+                  <Td className="truncate max-w-[220px]">
+                    {d.billCustomerName || d.billCustomerNo || "—"}
+                  </Td>
+
+                  <Td>{formatDate(d.documentDate, locale, "—")}</Td>
+
+                  <Td>
+                    {formatDate(d.validUntilDay, locale, "—")}
+                    {d.validUntilTime ? ` ${d.validUntilTime}` : ""}
+                  </Td>
+
+                  <Td className="text-center font-medium">
+                    {d.currencyCode || "—"}{" "}
+                    <span className="text-slate-500">
+                      {d.currencyFactor ? `• ${fmtDOT(d.currencyFactor, 4)}` : ""}
+                    </span>
+                  </Td>
+
+                  <Td>{formatDate(d.createdAt, locale, "—")}</Td>
+
+                  <Td>
+                    <div className="flex justify-end gap-2 pr-3">
+                      <button
+                        className="p-2 rounded-lg hover:bg-slate-100"
+                        onClick={() => {
+                          setEditing(d);
+                          setOpenForm(true);
+                        }}
+                        title="Edit"
+                        aria-label="Edit"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      <button
+                        className="p-2 rounded-lg hover:bg-slate-100"
+                        onClick={() => setOpenPdfFor(d)}
+                        title="Generate PDF"
+                        aria-label="Generate PDF"
+                      >
+                        <FileText size={16} />
+                      </button>
+
+                      <button
+                        className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                        onClick={() => onDelete(d._id)}
+                        title="Delete"
+                        aria-label="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </Td>
+                </tr>
+
+                {expandedId === d._id && (
+                  <tr>
+                    <td colSpan={COL_COUNT} className="bg-slate-50 border-t">
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                        {/* LINES block (desktop original) */}
+                        <Section
+                          className="md:col-span-3"
+                          title={
+                            <div className="flex items-center justify-between">
+                              <span>
+                                {LL.title || "Lines (sum)"}{" "}
+                                {(lineCache[d.documentNo]?.rows || []).length || 0}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLineInitial({
+                                    documentNo: d.documentNo,
+                                    status: canonStatus(d.status || "new"),
+                                  });
+                                  setOpenLineForm(true);
+                                }}
+                                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-700"
+                                title={LL.addBtn || "Add Line"}
+                                aria-label={LL.addBtn || "Add Line"}
+                              >
+                                <Plus size={14} /> {LL.addBtn || "Add Line"}
+                              </button>
+                            </div>
+                          }
+                        >
+                          {(() => {
+                            const docNo = d.documentNo;
+                            const cache = lineCache[docNo] || {
+                              loading: false,
+                              error: null,
+                              rows: [],
+                            };
+
+                            if (cache.loading)
+                              return (
+                                <div className="text-sm text-slate-500 px-1 py-1">
+                                  {LL.loading || "Loading lines…"}
+                                </div>
+                              );
+                            if (cache.error)
+                              return (
+                                <div className="text-sm text-red-600 px-1 py-1">
+                                  {cache.error}
+                                </div>
+                              );
+                            if (!cache.rows || cache.rows.length === 0)
+                              return (
+                                <div className="text-sm text-slate-500 px-1 py-1">
+                                  {LL.empty || "No lines"}
+                                </div>
+                              );
+
+                            const sumLineValue = cache.rows.reduce(
+                              (a, r) => a + (Number(r.lineValue) || 0),
+                              0
+                            );
+                            const sumTransport = cache.rows.reduce(
+                              (a, r) => a + (Number(r.transportCost) || 0),
+                              0
+                            );
+
+                            return (
+                              <div className="overflow-x-auto rounded-lg border border-slate-200">
+                                <table className="min-w-full text-xs">
+                                  <thead className="bg-slate-50 text-slate-600">
+                                    <tr>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.lineNo || "Line No."}
+                                      </th>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.status || "Status"}
+                                      </th>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.priority || "Priority"}
+                                      </th>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.type || "Type"}
+                                      </th>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.item || "Item"}
+                                      </th>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.uom || "UOM"}
+                                      </th>
+                                      <th className="text-right px-3 py-2 font-medium">
+                                        {LH.unitPrice || "Unit Price"}
+                                      </th>
+                                      <th className="text-right px-3 py-2 font-medium">
+                                        {LH.qty || "Qty"}
+                                      </th>
+                                      <th className="text-right px-3 py-2 font-medium">
+                                        {LH.lineValue || "Line Value"}
+                                      </th>
+                                      <th className="text-right px-3 py-2 font-medium">
+                                        {LH.transport || "Transport"}
+                                      </th>
+                                      <th className="text-left px-3 py-2 font-medium">
+                                        {LH.updated || "Updated"}
+                                      </th>
+                                      <th className="text-right px-3 py-2 font-medium">
+                                        {LH.actions || "Actions"}
+                                      </th>
+                                    </tr>
+                                  </thead>
+
+                                  <tbody>
+                                    {cache.rows.map((ln) => (
+                                      <tr key={ln._id} className="border-t">
+                                        <td className="px-3 py-2 font-mono">
+                                          {ln.lineNo ?? "—"}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <StatusBadge value={ln.status} map={L.statusMap} />
+                                        </td>
+                                        <td
+                                          className={[
+                                            "px-3 py-2 text-center font-mono",
+                                            ln.priority === 2
+                                              ? "font-semibold text-red-700"
+                                              : ln.priority === 1
+                                              ? "font-semibold text-amber-700"
+                                              : "text-slate-600",
+                                          ].join(" ")}
+                                        >
+                                          {ln.priority ?? 0}
+                                        </td>
+                                        <td className="px-3 py-2 capitalize">
+                                          {ln.lineType || "—"}
+                                        </td>
+                                        <td className="px-3 py-2 truncate max-w-[220px]">
+                                          {ln.itemNo || "—"}
+                                        </td>
+                                        <td className="px-3 py-2 font-mono">
+                                          {ln.unitOfMeasure || "—"}
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                          {fmtDOT(ln.unitPrice, 2)}
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                          {fmtDOT(ln.quantity, 3)}
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-medium">
+                                          {fmtDOT(ln.lineValue, 2)}
+                                        </td>
+                                        <td className="px-3 py-2 text-right">
+                                          {fmtDOT(ln.transportCost, 2)}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          {formatDate(ln.updatedAt || ln.dateModified, locale, "—")}
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <div className="flex justify-end">
+                                            <button
+                                              type="button"
+                                              className="p-1.5 rounded-lg hover:bg-slate-100"
+                                              title="Edit line"
+                                              aria-label="Edit line"
+                                              onClick={() => {
+                                                setLineInitial(ln);
+                                                setOpenLineForm(true);
+                                              }}
+                                            >
+                                              <Pencil size={16} />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+
+                                  <tfoot className="bg-slate-50">
+                                    <tr className="border-t">
+                                      <td className="px-3 py-2 text-right font-semibold" colSpan={8}>
+                                        {LL.totalsLabel || "Totals:"}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold">
+                                        {fmtDOT(sumLineValue, 2)}
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-semibold">
+                                        {fmtDOT(sumTransport, 2)}
+                                      </td>
+                                      <td className="px-3 py-2" colSpan={2}></td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            );
+                          })()}
+                        </Section>
+
+                        {/* HEADER */}
+                        <Section title="Header">
+                          <KV label={L.kv.externalDocumentNo} icon={Hash}>
+                            {d.externalDocumentNo || "—"}
+                          </KV>
+                          <KV label={L.kv.documentInfo} icon={FileText}>
+                            {d.documentInfo || "—"}
+                          </KV>
+                          <KV label={L.kv.createdBy} icon={UserIcon}>
+                            {d.userCreated || "—"}
+                          </KV>
+                          <KV label={L.kv.createdAt} icon={CalendarIcon}>
+                            {formatDate(d.dateCreated, locale, "—")}
+                          </KV>
+                          <KV label={L.kv.modifiedBy} icon={UserIcon}>
+                            {d.userModified || "—"}
+                          </KV>
+                          <KV label={L.kv.modifiedAt} icon={CalendarIcon}>
+                            {formatDate(d.dateModified, locale, "—")}
+                          </KV>
+
+                          <KV label={L.kv.currency} icon={DollarSign}>
+                            {d.currencyCode || "—"}{" "}
+                            {d.currencyFactor ? `(${fmtDOT(d.currencyFactor, 6)})` : ""}
+                          </KV>
+
+                          <KV label={L.kv.documentDate || "Document Date"} icon={CalendarIcon}>
+                            {formatDate(d.documentDate, locale, "—")}
+                          </KV>
+                          <KV label={L.kv.validUntilDay || "Valid until day"} icon={CalendarIcon}>
+                            {formatDate(d.validUntilDay, locale, "—")}
+                          </KV>
+                          <KV label={L.kv.validUntilTime || "Valid until time"} icon={CalendarIcon}>
+                            {d.validUntilTime || "—"}
+                          </KV>
+                          <KV label={L.kv.paymentDays || "Payment days"} icon={DollarSign}>
+                            {d.paymentDays != null && d.paymentDays !== "" ? String(d.paymentDays) : "—"}
+                          </KV>
+                        </Section>
+
+                        {/* SELL-TO */}
+                        <Section title={L.sellTo}>
+                          <KV label={L.kv.no} icon={IdCard}>
+                            {d.sellCustomerNo || "—"}
+                          </KV>
+                          <KV label={L.kv.name} icon={UserIcon}>
+                            {d.sellCustomerName || "—"}
+                          </KV>
+                          <KV label={L.kv.name2} icon={UserIcon}>
+                            {d.sellCustomerName2 || "—"}
+                          </KV>
+                          <KV label={L.kv.address} icon={Building}>
+                            {d.sellCustomerAddress || "—"}
+                          </KV>
+                          <KV label={L.kv.address2} icon={Building}>
+                            {d.sellCustomerAddress2 || "—"}
+                          </KV>
+                          <KV label={L.kv.city} icon={MapPin}>
+                            {d.sellCustomerCity || "—"}
+                          </KV>
+                          <KV label={L.kv.region} icon={MapPin}>
+                            {d.sellCustomerRegion || "—"}
+                          </KV>
+                          <KV label={L.kv.postCode} icon={Hash}>
+                            {d.sellCustomerPostCode || "—"}
+                          </KV>
+                          <KV label={L.kv.country} icon={Globe}>
+                            {d.sellCustomerCountry || "—"}
+                          </KV>
+                          <KV label={L.kv.email} icon={Mail}>
+                            {d.sellCustomerEmail || "—"}
+                          </KV>
+                          <KV label={L.kv.phone} icon={PhoneCall}>
+                            {d.sellCustomerPhoneNo || "—"}
+                          </KV>
+                        </Section>
+
+                        {/* BILL-TO */}
+                        <Section title={L.billTo}>
+                          <KV label={L.kv.no} icon={IdCard}>
+                            {d.billCustomerNo || "—"}
+                          </KV>
+                          <KV label={L.kv.name} icon={UserIcon}>
+                            {d.billCustomerName || "—"}
+                          </KV>
+                          <KV label={L.kv.name2} icon={UserIcon}>
+                            {d.billCustomerName2 || "—"}
+                          </KV>
+                          <KV label={L.kv.address} icon={Building}>
+                            {d.billCustomerAddress || "—"}
+                          </KV>
+                          <KV label={L.kv.address2} icon={Building}>
+                            {d.billCustomerAddress2 || "—"}
+                          </KV>
+                          <KV label={L.kv.city} icon={MapPin}>
+                            {d.billCustomerCity || "—"}
+                          </KV>
+                          <KV label={L.kv.region} icon={MapPin}>
+                            {d.billCustomerRegion || "—"}
+                          </KV>
+                          <KV label={L.kv.postCode} icon={Hash}>
+                            {d.billCustomerPostCode || "—"}
+                          </KV>
+                          <KV label={L.kv.country} icon={Globe}>
+                            {d.billCustomerCountry || "—"}
+                          </KV>
+                          <KV label={L.kv.email} icon={Mail}>
+                            {d.billCustomerEmail || "—"}
+                          </KV>
+                          <KV label={L.kv.phone} icon={PhoneCall}>
+                            {d.billCustomerPhoneNo || "—"}
+                          </KV>
+                          <KV label={L.kv.nip} icon={Hash}>
+                            {d.billCustomerNip || "—"}
+                          </KV>
+                        </Section>
+
+                        {/* LOCATION */}
+                        <Section title={L.location}>
+                          <KV label={L.kv.no} icon={IdCard}>
+                            {d.locationNo || "—"}
+                          </KV>
+                          <KV label={L.kv.name} icon={Building}>
+                            {d.locationName || "—"}
+                          </KV>
+                          <KV label={L.kv.name2} icon={Building}>
+                            {d.locationName2 || "—"}
+                          </KV>
+                          <KV label={L.kv.address} icon={Building}>
+                            {d.locationAddress || "—"}
+                          </KV>
+                          <KV label={L.kv.address2} icon={Building}>
+                            {d.locationAddress2 || "—"}
+                          </KV>
+                          <KV label={L.kv.city} icon={MapPin}>
+                            {d.locationCity || "—"}
+                          </KV>
+                          <KV label={L.kv.region} icon={MapPin}>
+                            {d.locationRegion || "—"}
+                          </KV>
+                          <KV label={L.kv.postCode} icon={Hash}>
+                            {d.locationPostCode || "—"}
+                          </KV>
+                          <KV label={L.kv.country} icon={Globe}>
+                            {d.locationCountry || "—"}
+                          </KV>
+                          <KV label={L.kv.email} icon={Mail}>
+                            {d.locationEmail || "—"}
+                          </KV>
+                          <KV label={L.kv.phone} icon={PhoneCall}>
+                            {d.locationPhoneNo || "—"}
+                          </KV>
+                        </Section>
+
+                        {/* SHIPMENT */}
+                        <Section title={L.shipment}>
+                          <KV label={L.kv.method} icon={Truck}>
+                            {d.shipmentMethod || "—"}
+                          </KV>
+                          <KV label={L.kv.agent} icon={Ship}>
+                            {d.shipmentAgent || "—"}
+                          </KV>
+                        </Section>
+
+                        {/* TRANSPORT */}
+                        <Section title={L.transport}>
+                          <KV label={L.kv.transportNo} icon={IdCard}>
+                            {d.transportNo || "—"}
+                          </KV>
+                          <KV label={L.kv.transportName} icon={UserIcon}>
+                            {d.transportName || "—"}
+                          </KV>
+                          <KV label={L.kv.transportId} icon={IdCard}>
+                            {d.transportId || "—"}
+                          </KV>
+                          <KV label={L.kv.driverName} icon={UserIcon}>
+                            {d.transportDriverName || "—"}
+                          </KV>
+                          <KV label={L.kv.driverId} icon={IdCard}>
+                            {d.transportDriverId || "—"}
+                          </KV>
+                          <KV label={L.kv.driverEmail} icon={Mail}>
+                            {d.transportDriverEmail || "—"}
+                          </KV>
+                          <KV label={L.kv.driverPhone} icon={PhoneCall}>
+                            {d.transportDriverPhoneNo || "—"}
+                          </KV>
+                        </Section>
+
+                        {/* BROKER */}
+                        <Section title={L.broker}>
+                          <KV label={L.kv.brokerNo} icon={IdCard}>
+                            {d.brokerNo || "—"}
+                          </KV>
+                          <KV label={L.kv.name} icon={UserIcon}>
+                            {d.brokerName || "—"}
+                          </KV>
+                          <KV label={L.kv.name2} icon={UserIcon}>
+                            {d.brokerName2 || "—"}
+                          </KV>
+                          <KV label={L.kv.address} icon={Building}>
+                            {d.brokerAddress || "—"}
+                          </KV>
+                          <KV label={L.kv.address2} icon={Building}>
+                            {d.brokerAddress2 || "—"}
+                          </KV>
+                          <KV label={L.kv.city} icon={MapPin}>
+                            {d.brokerCity || "—"}
+                          </KV>
+                          <KV label={L.kv.region} icon={MapPin}>
+                            {d.brokerRegion || "—"}
+                          </KV>
+                          <KV label={L.kv.postCode} icon={Hash}>
+                            {d.brokerPostCode || "—"}
+                          </KV>
+                          <KV label={L.kv.country} icon={Globe}>
+                            {d.brokerCountry || "—"}
+                          </KV>
+                          <KV label={L.kv.email} icon={Mail}>
+                            {d.brokerEmail || "—"}
+                          </KV>
+                          <KV label={L.kv.phone} icon={PhoneCall}>
+                            {d.brokerPhoneNo || "—"}
+                          </KV>
+                        </Section>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {/* -------------------- Footer / Pagination (shared) -------------------- */}
+  <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
+    <div className="text-xs text-slate-500">
+      {T.footer?.meta
+        ? T.footer.meta(data.total, data.page, data.pages)
+        : `Total: ${data.total} • Page ${data.page} of ${data.pages || 1}`}
+    </div>
+    <div className="flex items-center gap-2">
+      <select
+        className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
+        value={limit}
+        onChange={(e) => {
+          setLimit(Number(e.target.value));
+          setPage(1);
         }}
-        className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-700"
-        title={LL.addBtn || "Add Line"}
       >
-        <Plus size={14} /> {LL.addBtn || "Add Line"}
+        {[10, 20, 50, 100].map((n) => (
+          <option key={n} value={n}>
+            {T.footer?.perPage ? T.footer.perPage(n) : `${n} / page`}
+          </option>
+        ))}
+      </select>
+
+      <button
+        className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+        onClick={() => setPage((p) => Math.max(1, p - 1))}
+        disabled={data.page <= 1}
+      >
+        {T.footer?.prev || "Prev"}
+      </button>
+      <button
+        className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
+        onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
+        disabled={data.page >= (data.pages || 1)}
+      >
+        {T.footer?.next || "Next"}
       </button>
     </div>
-  }
->
-  {(() => {
-    const docNo = d.documentNo;
-    const cache = lineCache[docNo] || { loading: false, error: null, rows: [] };
+  </div>
+</div>
 
-    if (cache.loading) return <div className="text-sm text-slate-500 px-1 py-1">{LL.loading || "Loading lines…"}</div>;
-    if (cache.error) return <div className="text-sm text-red-600 px-1 py-1">{cache.error}</div>;
-    if (!cache.rows || cache.rows.length === 0) return <div className="text-sm text-slate-500 px-1 py-1">{LL.empty || "No lines"}</div>;
-
-    // ---- totals ----
-    const sumLineValue = cache.rows.reduce((a, r) => a + (Number(r.lineValue) || 0), 0);
-    const sumTransport = cache.rows.reduce((a, r) => a + (Number(r.transportCost) || 0), 0);
-
-    return (
-      <div className="overflow-x-auto rounded-lg border border-slate-200">
-        <table className="min-w-full text-xs">
-          <thead className="bg-slate-50 text-slate-600">
-  <tr>
-    <th className="text-left px-3 py-2 font-medium">{LH.lineNo || "Line No."}</th>
-    <th className="text-left px-3 py-2 font-medium">{LH.status || "Status"}</th>
-        <th className="text-left px-3 py-2 font-medium">{LH.priority || "Priority"}</th>
-<th className="text-left px-3 py-2 font-medium">{LH.type || "Type"}</th>
-    <th className="text-left px-3 py-2 font-medium">{LH.item || "Item"}</th>
-    <th className="text-left px-3 py-2 font-medium">{LH.uom || "UOM"}</th>
-    <th className="text-right px-3 py-2 font-medium">{LH.unitPrice || "Unit Price"}</th>
-    <th className="text-right px-3 py-2 font-medium">{LH.qty || "Qty"}</th>
-    <th className="text-right px-3 py-2 font-medium">{LH.lineValue || "Line Value"}</th>
-    <th className="text-right px-3 py-2 font-medium">{LH.transport || "Transport"}</th>
-    <th className="text-left px-3 py-2 font-medium">{LH.updated || "Updated"}</th>
-    <th className="text-right px-3 py-2 font-medium">{LH.actions || "Actions"}</th>
-  </tr>
-          </thead>
-
-          <tbody>
-            {cache.rows.map((ln) => (
-              <tr key={ln._id} className="border-t">
-                <td className="px-3 py-2 font-mono">{ln.lineNo ?? "—"}</td>
-                <td className="px-3 py-2"><StatusBadge value={ln.status} map={L.statusMap} /></td>
-                                <td className="px-3 py-2 whitespace-nowrap">{fmtPriority(ln.priority)}</td>
-<td className="px-3 py-2 capitalize">{ln.lineType || "—"}</td>
-                <td className="px-3 py-2 truncate max-w-[220px]">{ln.itemNo || "—"}</td>
-                <td className="px-3 py-2 font-mono">{ln.unitOfMeasure || "—"}</td>
-                <td className="px-3 py-2 text-right">{fmtDOT(ln.unitPrice, 2)}</td>
-                <td className="px-3 py-2 text-right">{fmtDOT(ln.quantity, 3)}</td>
-                <td className="px-3 py-2 text-right font-medium">{fmtDOT(ln.lineValue, 2)}</td>
-                <td className="px-3 py-2 text-right">{fmtDOT(ln.transportCost, 2)}</td>
-                <td className="px-3 py-2">{formatDate(ln.updatedAt || ln.dateModified, locale, "—")}</td>
-                <td className="px-3 py-2">
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      className="p-1.5 rounded-lg hover:bg-slate-100"
-                      title="Edit line"
-                      onClick={() => {
-                        setLineInitial(ln);
-                        setOpenLineForm(true);
-                      }}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-
-<tfoot className="bg-slate-50">
-  <tr className="border-t">
-    <td className="px-3 py-2 text-right font-semibold" colSpan={8}>
-      {LL.totalsLabel || "Totals:"}
-    </td>
-    <td className="px-3 py-2 text-right font-semibold">{fmtDOT(sumLineValue, 2)}</td>
-    <td className="px-3 py-2 text-right font-semibold">{fmtDOT(sumTransport, 2)}</td>
-    <td className="px-3 py-2" colSpan={2}></td>
-  </tr>
-</tfoot>
-
-        </table>
-      </div>
-    );
-  })()}
-</Section>
-
-
-                              <Section title="Header">
-                                <KV label={L.kv.externalDocumentNo} icon={Hash}>
-                                  {d.externalDocumentNo || "—"}
-                                </KV>
-                                <KV label={L.kv.documentInfo} icon={FileText}>
-                                  {d.documentInfo || "—"}
-                                </KV>
-                                <KV label={L.kv.createdBy} icon={UserIcon}>
-                                  {d.userCreated || "—"}
-                                </KV>
-                                <KV label={L.kv.createdAt} icon={CalendarIcon}>
-                                  {formatDate(d.dateCreated, locale, "—")}
-                                </KV>
-                                <KV label={L.kv.modifiedBy} icon={UserIcon}>
-                                  {d.userModified || "—"}
-                                </KV>
-                                <KV label={L.kv.modifiedAt} icon={CalendarIcon}>
-                                  {formatDate(d.dateModified, locale, "—")}
-                                </KV>
-
-                                <KV label={L.kv.currency} icon={DollarSign}>
-                                  {d.currencyCode || "—"}{" "}
-                                  {d.currencyFactor
-                                    ? `(${fmtDOT(d.currencyFactor, 6)})`
-                                    : ""}
-                                </KV>
-
-                                <KV label={L.kv.documentDate || "Document Date"} icon={CalendarIcon}>
-                                  {formatDate(d.documentDate, locale, "—")}
-                                </KV>
-                                <KV label={L.kv.validUntilDay || "Valid until day"} icon={CalendarIcon}>
-                                  {formatDate(d.validUntilDay, locale, "—")}
-                                </KV>
-                                <KV label={L.kv.validUntilTime || "Valid until time"} icon={CalendarIcon}>
-                                  {d.validUntilTime || "—"}
-                                </KV>
-                              
-                                <KV label={L.kv.paymentDays || "Payment days"} icon={DollarSign}>
-                                  {d.paymentDays != null && d.paymentDays !== "" ? String(d.paymentDays) : "—"}
-                                </KV>
-</Section>
-
-                              <Section title={L.sellTo}>
-                                <KV label={L.kv.no} icon={IdCard}>
-                                  {d.sellCustomerNo || "—"}
-                                </KV>
-                                <KV label={L.kv.name} icon={UserIcon}>
-                                  {d.sellCustomerName || "—"}
-                                </KV>
-                                <KV label={L.kv.name2} icon={UserIcon}>
-                                  {d.sellCustomerName2 || "—"}
-                                </KV>
-                                <KV label={L.kv.address} icon={Building}>
-                                  {d.sellCustomerAddress || "—"}
-                                </KV>
-                                <KV label={L.kv.address2} icon={Building}>
-                                  {d.sellCustomerAddress2 || "—"}
-                                </KV>
-                                <KV label={L.kv.city} icon={MapPin}>
-                                  {d.sellCustomerCity || "—"}
-                                </KV>
-                                <KV label={L.kv.region} icon={MapPin}>
-                                  {d.sellCustomerRegion || "—"}
-                                </KV>
-                                <KV label={L.kv.postCode} icon={Hash}>
-                                  {d.sellCustomerPostCode || "—"}
-                                </KV>
-                                <KV label={L.kv.country} icon={Globe}>
-                                  {d.sellCustomerCountry || "—"}
-                                </KV>
-                                <KV label={L.kv.email} icon={Mail}>
-                                  {d.sellCustomerEmail || "—"}
-                                </KV>
-                                <KV label={L.kv.phone} icon={PhoneCall}>
-                                  {d.sellCustomerPhoneNo || "—"}
-                                </KV>
-                              </Section>
-
-                              <Section title={L.billTo}>
-                                <KV label={L.kv.no} icon={IdCard}>
-                                  {d.billCustomerNo || "—"}
-                                </KV>
-                                <KV label={L.kv.name} icon={UserIcon}>
-                                  {d.billCustomerName || "—"}
-                                </KV>
-                                <KV label={L.kv.name2} icon={UserIcon}>
-                                  {d.billCustomerName2 || "—"}
-                                </KV>
-                                <KV label={L.kv.address} icon={Building}>
-                                  {d.billCustomerAddress || "—"}
-                                </KV>
-                                <KV label={L.kv.address2} icon={Building}>
-                                  {d.billCustomerAddress2 || "—"}
-                                </KV>
-                                <KV label={L.kv.city} icon={MapPin}>
-                                  {d.billCustomerCity || "—"}
-                                </KV>
-                                <KV label={L.kv.region} icon={MapPin}>
-                                  {d.billCustomerRegion || "—"}
-                                </KV>
-                                <KV label={L.kv.postCode} icon={Hash}>
-                                  {d.billCustomerPostCode || "—"}
-                                </KV>
-                                <KV label={L.kv.country} icon={Globe}>
-                                  {d.billCustomerCountry || "—"}
-                                </KV>
-                                <KV label={L.kv.email} icon={Mail}>
-                                  {d.billCustomerEmail || "—"}
-                                </KV>
-                                <KV label={L.kv.phone} icon={PhoneCall}>
-                                  {d.billCustomerPhoneNo || "—"}
-                                </KV>
-                                <KV label={L.kv.nip} icon={Hash}>
-                                  {d.billCustomerNip || "—"}
-                                </KV>
-                              </Section>
-
-                              <Section title={L.location}>
-                                <KV label={L.kv.no} icon={IdCard}>
-                                  {d.locationNo || "—"}
-                                </KV>
-                                <KV label={L.kv.name} icon={Building}>
-                                  {d.locationName || "—"}
-                                </KV>
-                                <KV label={L.kv.name2} icon={Building}>
-                                  {d.locationName2 || "—"}
-                                </KV>
-                                <KV label={L.kv.address} icon={Building}>
-                                  {d.locationAddress || "—"}
-                                </KV>
-                                <KV label={L.kv.address2} icon={Building}>
-                                  {d.locationAddress2 || "—"}
-                                </KV>
-                                <KV label={L.kv.city} icon={MapPin}>
-                                  {d.locationCity || "—"}
-                                </KV>
-                                <KV label={L.kv.region} icon={MapPin}>
-                                  {d.locationRegion || "—"}
-                                </KV>
-                                <KV label={L.kv.postCode} icon={Hash}>
-                                  {d.locationPostCode || "—"}
-                                </KV>
-                                <KV label={L.kv.country} icon={Globe}>
-                                  {d.locationCountry || "—"}
-                                </KV>
-                                <KV label={L.kv.email} icon={Mail}>
-                                  {d.locationEmail || "—"}
-                                </KV>
-                                <KV label={L.kv.phone} icon={PhoneCall}>
-                                  {d.locationPhoneNo || "—"}
-                                </KV>
-                              </Section>
-
-                              <Section title={L.shipment}>
-                                <KV label={L.kv.method} icon={Truck}>
-                                  {d.shipmentMethod || "—"}
-                                </KV>
-                                <KV label={L.kv.agent} icon={Ship}>
-                                  {d.shipmentAgent || "—"}
-                                </KV>
-                              </Section>
-
-                              <Section title={L.transport}>
-                                <KV label={L.kv.transportNo} icon={IdCard}>
-                                  {d.transportNo || "—"}
-                                </KV>
-                                <KV label={L.kv.transportName} icon={UserIcon}>
-                                  {d.transportName || "—"}
-                                </KV>
-                                <KV label={L.kv.transportId} icon={IdCard}>
-                                  {d.transportId || "—"}
-                                </KV>
-                                <KV label={L.kv.driverName} icon={UserIcon}>
-                                  {d.transportDriverName || "—"}
-                                </KV>
-                                <KV label={L.kv.driverId} icon={IdCard}>
-                                  {d.transportDriverId || "—"}
-                                </KV>
-                                <KV label={L.kv.driverEmail} icon={Mail}>
-                                  {d.transportDriverEmail || "—"}
-                                </KV>
-                                <KV label={L.kv.driverPhone} icon={PhoneCall}>
-                                  {d.transportDriverPhoneNo || "—"}
-                                </KV>
-                              </Section>
-
-                              <Section title={L.broker}>
-                                <KV label={L.kv.brokerNo} icon={IdCard}>
-                                  {d.brokerNo || "—"}
-                                </KV>
-                                <KV label={L.kv.name} icon={UserIcon}>
-                                  {d.brokerName || "—"}
-                                </KV>
-                                <KV label={L.kv.name2} icon={UserIcon}>
-                                  {d.brokerName2 || "—"}
-                                </KV>
-                                <KV label={L.kv.address} icon={Building}>
-                                  {d.brokerAddress || "—"}
-                                </KV>
-                                <KV label={L.kv.address2} icon={Building}>
-                                  {d.brokerAddress2 || "—"}
-                                </KV>
-                                <KV label={L.kv.city} icon={MapPin}>
-                                  {d.brokerCity || "—"}
-                                </KV>
-                                <KV label={L.kv.region} icon={MapPin}>
-                                  {d.brokerRegion || "—"}
-                                </KV>
-                                <KV label={L.kv.postCode} icon={Hash}>
-                                  {d.brokerPostCode || "—"}
-                                </KV>
-                                <KV label={L.kv.country} icon={Globe}>
-                                  {d.brokerCountry || "—"}
-                                </KV>
-                                <KV label={L.kv.email} icon={Mail}>
-                                  {d.brokerEmail || "—"}
-                                </KV>
-                                <KV label={L.kv.phone} icon={PhoneCall}>
-                                  {d.brokerPhoneNo || "—"}
-                                </KV>
-                              </Section>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
-            <div className="text-xs text-slate-500">
-              {T.footer?.meta
-                ? T.footer.meta(data.total, data.page, data.pages)
-                : `Total: ${data.total} • Page ${data.page} of ${
-                    data.pages || 1
-                  }`}
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                className="px-2 py-1 rounded border border-slate-200 bg-white text-xs"
-                value={limit}
-                onChange={(e) => {
-                  setLimit(Number(e.target.value));
-                  setPage(1);
-                }}
-              >
-                {[10, 20, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {T.footer?.perPage ? T.footer.perPage(n) : `${n} / page`}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={data.page <= 1}
-              >
-                {T.footer?.prev || "Prev"}
-              </button>
-              <button
-                className="px-3 py-1 rounded border border-slate-200 bg-white text-xs disabled:opacity-50"
-                onClick={() => setPage((p) => Math.min(data.pages || 1, p + 1))}
-                disabled={data.page >= (data.pages || 1)}
-              >
-                {T.footer?.next || "Next"}
-              </button>
-            </div>
-          </div>
-        </div>
 
 
         {/* CREATE/EDIT MODAL */}

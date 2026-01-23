@@ -20,7 +20,7 @@ import {
   Boxes,
   DollarSign,
   Calendar,
-  Globe,              // NEW
+  Globe,
 } from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
@@ -42,12 +42,12 @@ export default function Items() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [ipg, setIpg] = useState(""); // inventory posting group
-  const [origin, setOrigin] = useState(""); // NEW: Country of Origin filter
+  const [origin, setOrigin] = useState(""); // Country of Origin filter
   const [active, setActive] = useState(""); // true/false/""
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  const activeFilterCount = [type, ipg, origin, active, minPrice, maxPrice].filter(Boolean).length; // NEW include origin
+  const activeFilterCount = [type, ipg, origin, active, minPrice, maxPrice].filter(Boolean).length;
 
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
@@ -75,7 +75,7 @@ export default function Items() {
       addBtn: I?.controls?.addBtn || "Add item",
       allTypes: I?.controls?.allTypes || "All types",
       allStatuses: I?.controls?.allStatuses || "All statuses",
-      allOrigins: I?.controls?.allOrigins || "All origins", // NEW
+      allOrigins: I?.controls?.allOrigins || "All origins",
       statuses: {
         active: I?.controls?.statuses?.active || "Active",
         inactive: I?.controls?.statuses?.inactive || "Inactive",
@@ -90,7 +90,7 @@ export default function Items() {
       description: I?.table?.description || "Description",
       unit: I?.table?.unit || "Base UoM",
       ipg: I?.table?.ipg || "Inventory Posting Group",
-      countryOfOrigin: I?.table?.countryOfOrigin || "Country of Origin", // NEW
+      countryOfOrigin: I?.table?.countryOfOrigin || "Country of Origin",
       unitPrice: I?.table?.unitPrice || "Unit Price",
       status: I?.table?.status || "Status",
       created: I?.table?.created || "Created",
@@ -108,7 +108,7 @@ export default function Items() {
       description2: I?.details?.description2 || "Description 2",
       baseUnitOfMeasure: I?.details?.baseUnitOfMeasure || "Base Unit of Measure",
       inventoryPostingGroup: I?.details?.inventoryPostingGroup || "Inventory Posting Group",
-      countryOfOrigin: I?.details?.countryOfOrigin || "Country of Origin", // NEW
+      countryOfOrigin: I?.details?.countryOfOrigin || "Country of Origin",
       unitPrice: I?.details?.unitPrice || "Unit Price",
       active: I?.details?.active || "Active",
       created: I?.details?.created || "Created",
@@ -128,7 +128,7 @@ export default function Items() {
         description2: I?.modal?.fields?.description2 || "Description 2",
         unit: I?.modal?.fields?.unit || "Base Unit of Measure",
         ipg: I?.modal?.fields?.ipg || "Inventory Posting Group",
-        countryOfOrigin: I?.modal?.fields?.countryOfOrigin || "Country of Origin", // NEW
+        countryOfOrigin: I?.modal?.fields?.countryOfOrigin || "Country of Origin",
         unitPrice: I?.modal?.fields?.unitPrice || "Unit Price",
         active: I?.modal?.fields?.active || "Active",
       },
@@ -152,6 +152,7 @@ export default function Items() {
     },
     a11y: {
       toggleDetails: I?.a11y?.toggleDetails || "Toggle details",
+      sort: I?.a11y?.sort || "Sort",
     },
   };
 
@@ -172,7 +173,7 @@ export default function Items() {
       if (q) params.set("query", q);
       if (type) params.set("type", type);
       if (ipg) params.set("ipg", ipg);
-      if (origin) params.set("origin", origin); // NEW
+      if (origin) params.set("origin", origin);
       if (active !== "") params.set("active", active);
       if (minPrice !== "") params.set("minPrice", minPrice);
       if (maxPrice !== "") params.set("maxPrice", maxPrice);
@@ -190,7 +191,7 @@ export default function Items() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line
-  }, [page, limit, type, ipg, origin, active, minPrice, maxPrice, sortBy, sortDir]); // NEW include origin
+  }, [page, limit, type, ipg, origin, active, minPrice, maxPrice, sortBy, sortDir]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -225,7 +226,7 @@ export default function Items() {
       description: "description",
       baseUnitOfMeasure: "baseUnitOfMeasure",
       inventoryPostingGroup: "inventoryPostingGroup",
-      countryOfOrigin: "countryOfOrigin", // NEW
+      countryOfOrigin: "countryOfOrigin",
       unitPrice: "unitPrice",
       active: "active",
       createdAt: "createdAt",
@@ -241,7 +242,8 @@ export default function Items() {
     };
 
     arr.sort((a, b) => {
-      const av = get(a), bv = get(b);
+      const av = get(a),
+        bv = get(b);
       if (av < bv) return -1 * dir;
       if (av > bv) return 1 * dir;
       return 0;
@@ -271,7 +273,7 @@ export default function Items() {
     }
   };
 
-  const isEditing = Boolean(editing && getId(editing)); // for modal title
+  const isEditing = Boolean(editing && getId(editing));
 
   return (
     <div className="space-y-4">
@@ -364,7 +366,7 @@ export default function Items() {
             className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-300"
           />
 
-          {/* Country of Origin (NEW) */}
+          {/* Country of Origin */}
           <input
             value={origin}
             onChange={(e) => {
@@ -439,110 +441,373 @@ export default function Items() {
         </div>
       </form>
 
-      {/* Table */}
+      {/* ===================== RESPONSIVE TABLE (Full) ===================== */}
       <div className="rounded-2xl border border-slate-200 overflow-hidden bg-white">
-        <div className="overflow-x-auto">
-  <table className="min-w-full text-sm"><thead className="bg-slate-50 text-slate-600">
-      <tr>
-        {[
-          <Th key="exp" />,
-          <SortableTh key="no" id="no" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.no}</SortableTh>,
-          <SortableTh key="no2" id="no2" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.no2}</SortableTh>,
-          <SortableTh key="type" id="type" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.type}</SortableTh>,
-          <SortableTh key="description" id="description" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.description}</SortableTh>,
-          <SortableTh key="baseUnitOfMeasure" id="baseUnitOfMeasure" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.unit}</SortableTh>,
-          <SortableTh key="inventoryPostingGroup" id="inventoryPostingGroup" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.ipg}</SortableTh>,
-          <SortableTh key="countryOfOrigin" id="countryOfOrigin" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.countryOfOrigin}</SortableTh>,
-          <SortableTh key="unitPrice" id="unitPrice" className="text-right" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.unitPrice}</SortableTh>,
-          <SortableTh key="active" id="active" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.status}</SortableTh>,
-          <SortableTh key="createdAt" id="createdAt" {...{ sortBy, sortDir, onSort }} title={L.a11y?.sort || "Sort"}>{L.table.created}</SortableTh>,
-          <Th key="actions" className="text-right">{L.table.actions}</Th>,
-        ]}
-      </tr>
-    </thead><tbody>
-      {loading ? (
-        <tr>
-          <td colSpan={13} className="p-6 text-center text-slate-500">{L.table.loading}</td>
-        </tr>
-      ) : rows.length === 0 ? (
-        <tr>
-          <td colSpan={13} className="p-6 text-center text-slate-500">{L.table.empty}</td>
-        </tr>
-      ) : (
-        rows.flatMap((r) => {
-          const id = getId(r);
-          const mainRow = (
-            <tr key={id} className="border-t">
-              <Td className="w-8">
-                <button
-                  className="p-1 rounded hover:bg-slate-100"
-                  onClick={() => setExpandedId((cur) => (cur === id ? null : id))}
-                  aria-label={L.a11y.toggleDetails}
-                  title={L.a11y.toggleDetails}
-                >
-                  {expandedId === id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </button>
-              </Td>
-              <Td className="font-mono">{r.no}</Td>
-              <Td className="font-mono">{r.no2 || L.table.dash}</Td>
-              <Td>{typeChip(r.type)}</Td>
-              <Td className="max-w-[340px] truncate" title={r.description}>{r.description || L.table.dash}</Td>
-              <Td>{r.baseUnitOfMeasure || L.table.dash}</Td>
-              <Td>{r.inventoryPostingGroup || L.table.dash}</Td>
-              <Td className="flex items-center gap-1"><Globe size={14} className="text-slate-400" />{r.countryOfOrigin || L.table.dash}</Td>
-              <Td className="text-right">{fmtPrice(r.unitPrice)}</Td>
-              <Td>{activeChip(r.active, L)}</Td>
-              <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}</Td>
-              <Td>
-                <div className="flex justify-end gap-2 pr-3">
-                  <button className="p-2 rounded-lg hover:bg-slate-100" onClick={() => { setEditing(r); setOpen(true); }}>
-                    <Pencil size={16} />
-                  </button>
-                  <button className="p-2 rounded-lg hover:bg-slate-100 text-red-600" onClick={() => onDelete(id)}>
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </Td>
-            </tr>
-          );
+        {/* -------------------- MOBILE (cards/accordion) -------------------- */}
+        <div className="min-[1399px]:hidden">
+          {loading ? (
+            <div className="p-6 text-center text-slate-500">{L.table.loading}</div>
+          ) : rows.length === 0 ? (
+            <div className="p-6 text-center text-slate-500">{L.table.empty}</div>
+          ) : (
+            <div className="divide-y">
+              {rows.map((r) => {
+                const id = getId(r);
+                const isOpen = expandedId === id;
 
-          const detailsRow = expandedId === id ? (
-            <tr key={`${id}-details`}>
-              <td colSpan={13} className="bg-slate-50 border-t">
-                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
-                  <KV label={L.details.id} icon={Hash}>{id || L.table.dash}</KV>
-                  <KV label={L.details.no} icon={Hash}>{r.no || L.table.dash}</KV>
-                  <KV label={L.details.no2} icon={Hash}>{r.no2 || L.table.dash}</KV>
-                  <KV label={L.details.type} icon={Tag}>{typeChip(r.type)}</KV>
-                  <KV label={L.details.baseUnitOfMeasure} icon={Ruler}>{r.baseUnitOfMeasure || L.table.dash}</KV>
-                  <KV label={L.details.inventoryPostingGroup} icon={Boxes}>{r.inventoryPostingGroup || L.table.dash}</KV>
-                  <KV label={L.details.countryOfOrigin} icon={Globe}>{r.countryOfOrigin || L.table.dash}</KV>
-                  <KV label={L.details.unitPrice} icon={DollarSign}>{fmtPrice(r.unitPrice)}</KV>
-                  <KV label={L.details.active} icon={CheckCircle2}>{activeChip(r.active, L)}</KV>
-                  <div className="md:col-span-3">
-                    <KV label={L.details.description} icon={FileText}>{r.description || L.table.dash}</KV>
+                return (
+                  <div key={id} className="p-3">
+                    {/* Card header */}
+                    <div className="flex items-start gap-2">
+                      <button
+                        type="button"
+                        className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-slate-100"
+                        onClick={() => setExpandedId((cur) => (cur === id ? null : id))}
+                        aria-label={L.a11y.toggleDetails}
+                        title={L.a11y.toggleDetails}
+                      >
+                        {isOpen ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-mono text-sm truncate">{r.no || L.table.dash}</div>
+                            <div className="mt-1 flex items-center gap-2">
+                              {typeChip(r.type)}
+                              {activeChip(r.active, L)}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-slate-100"
+                              onClick={() => {
+                                setEditing(r);
+                                setOpen(true);
+                              }}
+                              title="Edit"
+                              aria-label="Edit"
+                            >
+                              <Pencil size={18} />
+                            </button>
+                            <button
+                              type="button"
+                              className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                              onClick={() => onDelete(id)}
+                              title="Delete"
+                              aria-label="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Summary fields */}
+                        <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-slate-700">
+                          <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                            <div className="text-slate-500">{L.table.description}</div>
+                            <div className="font-medium">
+                              <span className="block truncate" title={r.description}>
+                                {r.description || L.table.dash}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                              <div className="text-slate-500">{L.table.unitPrice}</div>
+                              <div className="font-medium whitespace-nowrap">{fmtPrice(r.unitPrice)}</div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                              <div className="text-slate-500">{L.table.created}</div>
+                              <div className="font-medium">
+                                {r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                              <div className="text-slate-500">{L.table.no2}</div>
+                              <div className="font-medium font-mono truncate">{r.no2 || L.table.dash}</div>
+                            </div>
+
+                            <div className="rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2">
+                              <div className="text-slate-500">{L.table.countryOfOrigin}</div>
+                              <div className="font-medium flex items-center gap-1 truncate">
+                                <Globe size={14} className="text-slate-400 shrink-0" />
+                                <span className="truncate">{r.countryOfOrigin || L.table.dash}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded details */}
+                    {isOpen && (
+                      <div className="mt-3">
+                        <div className="p-3 rounded-2xl border border-slate-200 bg-slate-50">
+                          <div className="grid grid-cols-1 gap-3 text-xs text-slate-700">
+                            <KV label={L.details.id} icon={Hash}>
+                              {id || L.table.dash}
+                            </KV>
+                            <KV label={L.details.no} icon={Hash}>
+                              {r.no || L.table.dash}
+                            </KV>
+                            <KV label={L.details.no2} icon={Hash}>
+                              {r.no2 || L.table.dash}
+                            </KV>
+                            <KV label={L.details.type} icon={Tag}>
+                              {typeChip(r.type)}
+                            </KV>
+                            <KV label={L.details.baseUnitOfMeasure} icon={Ruler}>
+                              {r.baseUnitOfMeasure || L.table.dash}
+                            </KV>
+                            <KV label={L.details.inventoryPostingGroup} icon={Boxes}>
+                              {r.inventoryPostingGroup || L.table.dash}
+                            </KV>
+                            <KV label={L.details.countryOfOrigin} icon={Globe}>
+                              {r.countryOfOrigin || L.table.dash}
+                            </KV>
+                            <KV label={L.details.unitPrice} icon={DollarSign}>
+                              {fmtPrice(r.unitPrice)}
+                            </KV>
+                            <KV label={L.details.active} icon={CheckCircle2}>
+                              {activeChip(r.active, L)}
+                            </KV>
+
+                            <div>
+                              <KV label={L.details.description} icon={FileText}>
+                                {r.description || L.table.dash}
+                              </KV>
+                            </div>
+
+                            <div>
+                              <KV label={L.details.description2} icon={FileText}>
+                                {r.description2 || L.table.dash}
+                              </KV>
+                            </div>
+
+                            <KV label={L.details.created} icon={Calendar}>
+                              {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
+                            </KV>
+                            <KV label={L.details.updated} icon={Calendar}>
+                              {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
+                            </KV>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="md:col-span-3">
-                    <KV label={L.details.description2} icon={FileText}>{r.description2 || L.table.dash}</KV>
-                  </div>
-                  <KV label={L.details.created} icon={Calendar}>
-                    {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
-                  </KV>
-                  <KV label={L.details.updated} icon={Calendar}>
-                    {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
-                  </KV>
-                </div>
-              </td>
-            </tr>
-          ) : null;
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-          return [mainRow, detailsRow].filter(Boolean);
-        })
-      )}
-    </tbody></table>
-</div>
+        {/* -------------------- DESKTOP (table) -------------------- */}
+        <div className="hidden min-[1399px]:block">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-slate-600">
+                <tr>
+                  {[
+                    <Th key="exp" />,
+                    <SortableTh key="no" id="no" {...{ sortBy, sortDir, onSort }} title={L.a11y.sort}>
+                      {L.table.no}
+                    </SortableTh>,
+                    <SortableTh key="no2" id="no2" {...{ sortBy, sortDir, onSort }} title={L.a11y.sort}>
+                      {L.table.no2}
+                    </SortableTh>,
+                    <SortableTh key="type" id="type" {...{ sortBy, sortDir, onSort }} title={L.a11y.sort}>
+                      {L.table.type}
+                    </SortableTh>,
+                    <SortableTh key="description" id="description" {...{ sortBy, sortDir, onSort }} title={L.a11y.sort}>
+                      {L.table.description}
+                    </SortableTh>,
+                    <SortableTh
+                      key="baseUnitOfMeasure"
+                      id="baseUnitOfMeasure"
+                      {...{ sortBy, sortDir, onSort }}
+                      title={L.a11y.sort}
+                    >
+                      {L.table.unit}
+                    </SortableTh>,
+                    <SortableTh
+                      key="inventoryPostingGroup"
+                      id="inventoryPostingGroup"
+                      {...{ sortBy, sortDir, onSort }}
+                      title={L.a11y.sort}
+                    >
+                      {L.table.ipg}
+                    </SortableTh>,
+                    <SortableTh
+                      key="countryOfOrigin"
+                      id="countryOfOrigin"
+                      {...{ sortBy, sortDir, onSort }}
+                      title={L.a11y.sort}
+                    >
+                      {L.table.countryOfOrigin}
+                    </SortableTh>,
+                    <SortableTh
+                      key="unitPrice"
+                      id="unitPrice"
+                      className="text-right"
+                      {...{ sortBy, sortDir, onSort }}
+                      title={L.a11y.sort}
+                    >
+                      {L.table.unitPrice}
+                    </SortableTh>,
+                    <SortableTh key="active" id="active" {...{ sortBy, sortDir, onSort }} title={L.a11y.sort}>
+                      {L.table.status}
+                    </SortableTh>,
+                    <SortableTh key="createdAt" id="createdAt" {...{ sortBy, sortDir, onSort }} title={L.a11y.sort}>
+                      {L.table.created}
+                    </SortableTh>,
+                    <Th key="actions" className="text-right">
+                      {L.table.actions}
+                    </Th>,
+                  ]}
+                </tr>
+              </thead>
 
-        {/* Footer / Pagination */}
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={13} className="p-6 text-center text-slate-500">
+                      {L.table.loading}
+                    </td>
+                  </tr>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="p-6 text-center text-slate-500">
+                      {L.table.empty}
+                    </td>
+                  </tr>
+                ) : (
+                  rows.flatMap((r) => {
+                    const id = getId(r);
+
+                    const mainRow = (
+                      <tr key={id} className="border-t">
+                        <Td className="w-8">
+                          <button
+                            className="p-1 rounded hover:bg-slate-100"
+                            onClick={() => setExpandedId((cur) => (cur === id ? null : id))}
+                            aria-label={L.a11y.toggleDetails}
+                            title={L.a11y.toggleDetails}
+                          >
+                            {expandedId === id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </button>
+                        </Td>
+                        <Td className="font-mono">{r.no}</Td>
+                        <Td className="font-mono">{r.no2 || L.table.dash}</Td>
+                        <Td>{typeChip(r.type)}</Td>
+                        <Td className="max-w-[340px] truncate" title={r.description}>
+                          {r.description || L.table.dash}
+                        </Td>
+                        <Td>{r.baseUnitOfMeasure || L.table.dash}</Td>
+                        <Td>{r.inventoryPostingGroup || L.table.dash}</Td>
+                        <Td className="flex items-center gap-1">
+                          <Globe size={14} className="text-slate-400" />
+                          {r.countryOfOrigin || L.table.dash}
+                        </Td>
+                        <Td className="text-right">{fmtPrice(r.unitPrice)}</Td>
+                        <Td>{activeChip(r.active, L)}</Td>
+                        <Td>{r.createdAt ? new Date(r.createdAt).toLocaleDateString(locale) : L.table.dash}</Td>
+                        <Td>
+                          <div className="flex justify-end gap-2 pr-3">
+                            <button
+                              className="p-2 rounded-lg hover:bg-slate-100"
+                              onClick={() => {
+                                setEditing(r);
+                                setOpen(true);
+                              }}
+                              aria-label="Edit"
+                              title="Edit"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              className="p-2 rounded-lg hover:bg-slate-100 text-red-600"
+                              onClick={() => onDelete(id)}
+                              aria-label="Delete"
+                              title="Delete"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </Td>
+                      </tr>
+                    );
+
+                    const detailsRow =
+                      expandedId === id ? (
+                        <tr key={`${id}-details`}>
+                          <td colSpan={13} className="bg-slate-50 border-t">
+                            <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-700">
+                              <KV label={L.details.id} icon={Hash}>
+                                {id || L.table.dash}
+                              </KV>
+                              <KV label={L.details.no} icon={Hash}>
+                                {r.no || L.table.dash}
+                              </KV>
+                              <KV label={L.details.no2} icon={Hash}>
+                                {r.no2 || L.table.dash}
+                              </KV>
+                              <KV label={L.details.type} icon={Tag}>
+                                {typeChip(r.type)}
+                              </KV>
+                              <KV label={L.details.baseUnitOfMeasure} icon={Ruler}>
+                                {r.baseUnitOfMeasure || L.table.dash}
+                              </KV>
+                              <KV label={L.details.inventoryPostingGroup} icon={Boxes}>
+                                {r.inventoryPostingGroup || L.table.dash}
+                              </KV>
+                              <KV label={L.details.countryOfOrigin} icon={Globe}>
+                                {r.countryOfOrigin || L.table.dash}
+                              </KV>
+                              <KV label={L.details.unitPrice} icon={DollarSign}>
+                                {fmtPrice(r.unitPrice)}
+                              </KV>
+                              <KV label={L.details.active} icon={CheckCircle2}>
+                                {activeChip(r.active, L)}
+                              </KV>
+                              <div className="md:col-span-3">
+                                <KV label={L.details.description} icon={FileText}>
+                                  {r.description || L.table.dash}
+                                </KV>
+                              </div>
+                              <div className="md:col-span-3">
+                                <KV label={L.details.description2} icon={FileText}>
+                                  {r.description2 || L.table.dash}
+                                </KV>
+                              </div>
+                              <KV label={L.details.created} icon={Calendar}>
+                                {r.createdAt ? new Date(r.createdAt).toLocaleString(locale) : L.table.dash}
+                              </KV>
+                              <KV label={L.details.updated} icon={Calendar}>
+                                {r.updatedAt ? new Date(r.updatedAt).toLocaleString(locale) : L.table.dash}
+                              </KV>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : null;
+
+                    return [mainRow, detailsRow].filter(Boolean);
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* -------------------- Footer / Pagination (shared) -------------------- */}
         <div className="flex items-center justify-between px-4 py-3 border-t bg-slate-50">
           <div className="text-xs text-slate-500">{L.footer.meta(data.total, data.page, data.pages)}</div>
           <div className="flex items-center gap-2">
@@ -700,13 +965,10 @@ function Modal({ children, onClose, title = "Item", fullscreen = false, backdrop
 
   const containerCls = [
     "relative bg-white shadow-xl border border-slate-200",
-    isFull ? "w-screen h-screen max-w-none rounded-none"
-           : "w-full max-w-3xl rounded-2xl",
+    isFull ? "w-screen h-screen max-w-none rounded-none" : "w-full max-w-3xl rounded-2xl",
   ].join(" ");
 
-  const bodyCls = isFull
-    ? "p-4 h-[calc(100vh-52px)] overflow-auto" // ~52px top bar
-    : "p-4 max-h-[75vh] overflow-auto";
+  const bodyCls = isFull ? "p-4 h-[calc(100vh-52px)] overflow-auto" : "p-4 max-h-[75vh] overflow-auto";
 
   return (
     <div
@@ -732,12 +994,7 @@ function Modal({ children, onClose, title = "Item", fullscreen = false, backdrop
             >
               {isFull ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded hover:bg-slate-100"
-              title="Close"
-              aria-label="Close"
-            >
+            <button onClick={onClose} className="p-2 rounded hover:bg-slate-100" title="Close" aria-label="Close">
               <X size={18} />
             </button>
           </div>
@@ -748,7 +1005,6 @@ function Modal({ children, onClose, title = "Item", fullscreen = false, backdrop
     </div>
   );
 }
-
 
 /* ---------- Helpers ---------- */
 function typeChip(typeRaw) {
@@ -763,13 +1019,10 @@ function activeChip(on, L) {
   return (
     <span
       className={`px-2 py-1 rounded text-xs font-semibold ${
-        on
-          ? "bg-green-50 text-green-700 border border-green-200"
-          : "bg-slate-100 text-slate-700 border border-slate-200"
+        on ? "bg-green-50 text-green-700 border border-green-200" : "bg-slate-100 text-slate-700 border border-slate-200"
       }`}
     >
-           {on ? (L?.controls?.statuses?.active ?? "Active")
-          : (L?.controls?.statuses?.inactive ?? "Inactive")}
+      {on ? L?.controls?.statuses?.active ?? "Active" : L?.controls?.statuses?.inactive ?? "Inactive"}
     </span>
   );
 }
@@ -783,7 +1036,7 @@ function fmtPrice(v) {
   return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/* ---------- Form (NEW field wired) ---------- */
+/* ---------- Form ---------- */
 function ItemForm({ initial, onSubmit, onCancel, L }) {
   const isEdit = Boolean(initial && (initial._id || initial.id));
 
@@ -794,7 +1047,7 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
   const [description2, setDescription2] = useState(initial?.description2 || "");
   const [baseUnitOfMeasure, setBaseUnitOfMeasure] = useState(initial?.baseUnitOfMeasure || "");
   const [inventoryPostingGroup, setInventoryPostingGroup] = useState(initial?.inventoryPostingGroup || "");
-  const [countryOfOrigin, setCountryOfOrigin] = useState(initial?.countryOfOrigin || ""); // NEW
+  const [countryOfOrigin, setCountryOfOrigin] = useState(initial?.countryOfOrigin || "");
   const [unitPrice, setUnitPrice] = useState(initial?.unitPrice ?? 0);
   const [active, setActive] = useState(initial?.active ?? true);
 
@@ -812,7 +1065,7 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
       description2: description2.trim() || null,
       baseUnitOfMeasure: baseUnitOfMeasure.trim() || null,
       inventoryPostingGroup: inventoryPostingGroup.trim() || null,
-      countryOfOrigin: countryOfOrigin.trim() || null, // NEW
+      countryOfOrigin: countryOfOrigin.trim() || null,
       unitPrice: Number(unitPrice) || 0,
       active: Boolean(active),
     };
@@ -867,7 +1120,6 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
           />
         </Field>
 
-        {/* NEW: Country of Origin */}
         <Field label={L.modal.fields.countryOfOrigin} icon={Globe}>
           <input
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
@@ -942,11 +1194,9 @@ function ItemForm({ initial, onSubmit, onCancel, L }) {
 function Field({ label, icon: Icon, error, children }) {
   const child = React.isValidElement(children)
     ? React.cloneElement(children, {
-        className: [
-          children.props.className || "",
-          Icon ? " pl-9" : "",
-          error ? " border-red-300 focus:border-red-400" : "",
-        ].join(" "),
+        className: [children.props.className || "", Icon ? " pl-9" : "", error ? " border-red-300 focus:border-red-400" : ""].join(
+          " "
+        ),
       })
     : children;
 
@@ -958,10 +1208,7 @@ function Field({ label, icon: Icon, error, children }) {
       </div>
       <div className="relative">
         {Icon && (
-          <Icon
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-          />
+          <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         )}
         {child}
       </div>

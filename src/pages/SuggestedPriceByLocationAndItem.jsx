@@ -319,7 +319,9 @@ function LookupInput({
                     {i18n?.clear || "Clear"}
                   </button>
                 )}
-                {loading ? <span className="text-xs text-slate-400">{i18n?.loading || "Loading…"}</span> : null}
+                {loading ? (
+                  <span className="text-xs text-slate-400">{i18n?.loading || "Loading…"}</span>
+                ) : null}
               </div>
             </div>
 
@@ -370,7 +372,6 @@ function LookupInput({
     </div>
   );
 }
-
 
 /* ===================== Calculation overlay ===================== */
 function CalculationOverlay({ open, title, subtitle, steps = [] }) {
@@ -505,6 +506,13 @@ export default function SuggestedPriceByLocationAndItem() {
     close: SP.close || "Close",
     clear: SP.clear || "Clear",
     noResults: SP.noResults || "No results",
+
+    // mobile UX
+    advanced: SP.advanced || "Advanced",
+    show: SP.show || "Show",
+    hide: SP.hide || "Hide",
+    tabRecords: SP.tabRecords || "Records",
+    tabHistory: SP.tabHistory || "History",
   };
 
   const [location, setLocation] = useState(null); // destination (saved in history)
@@ -557,6 +565,10 @@ export default function SuggestedPriceByLocationAndItem() {
   const [histOnlyMine, setHistOnlyMine] = useState(true);
   const [histPercentile, setHistPercentile] = useState("");
 
+  // ✅ mobile UX
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [mobileTab, setMobileTab] = useState("records"); // records | history
+
   const debouncedLocSearch = useMemo(
     () =>
       debounce(async (q) => {
@@ -586,7 +598,7 @@ export default function SuggestedPriceByLocationAndItem() {
       debounce(async (q) => {
         setItemLoading(true);
         try {
-          // ✅ (recommended) backend typically expects "query"
+          // ✅ backend expects "query"
           const url = `${API}/api/mitems?query=${encodeURIComponent(q)}&page=1&limit=10`;
           const res = await fetch(url, { credentials: "include" });
           const json = await safeJson(res, url);
@@ -975,7 +987,6 @@ export default function SuggestedPriceByLocationAndItem() {
     } catch (e) {
       setErrMsg(e?.message || (SP.calculationFailed || "Calculation failed"));
     } finally {
-      // allow overlay to show "Done." briefly (optional)
       setTimeout(() => {
         setCalcStage("");
         setCalculating(false);
@@ -993,6 +1004,10 @@ export default function SuggestedPriceByLocationAndItem() {
   const costModeLabel = costMode === "minus" ? SP.costModeMinus || "Price − costs" : SP.costModePlus || "Price + costs";
   const metricLabel = `${metricLabelBase} (${costModeLabel})`;
 
+  // ✅ responsive table cell paddings (slightly tighter on small screens)
+  const TH = "[&>th]:px-2 sm:[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold";
+  const TD = "px-2 sm:px-3 py-2";
+
   return (
     <div className="w-full h-full min-h-0 max-w-none flex flex-col gap-4">
       {errMsg ? (
@@ -1000,13 +1015,11 @@ export default function SuggestedPriceByLocationAndItem() {
       ) : null}
 
       {/* topbar */}
-      <div className="flex flex-wrap items-center justify-between text-xs text-slate-600">
+      <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
         <div>
           {TXT.lastUpdate}: <b>{lastUpdated ? lastUpdated.toLocaleTimeString(locale) : "—"}</b>
         </div>
         <div className="flex items-center gap-3">
-
-
           <button
             type="button"
             onClick={() => {
@@ -1018,6 +1031,8 @@ export default function SuggestedPriceByLocationAndItem() {
               setLastUpdated(null);
               setRowsSearch("");
               setHistQ("");
+              setShowAdvanced(false);
+              setMobileTab("records");
               loadHistory(1);
             }}
             className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50"
@@ -1028,7 +1043,7 @@ export default function SuggestedPriceByLocationAndItem() {
       </div>
 
       {/* main card fills space */}
-      <div className="relative w-full flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white overflow-visible flex flex-col">
+<div className="relative w-full flex-1 min-h-0 rounded-2xl border border-slate-200 bg-white overflow-hidden flex flex-col">
         {/* ✅ overlay while calculating */}
         <CalculationOverlay
           open={calculating}
@@ -1044,7 +1059,7 @@ export default function SuggestedPriceByLocationAndItem() {
 
         {/* header */}
         <div className="px-4 py-3 border-b bg-slate-50">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <h3 className="font-semibold inline-flex items-center gap-2">
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-slate-100">
                 <Calculator size={14} className="text-slate-600" />
@@ -1052,7 +1067,8 @@ export default function SuggestedPriceByLocationAndItem() {
               {TXT.cardTitle}
             </h3>
 
-            <div className="flex items-center gap-2">
+            {/* ✅ chips wrap nicely on small screens */}
+            <div className="flex flex-wrap items-center gap-2">
               <StatChip icon={Package} label={TXT.item.toUpperCase()} value={item?.no || "—"} />
               <StatChip icon={MapPin} label={TXT.location.toUpperCase()} value={location?.no || "—"} />
             </div>
@@ -1063,6 +1079,7 @@ export default function SuggestedPriceByLocationAndItem() {
 
         {/* filters */}
         <div className="px-4 py-3 border-b bg-white">
+          {/* lookups */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <LookupInput
               icon={MapPin}
@@ -1109,66 +1126,81 @@ export default function SuggestedPriceByLocationAndItem() {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 mt-3">
-            <div>
-              <div className="text-xs text-slate-600 mb-1">{TXT.metric}</div>
-              <select
-                value={metric}
-                onChange={(e) => setMetric(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
-              >
-                <option value="unitPrice">{SP.metricUnitPrice || "Unit Price"}</option>
-                <option value="lineValuePerUnit">{SP.metricLineValuePerUnit || "Line Value / Qty"}</option>
-                <option value="lineValue">{SP.metricLineValue || "Line Value"}</option>
-              </select>
-            </div>
+          {/* ✅ Mobile: Advanced toggle */}
+          <div className="mt-3 flex items-center justify-between lg:hidden">
+            <div className="text-xs text-slate-600">{TXT.advanced}</div>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:bg-slate-50"
+            >
+              {showAdvanced ? TXT.hide : TXT.show}
+            </button>
+          </div>
 
-            <div>
-              <div className="text-xs text-slate-600 mb-1">{TXT.costMode}</div>
-              <select
-                value={costMode}
-                onChange={(e) => setCostMode(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
-              >
-                <option value="plus">{TXT.costModePlus}</option>
-                <option value="minus">{TXT.costModeMinus}</option>
-              </select>
-            </div>
+          {/* Advanced controls (always visible on lg+) */}
+          <div className={[ "mt-3", "lg:block", showAdvanced ? "block" : "hidden" ].join(" ")}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div>
+                <div className="text-xs text-slate-600 mb-1">{TXT.metric}</div>
+                <select
+                  value={metric}
+                  onChange={(e) => setMetric(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  <option value="unitPrice">{SP.metricUnitPrice || "Unit Price"}</option>
+                  <option value="lineValuePerUnit">{SP.metricLineValuePerUnit || "Line Value / Qty"}</option>
+                  <option value="lineValue">{SP.metricLineValue || "Line Value"}</option>
+                </select>
+              </div>
 
-            <div>
-              <div className="text-xs text-slate-600 mb-1">{TXT.percentile}</div>
-              <select
-                value={String(pct)}
-                onChange={(e) => setPct(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
-              >
-                <option value={0.5}>P50</option>
-                <option value={0.7}>P70</option>
-                <option value={0.8}>P80</option>
-                <option value={0.9}>P90</option>
-              </select>
-            </div>
+              <div>
+                <div className="text-xs text-slate-600 mb-1">{TXT.costMode}</div>
+                <select
+                  value={costMode}
+                  onChange={(e) => setCostMode(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  <option value="plus">{TXT.costModePlus}</option>
+                  <option value="minus">{TXT.costModeMinus}</option>
+                </select>
+              </div>
 
-            <div>
-              <div className="text-xs text-slate-600 mb-1">{TXT.statusOptional}</div>
-              <input
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                placeholder={TXT.statusPlaceholder}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none"
-              />
-            </div>
+              <div>
+                <div className="text-xs text-slate-600 mb-1">{TXT.percentile}</div>
+                <select
+                  value={String(pct)}
+                  onChange={(e) => setPct(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                >
+                  <option value={0.5}>P50</option>
+                  <option value={0.7}>P70</option>
+                  <option value={0.8}>P80</option>
+                  <option value={0.9}>P90</option>
+                </select>
+              </div>
 
-            <div>
-              <div className="text-xs text-slate-600 mb-1">{TXT.maxRows}</div>
-              <input
-                type="number"
-                min={500}
-                step={500}
-                value={cap}
-                onChange={(e) => setCap(Math.max(500, Number(e.target.value) || 10000))}
-                className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none"
-              />
+              <div>
+                <div className="text-xs text-slate-600 mb-1">{TXT.statusOptional}</div>
+                <input
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  placeholder={TXT.statusPlaceholder}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs text-slate-600 mb-1">{TXT.maxRows}</div>
+                <input
+                  type="number"
+                  min={500}
+                  step={500}
+                  value={cap}
+                  onChange={(e) => setCap(Math.max(500, Number(e.target.value) || 10000))}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none"
+                />
+              </div>
             </div>
           </div>
 
@@ -1205,13 +1237,13 @@ export default function SuggestedPriceByLocationAndItem() {
         </div>
 
         {/* content area fills remaining height, no page scroll */}
-        <div className="px-4 py-3 bg-white flex-1 min-h-0 overflow-hidden flex flex-col gap-4">
+<div className="px-4 py-3 bg-white flex-1 min-h-0 flex flex-col gap-4 overflow-y-auto xl:overflow-hidden">
           {/* result */}
           {!result ? (
             <div className="text-sm text-slate-500">{TXT.noResultYet}</div>
           ) : (
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <div className="text-sm">
                   {TXT.suggestedPrice}:{" "}
                   <span className="font-semibold text-slate-900">
@@ -1220,25 +1252,29 @@ export default function SuggestedPriceByLocationAndItem() {
                 </div>
                 <div className="text-xs text-slate-500">
                   {TXT.rowsUsed}: <b>{fmtNum(result.count || 0, locale)}</b> · {TXT.metric}: <b>{metricLabel}</b> ·{" "}
-                  {TXT.percentile}: <b>{Math.round(result.percentile * 100)}%</b> · {TXT.method}: <b>{TXT.nearestRank}</b>
+                  {TXT.percentile}: <b>{Math.round(result.percentile * 100)}%</b> · {TXT.method}:{" "}
+                  <b>{TXT.nearestRank}</b>
                 </div>
               </div>
 
               {result.stats ? (
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                  {[
-                    [TXT.min, result.stats.min],
-                    [TXT.avg, result.stats.avg],
-                    [TXT.p50, result.stats.p50],
-                    ["P" + Math.round(pct * 100), result.stats.p70],
-                    [TXT.p90, result.stats.p90],
-                    [TXT.max, result.stats.max],
-                  ].map(([k, v]) => (
-                    <div key={k} className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                      <div className="text-[10px] uppercase tracking-wide text-slate-500">{k}</div>
-                      <div className="text-sm font-semibold text-slate-900">{fmtMoney(v, locale, "PLN")}</div>
-                    </div>
-                  ))}
+                // ✅ Mobile-friendly: allow horizontal scroll instead of forcing 6 columns
+                <div className="overflow-x-auto -mx-1 px-1">
+                  <div className="min-w-[520px] grid grid-cols-2 md:grid-cols-6 gap-3">
+                    {[
+                      [TXT.min, result.stats.min],
+                      [TXT.avg, result.stats.avg],
+                      [TXT.p50, result.stats.p50],
+                      ["P" + Math.round(pct * 100), result.stats.p70],
+                      [TXT.p90, result.stats.p90],
+                      [TXT.max, result.stats.max],
+                    ].map(([k, v]) => (
+                      <div key={k} className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500">{k}</div>
+                        <div className="text-sm font-semibold text-slate-900">{fmtMoney(v, locale, "PLN")}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <div className="text-sm text-slate-500">{SP.noUsableValues || "No usable values found."}</div>
@@ -1246,252 +1282,300 @@ export default function SuggestedPriceByLocationAndItem() {
             </div>
           )}
 
-          {/* two panels side-by-side on wide screens: Records used + History */}
-          <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-2 gap-4 overflow-hidden">
-            {/* Records used */}
-            <div className="flex flex-col min-h-0">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="text-sm font-semibold text-slate-900">{TXT.recordsUsed}</div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      value={rowsSearch}
-                      onChange={(e) => setRowsSearch(e.target.value)}
-                      placeholder={TXT.searchRecords}
-                      className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none"
-                    />
-                  </div>
-                  <select
-                    value={rowsLimit}
-                    onChange={(e) => setRowsLimit(Number(e.target.value))}
-                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
-                  >
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value={200}>200</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
-                <div className="overflow-auto flex-1 min-h-0">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-600">
-                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
-                        <th>{TXT.thDate}</th>
-                        <th>{TXT.thDocument}</th>
-                        <th>{TXT.thLine}</th>
-                        <th>{TXT.thBlock}</th>
-                        <th>{TXT.thStatus}</th>
-                        <th className="text-right">{TXT.thValueUsed}</th>
-                        <th className="text-right">{TXT.thUnitPrice}</th>
-                        <th className="text-right">{TXT.thQty}</th>
-                        <th className="text-right">{TXT.thLineValue}</th>
-                        <th>{TXT.thLocation}</th>
-                        <th>{TXT.thCity}</th>
-                        <th className="text-right">{TXT.thDistanceKm}</th>
-                        <th className="text-right">{TXT.thCostPerTon}</th>
-                        <th className="text-right">{TXT.thTotalCost}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-slate-800">
-                      {filteredTableRows.length === 0 ? (
-                        <tr>
-                          <td className="px-3 py-3 text-slate-500" colSpan={14}>
-                            {TXT.noRows}
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredTableRows.map((r) => (
-                          <tr key={r.id || r._id || `${r.documentNo}-${r.lineNo}-${r.block}`} className="border-t">
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-slate-500">
-                              {r.__createdAt ? new Date(r.__createdAt).toLocaleString(locale) : "—"}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">{r.documentNo || "—"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{r.lineNo ?? "—"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{r.block ?? "—"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{r.status || "—"}</td>
-
-                            <td className="px-3 py-2 text-right font-semibold">
-                              {fmtMoney(round2(r.__valueUsed), locale, "PLN")}
-                            </td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(round2(r.__unitPrice), locale, "PLN")}</td>
-                            <td className="px-3 py-2 text-right">{fmtNum(r.__qty, locale)}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(round2(r.__lineValue), locale, "PLN")}</td>
-
-                            <td className="px-3 py-2 whitespace-nowrap">{r.locationNo || "—"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{r.locationCity || "—"}</td>
-
-                            <td className="px-3 py-2 text-right">
-                              {Number.isFinite(r.__distanceKm) ? fmtNum(round2(r.__distanceKm), locale) : "—"}
-                            </td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(round2(r.__costPerTon || 0), locale, "PLN")}</td>
-                            <td className="px-3 py-2 text-right">{fmtMoney(round2(r.__totalCostAbs || 0), locale, "PLN")}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="px-3 py-2 bg-white border-t text-xs text-slate-500 flex flex-wrap justify-between gap-2">
-                  <div>
-                    {(SP.showing || "Showing")} <b>{filteredTableRows.length}</b> {(SP.of || "of")} <b>{usedRows.length}</b>{" "}
-                    {(SP.usedRows || "used rows")}
-                  </div>
-                  <div>
-                    {(SP.filters || "Filters")}: itemNo=<b>{item?.no || "—"}</b>
-                    {status ? (
-                      <>
-                        , status=<b>{status}</b>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
+          {/* ✅ Mobile: tabs; Desktop: 2 columns */}
+          <div className="flex-1 min-h-0 xl:overflow-hidden">
+            {/* Mobile tabs header */}
+            <div className="xl:hidden mb-3 flex rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setMobileTab("records")}
+                className={[
+                  "flex-1 px-3 py-2 text-sm font-semibold transition-colors",
+                  mobileTab === "records" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-50",
+                ].join(" ")}
+              >
+                {TXT.tabRecords}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab("history")}
+                className={[
+                  "flex-1 px-3 py-2 text-sm font-semibold transition-colors",
+                  mobileTab === "history" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-50",
+                ].join(" ")}
+              >
+                {TXT.tabHistory}
+              </button>
             </div>
 
-            {/* History */}
-            <div className="flex flex-col min-h-0">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <div className="text-sm font-semibold text-slate-900">{TXT.history}</div>
-
-                <div className="flex items-center gap-2">
-                  <label className="inline-flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      className="accent-slate-700"
-                      checked={histOnlyMine}
-                      onChange={(e) => setHistOnlyMine(e.target.checked)}
-                    />
-                    {TXT.onlyMine}
-                  </label>
-
-                  <select
-                    value={histPercentile}
-                    onChange={(e) => setHistPercentile(e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
-                  >
-                    <option value="">{TXT.allPercentiles}</option>
-                    <option value="0.5">P50</option>
-                    <option value="0.7">P70</option>
-                    <option value="0.8">P80</option>
-                    <option value="0.9">P90</option>
-                  </select>
-
-                  <div className="relative">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      value={histQ}
-                      onChange={(e) => setHistQ(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && loadHistory(1)}
-                      placeholder={TXT.searchHistory}
-                      className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none"
-                    />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => loadHistory(1)}
-                    className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm"
-                  >
-                    {TXT.refresh}
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
-                <div className="overflow-auto flex-1 min-h-0">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 text-slate-600">
-                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:font-semibold">
-                        <th>{TXT.thDate}</th>
-                        <th>{TXT.thUser}</th>
-                        <th>{TXT.item}</th>
-                        <th>{TXT.thDestination}</th>
-                        <th className="text-right">{TXT.thSuggested}</th>
-                        <th>{TXT.percentile}</th>
-                        <th>{TXT.metric}</th>
-                        <th className="text-right">{TXT.thSamples}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-slate-800">
-                      {histLoading ? (
-                        <tr>
-                          <td colSpan={8} className="px-3 py-3 text-slate-500">
-                            {TXT.loading}
-                          </td>
-                        </tr>
-                      ) : history.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="px-3 py-3 text-slate-500">
-                            {SP.noHistory || "No history"}
-                          </td>
-                        </tr>
-                      ) : (
-                        history.map((h) => (
-                          <tr key={h._id} className="border-t">
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-slate-500">
-                              {h.createdAt ? new Date(h.createdAt).toLocaleString(locale) : "—"}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">{h.userEmail || "—"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{h.itemNo || "—"}</td>
-                            <td className="px-3 py-2 whitespace-nowrap">{h.locationNo || "—"}</td>
-                            <td className="px-3 py-2 text-right font-semibold">
-                              {fmtMoney(Number(h.suggestedPrice || 0), locale, "PLN")}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
-                              {h.percentile != null ? `P${Math.round(Number(h.percentile) * 100)}` : "—"}
-                            </td>
-                            <td className="px-3 py-2 whitespace-nowrap">{h.metric || "—"}</td>
-                            <td className="px-3 py-2 text-right">{fmtNum(Number(h.sampleCount || 0), locale)}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="px-3 py-2 bg-white border-t text-xs text-slate-500 flex flex-wrap justify-between gap-2">
-                  <div>
-                    {(SP.page || "Page")} <b>{histPage}</b> / <b>{histPages}</b>
-                  </div>
+  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:overflow-hidden xl:h-full">              {/* Records used */}
+              <div className={["flex flex-col min-h-0", "xl:flex", mobileTab === "records" ? "flex" : "hidden xl:flex"].join(" ")}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div className="text-sm font-semibold text-slate-900">{TXT.recordsUsed}</div>
                   <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        value={rowsSearch}
+                        onChange={(e) => setRowsSearch(e.target.value)}
+                        placeholder={TXT.searchRecords}
+                        className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none w-[210px] sm:w-auto"
+                      />
+                    </div>
                     <select
-                      value={histLimit}
-                      onChange={(e) => setHistLimit(Number(e.target.value))}
-                      className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs"
+                      value={rowsLimit}
+                      onChange={(e) => setRowsLimit(Number(e.target.value))}
+                      className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
                     >
-                      <option value={10}>10</option>
                       <option value={25}>25</option>
                       <option value={50}>50</option>
                       <option value={100}>100</option>
+                      <option value={200}>200</option>
                     </select>
+                  </div>
+                </div>
 
-                    <button
-                      type="button"
-                      onClick={() => loadHistory(Math.max(1, histPage - 1))}
-                      disabled={histPage <= 1}
-                      className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs disabled:opacity-50"
-                    >
-                      {TXT.prev}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => loadHistory(Math.min(histPages, histPage + 1))}
-                      disabled={histPage >= histPages}
-                      className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs disabled:opacity-50"
-                    >
-                      {TXT.next}
-                    </button>
+                <div className="rounded-xl border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
+                  {/* ✅ horizontal scroll on small screens */}
+                 <div className="overflow-x-auto xl:overflow-auto flex-1 min-h-0">
+                    <div className="min-w-[980px] sm:min-w-[1120px]">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr className={TH}>
+                            <th>{TXT.thDate}</th>
+                            <th>{TXT.thDocument}</th>
+                            <th>{TXT.thLine}</th>
+                            <th>{TXT.thBlock}</th>
+                            <th>{TXT.thStatus}</th>
+                            <th className="text-right">{TXT.thValueUsed}</th>
+
+                            {/* ✅ hide heavy columns on small screens */}
+                            <th className="text-right hidden lg:table-cell">{TXT.thUnitPrice}</th>
+                            <th className="text-right hidden lg:table-cell">{TXT.thQty}</th>
+                            <th className="text-right hidden lg:table-cell">{TXT.thLineValue}</th>
+
+                            <th className="hidden md:table-cell">{TXT.thLocation}</th>
+                            <th className="hidden md:table-cell">{TXT.thCity}</th>
+
+                            <th className="text-right hidden xl:table-cell">{TXT.thDistanceKm}</th>
+                            <th className="text-right hidden xl:table-cell">{TXT.thCostPerTon}</th>
+                            <th className="text-right hidden xl:table-cell">{TXT.thTotalCost}</th>
+                          </tr>
+                        </thead>
+
+                        <tbody className="text-slate-800">
+                          {filteredTableRows.length === 0 ? (
+                            <tr>
+                              <td className="px-3 py-3 text-slate-500" colSpan={14}>
+                                {TXT.noRows}
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredTableRows.map((r) => (
+                              <tr key={r.id || r._id || `${r.documentNo}-${r.lineNo}-${r.block}`} className="border-t">
+                                <td className={`${TD} whitespace-nowrap text-xs text-slate-500`}>
+                                  {r.__createdAt ? new Date(r.__createdAt).toLocaleString(locale) : "—"}
+                                </td>
+                                <td className={`${TD} whitespace-nowrap`}>{r.documentNo || "—"}</td>
+                                <td className={`${TD} whitespace-nowrap`}>{r.lineNo ?? "—"}</td>
+                                <td className={`${TD} whitespace-nowrap`}>{r.block ?? "—"}</td>
+                                <td className={`${TD} whitespace-nowrap`}>{r.status || "—"}</td>
+
+                                <td className={`${TD} text-right font-semibold`}>
+                                  {fmtMoney(round2(r.__valueUsed), locale, "PLN")}
+                                </td>
+
+                                <td className={`${TD} text-right hidden lg:table-cell`}>
+                                  {fmtMoney(round2(r.__unitPrice), locale, "PLN")}
+                                </td>
+                                <td className={`${TD} text-right hidden lg:table-cell`}>{fmtNum(r.__qty, locale)}</td>
+                                <td className={`${TD} text-right hidden lg:table-cell`}>
+                                  {fmtMoney(round2(r.__lineValue), locale, "PLN")}
+                                </td>
+
+                                <td className={`${TD} whitespace-nowrap hidden md:table-cell`}>{r.locationNo || "—"}</td>
+                                <td className={`${TD} whitespace-nowrap hidden md:table-cell`}>{r.locationCity || "—"}</td>
+
+                                <td className={`${TD} text-right hidden xl:table-cell`}>
+                                  {Number.isFinite(r.__distanceKm) ? fmtNum(round2(r.__distanceKm), locale) : "—"}
+                                </td>
+                                <td className={`${TD} text-right hidden xl:table-cell`}>
+                                  {fmtMoney(round2(r.__costPerTon || 0), locale, "PLN")}
+                                </td>
+                                <td className={`${TD} text-right hidden xl:table-cell`}>
+                                  {fmtMoney(round2(r.__totalCostAbs || 0), locale, "PLN")}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-2 bg-white border-t text-xs text-slate-500 flex flex-wrap justify-between gap-2">
+                    <div>
+                      {(SP.showing || "Showing")} <b>{filteredTableRows.length}</b> {(SP.of || "of")}{" "}
+                      <b>{usedRows.length}</b> {(SP.usedRows || "used rows")}
+                    </div>
+                    <div className="truncate max-w-full">
+                      {(SP.filters || "Filters")}: itemNo=<b>{item?.no || "—"}</b>
+                      {status ? (
+                        <>
+                          , status=<b>{status}</b>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* History */}
+              <div className={["flex flex-col min-h-0", "xl:flex", mobileTab === "history" ? "flex" : "hidden xl:flex"].join(" ")}>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div className="text-sm font-semibold text-slate-900">{TXT.history}</div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        className="accent-slate-700"
+                        checked={histOnlyMine}
+                        onChange={(e) => setHistOnlyMine(e.target.checked)}
+                      />
+                      {TXT.onlyMine}
+                    </label>
+
+                    <select
+                      value={histPercentile}
+                      onChange={(e) => setHistPercentile(e.target.value)}
+                      className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm"
+                    >
+                      <option value="">{TXT.allPercentiles}</option>
+                      <option value="0.5">P50</option>
+                      <option value="0.7">P70</option>
+                      <option value="0.8">P80</option>
+                      <option value="0.9">P90</option>
+                    </select>
+
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        value={histQ}
+                        onChange={(e) => setHistQ(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && loadHistory(1)}
+                        placeholder={TXT.searchHistory}
+                        className="pl-9 pr-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none w-[210px] sm:w-auto"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => loadHistory(1)}
+                      className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-sm"
+                    >
+                      {TXT.refresh}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
+                  {/* ✅ horizontal scroll on small screens */}
+                  <div className="overflow-x-auto xl:overflow-auto flex-1 min-h-0">
+                    <div className="min-w-[860px]">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 text-slate-600">
+                          <tr className={TH}>
+                            <th>{TXT.thDate}</th>
+                            <th className="hidden md:table-cell">{TXT.thUser}</th>
+                            <th>{TXT.item}</th>
+                            <th>{TXT.thDestination}</th>
+                            <th className="text-right">{TXT.thSuggested}</th>
+                            <th>{TXT.percentile}</th>
+                            <th className="hidden lg:table-cell">{TXT.metric}</th>
+                            <th className="text-right hidden md:table-cell">{TXT.thSamples}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-slate-800">
+                          {histLoading ? (
+                            <tr>
+                              <td colSpan={8} className="px-3 py-3 text-slate-500">
+                                {TXT.loading}
+                              </td>
+                            </tr>
+                          ) : history.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-3 py-3 text-slate-500">
+                                {SP.noHistory || "No history"}
+                              </td>
+                            </tr>
+                          ) : (
+                            history.map((h) => (
+                              <tr key={h._id} className="border-t">
+                                <td className={`${TD} whitespace-nowrap text-xs text-slate-500`}>
+                                  {h.createdAt ? new Date(h.createdAt).toLocaleString(locale) : "—"}
+                                </td>
+                                <td className={`${TD} whitespace-nowrap hidden md:table-cell`}>{h.userEmail || "—"}</td>
+                                <td className={`${TD} whitespace-nowrap`}>{h.itemNo || "—"}</td>
+                                <td className={`${TD} whitespace-nowrap`}>{h.locationNo || "—"}</td>
+                                <td className={`${TD} text-right font-semibold`}>
+                                  {fmtMoney(Number(h.suggestedPrice || 0), locale, "PLN")}
+                                </td>
+                                <td className={`${TD} whitespace-nowrap`}>
+                                  {h.percentile != null ? `P${Math.round(Number(h.percentile) * 100)}` : "—"}
+                                </td>
+                                <td className={`${TD} whitespace-nowrap hidden lg:table-cell`}>{h.metric || "—"}</td>
+                                <td className={`${TD} text-right hidden md:table-cell`}>
+                                  {fmtNum(Number(h.sampleCount || 0), locale)}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="px-3 py-2 bg-white border-t text-xs text-slate-500 flex flex-wrap justify-between gap-2">
+                    <div>
+                      {(SP.page || "Page")} <b>{histPage}</b> / <b>{histPages}</b>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={histLimit}
+                        onChange={(e) => setHistLimit(Number(e.target.value))}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white text-xs"
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => loadHistory(Math.max(1, histPage - 1))}
+                        disabled={histPage <= 1}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs disabled:opacity-50"
+                      >
+                        {TXT.prev}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadHistory(Math.min(histPages, histPage + 1))}
+                        disabled={histPage >= histPages}
+                        className="px-2 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs disabled:opacity-50"
+                      >
+                        {TXT.next}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* end History */}
             </div>
           </div>
-          {/* end two panels */}
+          {/* end responsive panels */}
         </div>
       </div>
     </div>

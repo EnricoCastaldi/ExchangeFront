@@ -234,7 +234,7 @@ export default function Locations() {
   const onDelete = async (id) => {
     if (!window.confirm(L.alerts.deleteConfirm)) return;
     try {
-      const res = await fetch(`${API}/api/mlocations/${id}`, {
+      const res = await fetch(`${API}/api/mlocations/${id}`, { 
         method: "DELETE",
       });
       if (res.status === 204) {
