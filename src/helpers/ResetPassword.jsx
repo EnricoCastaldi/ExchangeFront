@@ -26,21 +26,24 @@ const T = {
 };
 
 export default function ResetPassword({ onCancel, onSuccess }) {
-  // language
   const [lang, setLang] = useState(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("lang") : null;
     return saved === "en" || saved === "pl" ? saved : "pl";
   });
-  useEffect(() => { localStorage.setItem("lang", lang); }, [lang]);
+  useEffect(() => {
+    localStorage.setItem("lang", lang);
+  }, [lang]);
   const t = useMemo(() => T[lang], [lang]);
 
-  // form
   const [email, setEmail] = useState("");
   const [notice, setNotice] = useState(null); // {type:'success'|'error', text:string}
 
   const validate = () => {
     const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-    if (!ok) { setNotice({ type: "error", text: t.errors.emailReq }); return false; }
+    if (!ok) {
+      setNotice({ type: "error", text: t.errors.emailReq });
+      return false;
+    }
     return true;
   };
 
@@ -48,11 +51,9 @@ export default function ResetPassword({ onCancel, onSuccess }) {
     e.preventDefault();
     if (!validate()) return;
 
-    // FRONT-END ONLY
     console.log("[RESET REQUEST FRONT-ONLY] →", { email: email.trim() });
     setNotice({ type: "success", text: t.success.request });
 
-    // Optionally navigate back after a moment
     setTimeout(() => onSuccess?.(), 900);
   };
 
@@ -63,12 +64,17 @@ export default function ResetPassword({ onCancel, onSuccess }) {
       style={{ backgroundImage: `url(${background})` }}
     >
       <div className="w-full max-w-md">
-        <div className="relative rounded-2xl border border-white/30 bg-red-700/90 p-8 shadow-2xl backdrop-blur-sm">
+        <div className="relative rounded-2xl border border-white/20 bg-[#007A3A]/90 p-8 shadow-2xl backdrop-blur-sm">
           {/* Language switch */}
           <button
             type="button"
             onClick={() => setLang((p) => (p === "pl" ? "en" : "pl"))}
-            className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-3 py-1.5 text-xs text-white/90 hover:bg-white/20 transition"
+            className="
+              absolute top-4 right-4 inline-flex items-center gap-2 rounded-full
+              border border-white/25 bg-white/10 px-3 py-1.5 text-xs
+              text-[#E7EEE7] hover:bg-white/15 transition
+              focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40
+            "
             aria-label="Switch language"
             title="Switch language / Zmień język"
           >
@@ -78,12 +84,17 @@ export default function ResetPassword({ onCancel, onSuccess }) {
 
           {/* Logo + Title */}
           <div className="flex flex-col items-center text-center">
-            <img src={logo} alt="logo" className="h-24 w-24 object-contain drop-shadow" />
+            {/* changed to h-28 w-28 */}
+            <img src={logo} alt="logo" className="h-28 w-28 object-contain drop-shadow" />
+
             <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               {t.brand}
             </h1>
-            <p className="text-white mt-2 text-lg font-semibold">{t.title}</p>
-            <p className="text-white/90 text-sm">{t.subtitle}</p>
+
+            <div className="mt-2 h-1 w-24 rounded-full bg-[#00C86F]" />
+
+            <p className="text-[#0E0F0E] mt-3 text-lg font-semibold">{t.title}</p>
+            <p className="text-[#0E0F0E]/85 text-sm">{t.subtitle}</p>
           </div>
 
           {/* Notice */}
@@ -94,7 +105,12 @@ export default function ResetPassword({ onCancel, onSuccess }) {
             <Field label={t.fields.email} icon={Mail}>
               <input
                 type="email"
-                className="w-full rounded-xl border border-red-300/70 bg-white text-red-700 placeholder:text-red-400 pl-10 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="
+                  w-full rounded-xl border border-white/20
+                  bg-[#E7EEE7] text-[#0E0F0E] placeholder:text-[#0E0F0E]/45
+                  pl-10 pr-3 py-2.5
+                  focus:outline-none focus:ring-2 focus:ring-[#00C86F]
+                "
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
@@ -103,17 +119,30 @@ export default function ResetPassword({ onCancel, onSuccess }) {
             </Field>
 
             <div className="flex gap-2 pt-1">
+              {/* Back button - neutral */}
               <button
                 type="button"
                 onClick={() => onCancel?.()}
-                className="w-1/2 inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 text-white py-2.5 font-semibold hover:bg-white/15 transition"
+                className="
+                  w-1/2 inline-flex items-center justify-center gap-2 rounded-xl
+                  border border-white/25 bg-white/10 text-[#0E0F0E] py-2.5 font-semibold
+                  hover:bg-white/15 transition
+                  focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40
+                "
               >
                 <ArrowLeft size={16} />
                 {t.actions.back}
               </button>
+
+              {/* Primary action - green */}
               <button
                 type="submit"
-                className="w-1/2 inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/30 text-white font-semibold py-2.5 hover:bg-white/15 focus:outline-none focus:ring-4 focus:ring-white/30 transition"
+                className="
+                  w-1/2 inline-flex items-center justify-center gap-2 rounded-xl
+                  bg-[#00C86F] text-[#0E0F0E] font-semibold py-2.5
+                  hover:bg-[#32D57E]
+                  focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/50 transition
+                "
               >
                 <Mail size={16} />
                 {t.actions.sendLink}
@@ -129,11 +158,11 @@ export default function ResetPassword({ onCancel, onSuccess }) {
 /* UI bits */
 function Field({ label, icon: Icon, children }) {
   return (
-    <label className="text-sm text-white block">
+    <label className="text-sm text-[#0E0F0E]/90 block">
       <div className="mb-1">{label}</div>
       <div className="relative">
         {Icon && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-red-600">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#007A3A]">
             <Icon size={18} />
           </span>
         )}
@@ -146,12 +175,19 @@ function Field({ label, icon: Icon, children }) {
 function Notice({ type = "success", children }) {
   const isSuccess = type === "success";
   const Icon = isSuccess ? CheckCircle2 : AlertTriangle;
+
+  // ARVILY notice styles:
+  // success: Emerald Fog
+  // error: Soil Gold (warm warning) + readable charcoal
   const wrap = isSuccess
-    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-    : "bg-red-50 border-red-200 text-red-800";
+    ? "bg-[#74E8A0]/18 border-[#74E8A0]/50 text-[#0E0F0E]"
+    : "bg-[#E8C26A]/18 border-[#E8C26A]/60 text-[#0E0F0E]";
+
+  const iconColor = isSuccess ? "text-[#9AFF6C]" : "text-[#E8C26A]";
+
   return (
     <div className={`mt-4 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${wrap}`}>
-      <Icon size={16} />
+      <Icon size={16} className={iconColor} />
       <span>{children}</span>
     </div>
   );

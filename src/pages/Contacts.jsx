@@ -863,7 +863,7 @@ export default function Contacts() {
                 type="button"
                 onClick={confirmPostAsBuyer}
                 disabled={postingBuyer}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-[#0E0F0E] hover:bg-emerald-700 disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {postingBuyer && (
                   <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-transparent" />
@@ -919,7 +919,7 @@ export default function Contacts() {
                 type="button"
                 onClick={confirmPostAsVendor}
                 disabled={postingVendor}
-                className="px-4 py-2 rounded-lg bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 inline-flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-sky-600 text-[#0E0F0E] hover:bg-sky-700 disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {postingVendor && (
                   <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-transparent" />
@@ -977,7 +977,7 @@ export default function Contacts() {
                 type="button"
                 onClick={confirmPostAsBuyerAndVendor}
                 disabled={postingBoth}
-                className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-purple-600 text-[#0E0F0E] hover:bg-purple-700 disabled:opacity-50 inline-flex items-center gap-2"
               >
                 {postingBoth && (
                   <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-transparent" />
@@ -1090,7 +1090,7 @@ function ContactsView(props) {
             <SlidersHorizontal size={16} className="opacity-70" />
             {F.filters}
             {activeFilterCount > 0 && (
-              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-[#0E0F0E]">
                 {activeFilterCount}
               </span>
             )}
@@ -1099,7 +1099,7 @@ function ContactsView(props) {
           <button
             type="button"
             onClick={onAddClick}
-            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
           >
             <Plus size={16} />
             {F.addBtn}
@@ -2562,7 +2562,7 @@ function ContactForm({ initial, onSubmit, onCancel, T }) {
         </button>
         <button
           type="submit"
-          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          className="px-4 py-2 rounded-lg bg-[#00C86F] text-[#0E0F0E] hover:bg-[#007A3A]"
         >
           {isEdit
             ? T?.modal?.save || "Save changes"

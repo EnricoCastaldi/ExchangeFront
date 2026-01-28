@@ -678,7 +678,7 @@ return (
             <button
               type="button"
               onClick={onBulkDelete}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
               title="Delete selected"
             >
               <Trash2 size={16} />
@@ -703,7 +703,7 @@ return (
             setEditing(null);
             setOpenForm(true);
           }}
-          className="order-1 sm:order-none inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+          className="order-1 sm:order-none inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
         >
           <Plus size={16} />
           {S.controls.addBtn}
@@ -719,7 +719,7 @@ return (
           <SlidersHorizontal size={16} className="opacity-70" />
           {S.controls.filters}
           {activeFilterCount > 0 && (
-            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+            <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-[#0E0F0E]">
               {activeFilterCount}
             </span>
           )}
@@ -2407,7 +2407,7 @@ useEffect(() => {
         </button>
         <button
           type="submit"
-          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          className="px-4 py-2 rounded-lg bg-[#00C86F] text-[#0E0F0E] hover:bg-[#007A3A]"
         >
           {isEdit
             ? SS.actions?.saveChanges || "Save changes"

@@ -375,7 +375,7 @@ export default function Agreements() {
           <button
             type="button"
             onClick={onAddClick}
-            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
           >
             <Plus size={16} />
             {A?.addBtn || "New agreement"}
@@ -392,7 +392,7 @@ export default function Agreements() {
             <SlidersHorizontal size={16} className="opacity-70" />
             {A?.filters || "Filters"}
             {activeFilterCount > 0 && (
-              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+              <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-[#0E0F0E]">
                 {activeFilterCount}
               </span>
             )}
@@ -817,7 +817,7 @@ function ExpandedAgreement({ row, locale, A, onAddLine, onEditLine, onDeleteLine
               <button
                 type="button"
                 onClick={onAddLine}
-                className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700"
+                className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A]"
               >
                 <Plus size={16} />
                 {LINES?.addBtn || "Add line"}
@@ -999,7 +999,7 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
               onClick={() => setTab(id)}
               className={[
                 "inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm border",
-                active ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200 hover:bg-slate-50",
+                active ? "bg-slate-900 text-[#0E0F0E] border-slate-900" : "bg-white border-slate-200 hover:bg-slate-50",
               ].join(" ")}
             >
               <Icon size={16} />
@@ -1253,7 +1253,7 @@ function AgreementForm({ initial, onSubmit, onCancel, A }) {
         </button>
         <button
           type="submit"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-[#0E0F0E] hover:bg-slate-800"
         >
           <CheckCircle2 size={16} />
           {isEdit ? (FORM?.actions?.save || "Save") : (FORM?.actions?.create || "Create")}
@@ -1432,7 +1432,7 @@ function AgreementLineForm({ agreement, initial, onSubmit, onCancel, A, locale }
         </button>
         <button
           type="submit"
-          className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
+          className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-medium text-[#0E0F0E] hover:bg-slate-800"
         >
           <CheckCircle2 size={16} />
           {isEdit ? (LINES?.form?.actions?.save || "Save line") : (LINES?.form?.actions?.add || "Add line")}

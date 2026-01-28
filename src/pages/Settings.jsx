@@ -312,7 +312,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingKm}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >
@@ -348,7 +348,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingAdmin}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >
@@ -384,7 +384,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingDefLoad}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >
@@ -420,7 +420,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingDefUnload}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >
@@ -453,7 +453,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingDeliveryDays}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >
@@ -485,7 +485,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingEodTime}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >
@@ -521,7 +521,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={savingFact}
-                    className="inline-flex items-center gap-1 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:opacity-60"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#00C86F] px-4 py-2 text-[#0E0F0E] hover:bg-[#007A3A] disabled:opacity-60"
                     title={L.save}
                     aria-label={L.save}
                   >

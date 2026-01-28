@@ -220,51 +220,60 @@ export default function Dashboard({ onLogout }) {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 flex items-center justify-between px-4 border-b bg-white sticky top-0 z-10">
-          <div className="flex items-center gap-2">
-            <button
-              className="md:hidden inline-flex items-center justify-center rounded-lg p-2 hover:bg-slate-100"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu size={20} />
-            </button>
-            <div className="flex items-center gap-2">
-              <Icon size={18} className="text-slate-500" />
-              <h1 className="text-lg font-semibold tracking-wide">
-                {labelize(t, active)}
-              </h1>
-            </div>
-          </div>
+<header className="h-16 flex items-center justify-between px-4 border-b bg-[#E7EEE7] sticky top-0 z-10 border-[#00572A]/20">
+  <div className="flex items-center gap-2">
+    <button
+      className="md:hidden inline-flex items-center justify-center rounded-lg p-2 hover:bg-[#74E8A0]/20 focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40"
+      onClick={() => setMobileOpen(true)}
+      aria-label="Open menu"
+      title="Open menu"
+    >
+      <Menu size={20} className="text-[#00572A]" />
+    </button>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-full bg-slate-100/70 backdrop-blur px-3 py-1.5 max-w-[520px] shadow-sm hover:shadow transition">
-              <div className="grid place-items-center h-7 w-7 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700 text-[11px] font-bold shrink-0">
-                {initials}
-              </div>
-              <span
-                className={`inline-flex items-center gap-2 text-[11px] px-2 py-0.5 rounded-full ${roleChipClasses} whitespace-nowrap`}
-              >
-                <Shield size={12} />
-                {role}
-                <span className="font-mono font-bold text-slate-700 ml-1">
-                  {now.toLocaleDateString()} {now.toLocaleTimeString()}
-                </span>
-              </span>
-              <Mail
-                size={16}
-                className="text-slate-600 cursor-pointer hover:text-slate-800 transition"
-                onClick={copyEmail}
-                title={copied ? "Copied!" : "Copy email"}
-              />
-              <Bell
-                size={16}
-                className="text-slate-600 cursor-pointer hover:text-slate-800 transition"
-              />
-              <span className="ml-1 h-2 w-2 rounded-full bg-emerald-500/80 shadow-[0_0_0_3px_rgba(16,185,129,0.12)]" />
-            </div>
-            <LanguageSwitcher />
-          </div>
-        </header>
+    <div className="flex items-center gap-2">
+      <Icon size={18} className="text-[#00572A]" />
+      <h1 className="text-lg font-semibold tracking-wide text-[#0E0F0E]">
+        {labelize(t, active)}
+      </h1>
+    </div>
+  </div>
+
+  <div className="flex items-center gap-3">
+    <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/60 backdrop-blur px-3 py-1.5 max-w-[520px] shadow-sm hover:shadow transition border border-[#00572A]/10">
+      <div className="grid place-items-center h-7 w-7 rounded-full bg-gradient-to-br from-[#74E8A0]/40 to-[#9AFF6C]/40 text-[#00572A] text-[11px] font-bold shrink-0 border border-[#00572A]/10">
+        {initials}
+      </div>
+
+      <span
+        className={`inline-flex items-center gap-2 text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap border border-[#00572A]/10 bg-[#74E8A0]/20 text-[#00572A]`}
+      >
+        <Shield size={12} className="text-[#00572A]" />
+        <span className="font-semibold text-[#00572A]">{role}</span>
+        <span className="font-mono font-bold text-[#0E0F0E]/70 ml-1">
+          {now.toLocaleDateString()} {now.toLocaleTimeString()}
+        </span>
+      </span>
+
+      <Mail
+        size={16}
+        className="text-[#00572A] cursor-pointer hover:text-[#007A3A] transition"
+        onClick={copyEmail}
+        title={copied ? "Copied!" : "Copy email"}
+      />
+
+      <Bell
+        size={16}
+        className="text-[#00572A] cursor-pointer hover:text-[#007A3A] transition"
+      />
+
+      <span className="ml-1 h-2 w-2 rounded-full bg-[#00C86F] shadow-[0_0_0_3px_rgba(116,232,160,0.35)]" />
+    </div>
+
+    <LanguageSwitcher />
+  </div>
+</header>
+
 
         <main className="p-4 overflow-auto">
           <Routes>

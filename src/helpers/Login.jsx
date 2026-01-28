@@ -64,12 +64,11 @@ export default function Login({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState("login"); // 'login' | 'otp'
   const [sessionToken, setSessionToken] = useState(null);
-  const [sessionUser, setSessionUser] = useState(null); // capture user to build session later
+  const [sessionUser, setSessionUser] = useState(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Language: default PL, persist
   const [lang, setLang] = useState(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem("lang") : null;
     return saved === "en" || saved === "pl" ? saved : "pl";
@@ -87,7 +86,6 @@ export default function Login({ onSuccess }) {
     setLoading(true);
 
     try {
-      // We call /api/auth/login with method: "none" to do credential-only validation
       const r = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,25 +94,23 @@ export default function Login({ onSuccess }) {
       });
 
       const data = await r.json().catch(() => ({}));
-      // Always show localized error text on failure
       if (!r.ok) throw new Error("invalid");
 
       if (data?.token) setSessionToken(data.token);
       if (data?.user) setSessionUser(data.user);
 
       setSuccess(t.successLogin);
-      setStep("otp"); // keep your existing dummy OTP screen
+      setStep("otp");
     } catch (_err) {
-      setError(t.errorInvalid); // localized error, no backend text
+      setError(t.errorInvalid);
     } finally {
       setLoading(false);
     }
   }
 
-  // Link-aware / button fallback component
   const LinkBtn = ({ icon: Icon, children, title, to, onClick }) => {
     const cls =
-      "inline-flex items-center gap-2 font-medium underline underline-offset-2 hover:no-underline";
+      "inline-flex items-center gap-2 font-medium underline underline-offset-2 hover:no-underline text-[#E7EEE7] hover:text-[#0E0F0E]";
     return to ? (
       <Link to={to} title={title} className={cls}>
         <Icon size={16} />
@@ -128,9 +124,7 @@ export default function Login({ onSuccess }) {
     );
   };
 
-  // OTP buttons just enter the app (no real OTP verification)
   const goToApp = () => {
-    // require a real token from backend — no demo fallback
     if (!sessionToken) return;
 
     const session = {
@@ -141,8 +135,8 @@ export default function Login({ onSuccess }) {
     };
 
     try {
-      localStorage.setItem("session", JSON.stringify(session)); // main session object
-      localStorage.setItem("token", sessionToken); // backward compat if needed
+      localStorage.setItem("session", JSON.stringify(session));
+      localStorage.setItem("token", sessionToken);
     } catch {}
 
     onSuccess(sessionToken);
@@ -155,12 +149,22 @@ export default function Login({ onSuccess }) {
       style={{ backgroundImage: `url(${background})` }}
     >
       <div className="w-full max-w-md">
-        <div className="relative rounded-2xl border border-white/30 bg-red-700/90 p-8 shadow-2xl backdrop-blur-sm">
+        <div
+          className="
+            relative rounded-2xl border border-white/20
+            bg-[#007A3A]/90 p-8 shadow-2xl backdrop-blur-sm
+          "
+        >
           {/* Language switch */}
           <button
             type="button"
             onClick={() => setLang((prev) => (prev === "pl" ? "en" : "pl"))}
-            className="absolute top-4 right-4 inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/10 px-3 py-1.5 text-xs text-white/90 hover:bg-white/20 transition"
+            className="
+              absolute top-4 right-4 inline-flex items-center gap-2 rounded-full
+              border border-white/25 bg-white/10 px-3 py-1.5 text-xs
+              text-[#E7EEE7] hover:bg-white/15 transition
+              focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40
+            "
             aria-label="Switch language"
             title="Switch language / Zmień język"
           >
@@ -170,23 +174,29 @@ export default function Login({ onSuccess }) {
 
           {/* Logo + Title */}
           <div className="flex flex-col items-center text-center">
-            <img src={logo} alt="logo" className="h-24 w-24 object-contain drop-shadow" />
+            <img src={logo} alt="logo" className="h-28 w-28 object-contain drop-shadow" />
             <h1 className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
               {T[lang].brand}
             </h1>
+            <div className="mt-2 h-1 w-24 rounded-full bg-[#00C86F]" />
           </div>
 
           {step === "login" ? (
             <form onSubmit={submit} className="mt-8 space-y-4">
               {/* Login */}
               <div>
-                <label className="block text-sm text-white mb-1">{t.loginLabel}</label>
+                <label className="block text-sm text-[#0E0F0E]/90 mb-1">{t.loginLabel}</label>
                 <input
                   type="text"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
                   placeholder={t.loginPlaceholder}
-                  className="w-full rounded-xl border border-white/30 bg-white text-red-700 placeholder:text-red-400 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500"
+                  className="
+                    w-full rounded-xl border border-white/20
+                    bg-[#E7EEE7] text-[#0E0F0E] placeholder:text-[#0E0F0E]/45
+                    px-4 py-3
+                    focus:outline-none focus:ring-2 focus:ring-[#00C86F]
+                  "
                   required
                   autoComplete="username"
                 />
@@ -194,21 +204,30 @@ export default function Login({ onSuccess }) {
 
               {/* Password */}
               <div>
-                <label className="block text-sm text-white mb-1">{t.passwordLabel}</label>
+                <label className="block text-sm text-[#0E0F0E]/90 mb-1">{t.passwordLabel}</label>
                 <div className="relative">
                   <input
                     type={show ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t.passwordPlaceholder}
-                    className="w-full rounded-xl border border-white/30 bg-white text-red-700 placeholder:text-red-400 px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="
+                      w-full rounded-xl border border-white/20
+                      bg-[#E7EEE7] text-[#0E0F0E] placeholder:text-[#0E0F0E]/45
+                      px-4 py-3 pr-12
+                      focus:outline-none focus:ring-2 focus:ring-[#00C86F]
+                    "
                     required
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
                     onClick={() => setShow((s) => !s)}
-                    className="absolute inset-y-0 right-3 my-auto text-red-50/90 hover:text-white transition"
+                    className="
+                      absolute inset-y-0 right-3 my-auto
+                      text-[#007A3A] hover:text-[#00572A] transition
+                      focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40 rounded-md
+                    "
                     aria-label={show ? "Hide password" : "Show password"}
                     title={show ? "Hide password" : "Show password"}
                   >
@@ -219,17 +238,27 @@ export default function Login({ onSuccess }) {
 
               {/* Success / Error banners */}
               {success && (
-                <div className="flex items-start gap-3 rounded-xl border border-emerald-300/50 bg-emerald-500/20 text-emerald-50 px-4 py-3 text-sm">
-                  <CheckCircle2 className="mt-0.5" size={18} />
+                <div
+                  className="
+                    flex items-start gap-3 rounded-xl
+                    border border-[#74E8A0]/60 bg-[#74E8A0]/15
+                    text-[#0E0F0E] px-4 py-3 text-sm
+                  "
+                >
+                  <CheckCircle2 className="mt-0.5 text-[#9AFF6C]" size={18} />
                   <span>{success}</span>
                 </div>
               )}
               {error && (
                 <div
-                  className="flex items-start gap-3 rounded-xl border border-red-300/50 bg-red-500/20 text-red-50 px-4 py-3 text-sm"
+                  className="
+                    flex items-start gap-3 rounded-xl
+                    border border-[#E8C26A]/70 bg-[#E8C26A]/15
+                    text-[#0E0F0E] px-4 py-3 text-sm
+                  "
                   role="alert"
                 >
-                  <AlertCircle className="mt-0.5" size={18} />
+                  <AlertCircle className="mt-0.5 text-[#E8C26A]" size={18} />
                   <span>{error}</span>
                 </div>
               )}
@@ -238,7 +267,14 @@ export default function Login({ onSuccess }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="relative w-full overflow-hidden rounded-2xl bg-white/10 border border-white/30 backdrop-blur-md shadow-lg text-white font-semibold py-3 transition hover:bg-white/15 active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-white/40 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="
+                  relative w-full overflow-hidden rounded-2xl
+                  bg-[#00C86F] text-[#0E0F0E]
+                  shadow-lg font-semibold py-3 transition
+                  hover:bg-[#32D57E] active:scale-[0.99]
+                  focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/50
+                  disabled:opacity-60 disabled:cursor-not-allowed
+                "
               >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
@@ -258,7 +294,7 @@ export default function Login({ onSuccess }) {
               </button>
 
               {/* Links */}
-              <div className="flex items-center justify-between text-sm text-white/90">
+              <div className="flex items-center justify-between text-sm">
                 <LinkBtn icon={KeyRound} title={t.forgot} to="/forgot">
                   {t.forgot}
                 </LinkBtn>
@@ -268,38 +304,55 @@ export default function Login({ onSuccess }) {
               </div>
             </form>
           ) : (
-            // OTP choice step (dummy)
+            // OTP choice step
             <div className="mt-8 space-y-6">
-              <div className="text-center text-white">
+              <div className="text-center text-[#0E0F0E]">
                 <h2 className="text-2xl font-bold">{t.otpTitle}</h2>
-                <p className="text-white/90 mt-1 text-sm">{t.otpSubtitle}</p>
+                <p className="text-[#0E0F0E]/85 mt-1 text-sm">{t.otpSubtitle}</p>
               </div>
 
               <div className="space-y-3">
                 <button
                   type="button"
                   onClick={goToApp}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/30 text-white py-3 font-semibold hover:bg-white/15 focus:outline-none focus:ring-4 focus:ring-white/30 transition"
+                  className="
+                    w-full inline-flex items-center justify-center gap-2 rounded-xl
+                    bg-white/10 border border-white/25 text-[#0E0F0E] py-3 font-semibold
+                    hover:bg-white/15
+                    focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40 transition
+                  "
                 >
-                  <MailCheck size={18} />
+                  <MailCheck size={18} className="text-[#9AFF6C]" />
                   {t.otpEmail}
                 </button>
 
                 <button
                   type="button"
                   onClick={goToApp}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/30 text-white py-3 font-semibold hover:bg-white/15 focus:outline-none focus:ring-4 focus:ring-white/30 transition"
+                  className="
+                    w-full inline-flex items-center justify-center gap-2 rounded-xl
+                    bg-white/10 border border-white/25 text-[#0E0F0E] py-3 font-semibold
+                    hover:bg-white/15
+                    focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40 transition
+                  "
                 >
-                  <MessageSquare size={18} />
+                  <MessageSquare size={18} className="text-[#9AFF6C]" />
                   {t.otpSms}
                 </button>
+
+                {/* subtle warm note */}
+                <div className="text-center text-xs text-[#0E0F0E]/75">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-[#E8C26A]" />
+                    Secure access with ARVILY theme
+                  </span>
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Tiny CSS for the sheen animation */}
       <style>
         {`
           @keyframes sheen {

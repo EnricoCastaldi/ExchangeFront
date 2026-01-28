@@ -415,7 +415,7 @@ const S_lines = t.sells?.lineForm || {};
                 setEditing(null);
                 setOpenForm(true);
               }}
-              className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+              className="order-1 sm:order-none sm:ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
             >
               <Plus size={16} />
               {L.addBtn}
@@ -431,7 +431,7 @@ const S_lines = t.sells?.lineForm || {};
               <SlidersHorizontal size={16} className="opacity-70" />
               {L.filters}
               {activeFilterCount > 0 && (
-                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-white">
+                <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-900/90 px-1.5 text-[11px] font-semibold text-[#0E0F0E]">
                   {activeFilterCount}
                 </span>
               )}
@@ -645,7 +645,7 @@ const S_lines = t.sells?.lineForm || {};
                                 });
                                 setOpenLineForm(true);
                               }}
-                              className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-700"
+                              className="inline-flex items-center gap-2 rounded-lg bg-[#00C86F] px-3 py-1.5 text-[#0E0F0E] text-xs font-medium hover:bg-[#007A3A]"
                               title={LL.addBtn || "Add Line"}
                               aria-label={LL.addBtn || "Add Line"}
                             >
@@ -1219,7 +1219,7 @@ const S_lines = t.sells?.lineForm || {};
                                   });
                                   setOpenLineForm(true);
                                 }}
-                                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-3 py-1.5 text-white text-xs font-medium hover:bg-red-700"
+                                className="inline-flex items-center gap-2 rounded-lg bg-[#00C86F] px-3 py-1.5 text-[#0E0F0E] text-xs font-medium hover:bg-[#007A3A]"
                                 title={LL.addBtn || "Add Line"}
                                 aria-label={LL.addBtn || "Add Line"}
                               >
@@ -3018,7 +3018,7 @@ function Modal({ children, onClose, title }) {
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+            className="px-4 py-2 rounded-lg bg-[#00C86F] text-[#0E0F0E] hover:bg-[#007A3A]"
           >
             {isEdit ? M.save || "Save changes" : M.add || "Create document"}
           </button>

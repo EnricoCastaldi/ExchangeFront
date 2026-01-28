@@ -257,7 +257,7 @@ export default function Transports() {
               setEditing(null);
               setOpen(true);
             }}
-            className="ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+            className="ml-auto inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
           >
             <Plus size={16} />
             {L.controls.addBtn}
@@ -648,7 +648,7 @@ function TransportForm({ initial, onSubmit, onCancel, L }) {
         >
           {L.modal.cancel}
         </button>
-        <button type="submit" className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">
+        <button type="submit" className="px-4 py-2 rounded-lg bg-[#00C86F] text-[#0E0F0E] hover:bg-[#007A3A]">
           {isEdit ? L.modal.save : L.modal.add}
         </button>
       </div>

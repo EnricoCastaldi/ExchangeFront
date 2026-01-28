@@ -365,7 +365,7 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
           <div className="ml-auto flex items-center gap-2">
             {selectedCount > 0 && (
               <div className="hidden sm:flex items-center gap-2 text-xs text-slate-600">
-                <span className="rounded-full bg-slate-900/90 px-2 py-1 font-semibold text-white">
+                <span className="rounded-full bg-slate-900/90 px-2 py-1 font-semibold text-[#0E0F0E]">
                   Selected: {selectedCount}
                 </span>
                 <button
@@ -386,7 +386,7 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
                 "inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium shadow-sm",
                 selectedCount === 0
                   ? "cursor-not-allowed bg-slate-200 text-slate-500"
-                  : "bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30",
+                  : "bg-[#00C86F] text-[#0E0F0E] hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30",
               ].join(" ")}
               title="Delete selected"
             >
@@ -401,7 +401,7 @@ const L = t?.purchaseLineParameters ?? t?.salesLineParameters ?? DEFAULT_L;
                 setOpen(true);
                 fetchParamOptions(); // refresh available params
               }}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-sm font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#00C86F] px-3 text-sm font-medium text-[#0E0F0E] shadow-sm hover:bg-[#007A3A] focus:outline-none focus:ring-2 focus:ring-red-500/30"
             >
               <Plus size={16} />
               {L.controls.addBtn}
@@ -890,7 +890,7 @@ function PLPForm({
         </button>
         <button
           type="submit"
-          className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700"
+          className="px-4 py-2 rounded-lg bg-[#00C86F] text-[#0E0F0E] hover:bg-[#007A3A]"
         >
           {isEdit ? L.modal.save : L.modal.add}
         </button>
