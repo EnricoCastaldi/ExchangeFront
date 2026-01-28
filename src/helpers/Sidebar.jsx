@@ -261,28 +261,27 @@ export default function Sidebar({ onLogout }) {
                 <div key={key}>
                   <div
                     className={[
-                      "group relative w-full flex items-center gap-3 px-3 rounded-md transition cursor-pointer",
+                      // ✅ transition-colors (prevents weird "blink" from other transitions)
+                      "group relative w-full flex items-center gap-3 px-3 rounded-md cursor-pointer transition-colors duration-150",
                       SIZES.parentText,
                       SIZES.parentPy,
                       compact ? "justify-center" : "justify-start",
                       "text-[#E7EEE7]",
-                      "hover:bg-[#74E8A0]/12 hover:text-[#0E0F0E]",
+                      // ✅ visible hover on green sidebar
+                      "hover:bg-white/15 hover:text-white",
                       isOpen ? "bg-white/10" : "",
                     ].join(" ")}
                     onClick={() => toggleExclusive(key)}
                     title={compact ? parentLabel : undefined}
                     aria-expanded={isOpen}
                   >
-                    {/* Icon inherits text color */}
-                    <Icon
-                      size={SIZES.parentIcon}
-                      className="shrink-0 text-current opacity-95 group-hover:text-[#9AFF6C]"
-                    />
+                    {/* ✅ icon follows text color */}
+                    <Icon size={SIZES.parentIcon} className="shrink-0 text-current opacity-95 transition-colors" />
 
                     {!compact && (
                       <>
                         <span className="truncate">{parentLabel}</span>
-                        <span className="ml-auto opacity-90 text-current group-hover:text-[#9AFF6C]">
+                        <span className="ml-auto opacity-90 text-current transition-colors">
                           {isOpen ? <ChevronDown size={SIZES.chevron} /> : <ChevronRight size={SIZES.chevron} />}
                         </span>
                       </>
@@ -303,23 +302,20 @@ export default function Sidebar({ onLogout }) {
                             to={cto}
                             className={({ isActive }) =>
                               [
-                                "group relative w-full flex items-center gap-3 px-3 rounded-md transition",
+                                "group relative w-full flex items-center gap-3 px-3 rounded-md transition-colors duration-150",
                                 SIZES.childText,
                                 SIZES.childPy,
                                 compact ? "justify-center" : "ml-6",
                                 isActive
                                   ? "bg-[#00C86F] text-[#0E0F0E] shadow-sm"
-                                  : "text-[#E7EEE7] hover:bg-[#74E8A0]/12 hover:text-[#0E0F0E]",
+                                  : "text-[#E7EEE7] hover:bg-white/15 hover:text-white",
                               ].join(" ")
                             }
                             title={childLabel}
                             onClick={() => openOnly(parentKey)}
                           >
-                            {/* Icon inherits active/hover text color */}
-                            <CIcon
-                              size={SIZES.childIcon}
-                              className="shrink-0 text-current opacity-95 group-hover:text-[#9AFF6C]"
-                            />
+                            {/* ✅ icon follows text color */}
+                            <CIcon size={SIZES.childIcon} className="shrink-0 text-current opacity-95 transition-colors" />
                             {!compact && <span className="truncate">{childLabel}</span>}
                             <Tooltip text={childLabel} />
                           </NavLink>
@@ -338,22 +334,19 @@ export default function Sidebar({ onLogout }) {
                 to={to}
                 className={({ isActive }) =>
                   [
-                    "group relative w-full flex items-center gap-3 px-3 rounded-md transition",
+                    "group relative w-full flex items-center gap-3 px-3 rounded-md transition-colors duration-150",
                     SIZES.parentText,
                     SIZES.parentPy,
                     compact ? "justify-center" : "justify-start",
                     isActive
                       ? "bg-[#00C86F] text-[#0E0F0E] shadow-sm"
-                      : "text-[#E7EEE7] hover:bg-[#74E8A0]/12 hover:text-[#0E0F0E]",
+                      : "text-[#E7EEE7] hover:bg-white/15 hover:text-white",
                   ].join(" ")
                 }
                 title={compact ? parentLabel : undefined}
                 onClick={closeAll}
               >
-                <Icon
-                  size={SIZES.parentIcon}
-                  className="shrink-0 text-current opacity-95 group-hover:text-[#9AFF6C]"
-                />
+                <Icon size={SIZES.parentIcon} className="shrink-0 text-current opacity-95 transition-colors" />
                 {!compact && <span className="truncate">{parentLabel}</span>}
                 {compact && (
                   <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded bg-[#0E0F0E]/90 px-2 py-1 text-xs text-[#E7EEE7] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
@@ -415,11 +408,11 @@ export default function Sidebar({ onLogout }) {
         <button
           onClick={onLogout}
           className={[
-            "w-full flex items-center gap-2 rounded-md transition",
+            "w-full flex items-center gap-2 rounded-md transition-colors duration-150",
             "focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40",
             collapsed
-              ? "justify-center px-2 py-2 hover:bg-[#74E8A0]/12 text-xs font-medium text-[#E7EEE7]"
-              : "px-3 py-2 bg-white/10 hover:bg-[#74E8A0]/12 text-sm font-medium text-[#E7EEE7]",
+              ? "justify-center px-2 py-2 hover:bg-white/15 text-xs font-medium text-[#E7EEE7]"
+              : "px-3 py-2 bg-white/10 hover:bg-white/15 text-sm font-medium text-[#E7EEE7]",
           ].join(" ")}
           title={collapsed ? (t.navbar?.logout || "Log out") : undefined}
         >
