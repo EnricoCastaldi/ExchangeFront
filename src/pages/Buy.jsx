@@ -35,7 +35,7 @@ const STATUS_CANON_MAP = {
   new: "new",
   on_hold: "on-hold",
   "on-hold": "on-hold",
-  accepted: "accepted",
+//  accepted: "accepted",
   approved: "approved",
   mached: "matched",
   matched: "matched",
@@ -43,17 +43,19 @@ const STATUS_CANON_MAP = {
   invoiced: "invoiced",
   paid: "paid",
   canceled: "canceled",
+  archived: "archived",
 };
 const STATUS_LABELS = {
   new: "New",
   "on-hold": "On Hold",
-  accepted: "Accepted",
+ // accepted: "Accepted",
   approved: "Approved",
   matched: "Matched",
   shipped: "Shipped",
   invoiced: "Invoiced",
   paid: "Paid (Closed)",
   canceled: "Canceled",
+  archived: "Archived", 
 };
 function canonStatus(s) {
   const k = String(s || "").toLowerCase();
@@ -1069,14 +1071,30 @@ export default function Buy() {
                       </Section>
 
                       {/* SHIPMENT */}
-                      <Section title={L.shipment}>
-                        <KV label={L.kv.method} icon={Truck}>
-                          {d.shipmentMethod || "—"}
-                        </KV>
-                        <KV label={L.kv.agent} icon={Ship}>
-                          {d.shipmentAgent || "—"}
-                        </KV>
-                      </Section>
+{/* SHIPMENT */}
+<Section title={L.shipment}>
+  <KV label={L.kv.method || "Method"} icon={Truck}>
+    {d.shipmentMethod || "—"}
+  </KV>
+
+  <KV label={L.kv.agent || "Agent"} icon={Ship}>
+    {d.shipmentAgent || "—"}
+  </KV>
+
+  {/* ✅ NEW fields */}
+  <KV label={L.kv.shipmentDateFrom || "Date from"} icon={CalendarIcon}>
+    {formatDate(d.shipmentDateFrom, locale, "—")}
+  </KV>
+
+  <KV label={L.kv.shipmentDateTo || "Date to"} icon={CalendarIcon}>
+    {formatDate(d.shipmentDateTo, locale, "—")}
+  </KV>
+
+  <KV label={L.kv.shipmentQuantity || "Quantity"} icon={Hash}>
+    {d.shipmentQuantity != null ? fmtDOT(d.shipmentQuantity, 3) : "—"}
+  </KV>
+</Section>
+
 
                       {/* TRANSPORT */}
                       <Section title={L.transport}>
@@ -1690,15 +1708,30 @@ export default function Buy() {
                           </KV>
                         </Section>
 
-                        {/* SHIPMENT */}
-                        <Section title={L.shipment}>
-                          <KV label={L.kv.method} icon={Truck}>
-                            {d.shipmentMethod || "—"}
-                          </KV>
-                          <KV label={L.kv.agent} icon={Ship}>
-                            {d.shipmentAgent || "—"}
-                          </KV>
-                        </Section>
+{/* SHIPMENT */}
+<Section title={L.shipment}>
+  <KV label={L.kv.method || "Method"} icon={Truck}>
+    {d.shipmentMethod || "—"}
+  </KV>
+
+  <KV label={L.kv.agent || "Agent"} icon={Ship}>
+    {d.shipmentAgent || "—"}
+  </KV>
+
+
+  <KV label={L.kv.shipmentDateFrom || "Date from"} icon={CalendarIcon}>
+    {formatDate(d.shipmentDateFrom, locale, "—")}
+  </KV>
+
+  <KV label={L.kv.shipmentDateTo || "Date to"} icon={CalendarIcon}>
+    {formatDate(d.shipmentDateTo, locale, "—")}
+  </KV>
+
+  <KV label={L.kv.shipmentQuantity || "Quantity"} icon={Hash}>
+    {d.shipmentQuantity != null ? fmtDOT(d.shipmentQuantity, 3) : "—"}
+  </KV>
+</Section>
+
 
                         {/* TRANSPORT */}
                         <Section title={L.transport}>
@@ -2223,6 +2256,16 @@ function DocForm({ initial, onCancel, onSaved, showNotice, defaultEndOfDayTime =
     initial?.shipmentAgent || ""
   );
 
+    const [shipmentDateFrom, setShipmentDateFrom] = useState(
+    initial?.shipmentDateFrom ? initial.shipmentDateFrom.slice(0, 10) : ""
+  );
+  const [shipmentDateTo, setShipmentDateTo] = useState(
+    initial?.shipmentDateTo ? initial.shipmentDateTo.slice(0, 10) : ""
+  );
+  const [shipmentQuantity, setShipmentQuantity] = useState(
+    initial?.shipmentQuantity != null ? String(initial.shipmentQuantity) : ""
+  );
+
   // transport
   const [tr, setTr] = useState({
     no: initial?.transportNo || "",
@@ -2322,6 +2365,12 @@ validUntilTime: validUntilTime || null,
 
       shipmentMethod: shipmentMethod || null,
       shipmentAgent: shipmentAgent || null,
+      shipmentDateFrom: shipmentDateFrom || null,
+      shipmentDateTo: shipmentDateTo || null,
+      shipmentQuantity:
+        shipmentQuantity === "" || shipmentQuantity == null
+          ? null
+          : Number(shipmentQuantity),
 
       transportNo: tr.no || null,
       transportName: tr.name || null,
@@ -2909,6 +2958,7 @@ validUntilTime: validUntilTime || null,
               onChange={(e) => setShipmentMethod(e.target.value)}
             />
           </Field>
+
           <Field label={F.shipmentAgent || "Shipment Agent"} icon={Ship}>
             <input
               className={INPUT_CLS}
@@ -2916,8 +2966,45 @@ validUntilTime: validUntilTime || null,
               onChange={(e) => setShipmentAgent(e.target.value)}
             />
           </Field>
+
+          {/* ✅ NEW: Date from */}
+          <Field label={F.shipmentDateFrom || "Date from"} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={shipmentDateFrom}
+              onChange={(e) => setShipmentDateFrom(e.target.value)}
+            />
+          </Field>
+
+          {/* ✅ NEW: Date to */}
+          <Field label={F.shipmentDateTo || "Date to"} icon={CalendarIcon}>
+            <input
+              type="date"
+              className={INPUT_CLS}
+              value={shipmentDateTo}
+              onChange={(e) => setShipmentDateTo(e.target.value)}
+            />
+          </Field>
+
+          {/* ✅ NEW: Quantity (full width on desktop) */}
+          <Field
+            label={F.shipmentQuantity || "Quantity"}
+            icon={Hash}
+          >
+            <input
+              type="number"
+              min="0"
+              step="0.001"
+              className={INPUT_CLS}
+              value={shipmentQuantity}
+              onChange={(e) => setShipmentQuantity(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
         </div>
       )}
+
 
       {/* TRANSPORT */}
       {tab === "transport" && (

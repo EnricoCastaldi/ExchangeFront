@@ -24,6 +24,8 @@ import {
   ArrowDown01,
   ArrowUp01,
   ToggleRight,
+  Image as ImageIcon,
+  Wallet,
 } from "lucide-react";
 import { useI18n } from "../helpers/i18n";
 
@@ -85,12 +87,16 @@ export default function Locations() {
       minQty: P?.details?.minQty || "Min Qty",
       maxQty: P?.details?.maxQty || "Max Qty",
 
+      // Operating hours (hours 0–23)
+      operatingFromH: P?.details?.operatingFromH || "Operating from (h)",
+      operatingToH: P?.details?.operatingToH || "Operating to (h)",
+
       // Costs
       additionalCost: P?.details?.additionalCost || "Additional cost",
       loadingCost: P?.details?.loadingCost || "Loading cost",
       unloadingCost: P?.details?.unloadingCost || "Unloading cost",
 
-      // ✅ NEW: Risk costs (PLN)
+      // Risk costs (PLN)
       loadingCostRisk: P?.details?.loadingCostRisk || "Ryzyko kosztu załadunku",
       unloadingCostRisk:
         P?.details?.unloadingCostRisk || "Ryzyko kosztu rozładunku",
@@ -109,6 +115,12 @@ export default function Locations() {
       add: P?.modal?.add || "Add",
       save: P?.modal?.save || "Save",
       cancel: P?.modal?.cancel || "Cancel",
+      tabs: {
+        basics: P?.modal?.tabs?.basics || "Basics",
+        address: P?.modal?.tabs?.address || "Address",
+        contact: P?.modal?.tabs?.contact || "Contact",
+        finance: P?.modal?.tabs?.finance || "Finance & Codes",
+      },
       fields: {
         no: P?.modal?.fields?.no || "Location No. *",
         name: P?.modal?.fields?.name || "Location Name",
@@ -124,12 +136,15 @@ export default function Locations() {
         minQty: P?.modal?.fields?.minQty || "Min Qty (int)",
         maxQty: P?.modal?.fields?.maxQty || "Max Qty (int)",
 
+        operatingFromH: P?.modal?.fields?.operatingFromH || "Operating From h",
+        operatingToH: P?.modal?.fields?.operatingToH || "Operating To h",
+
         // Costs
         additionalCost: P?.modal?.fields?.additionalCost || "Additional Cost",
         loadingCost: P?.modal?.fields?.loadingCost || "Loading Cost",
         unloadingCost: P?.modal?.fields?.unloadingCost || "Unloading Cost",
 
-        // ✅ NEW: Risk costs (PLN)
+        // Risk costs
         loadingCostRisk:
           P?.modal?.fields?.loadingCostRisk || "Ryzyko kosztu załadunku",
         unloadingCostRisk:
@@ -191,7 +206,7 @@ export default function Locations() {
 
   const activeFilterCount = [country, region, active].filter(Boolean).length;
 
-    const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState({
     defaultLoadingCost: 0,
     defaultUnloadingCost: 0,
   });
@@ -234,7 +249,7 @@ export default function Locations() {
   const onDelete = async (id) => {
     if (!window.confirm(L.alerts.deleteConfirm)) return;
     try {
-      const res = await fetch(`${API}/api/mlocations/${id}`, { 
+      const res = await fetch(`${API}/api/mlocations/${id}`, {
         method: "DELETE",
       });
       if (res.status === 204) {
@@ -249,7 +264,7 @@ export default function Locations() {
     }
   };
 
-    useEffect(() => {
+  useEffect(() => {
     let mounted = true;
     (async () => {
       try {
@@ -262,7 +277,6 @@ export default function Locations() {
           defaultUnloadingCost: Number(json?.defaultUnloadingCost ?? 0),
         });
       } catch (e) {
-        // optional: showNotice("error", "Failed to load settings");
         console.warn("Failed to load settings:", e);
       }
     })();
@@ -270,7 +284,6 @@ export default function Locations() {
       mounted = false;
     };
   }, []);
-
 
   // client-side sort parity
   const rows = useMemo(() => {
@@ -303,9 +316,7 @@ export default function Locations() {
   const handleSubmit = async (form) => {
     const isEdit = Boolean(editing?.id || editing?._id);
     const id = editing?.id || editing?._id;
-    const url = isEdit
-      ? `${API}/api/mlocations/${id}`
-      : `${API}/api/mlocations`;
+    const url = isEdit ? `${API}/api/mlocations/${id}` : `${API}/api/mlocations`;
     const method = isEdit ? "PUT" : "POST";
 
     try {
@@ -319,9 +330,8 @@ export default function Locations() {
       if (!res.ok)
         return showNotice("error", saved.message || L.alerts.requestFail);
 
-      // ✅ auto-geocode after create/update if needed
       if (needsGeocode(saved)) {
-        await geocodeLocation(saved); // uses your existing function
+        await geocodeLocation(saved);
       }
 
       showNotice("success", isEdit ? L.alerts.updated : L.alerts.created);
@@ -336,80 +346,41 @@ export default function Locations() {
 
   const geocodeLocation = async (loc) => {
     const id = loc.id || loc._id;
-
-    if (!id) {
-      console.warn("[Geocode] Location has no ID:", loc);
-      return;
-    }
-
-    console.log("[Geocode] Starting geocode for location:", {
-      id,
-      no: loc.no,
-      name: loc.name,
-      address: loc.address,
-      postCode: loc.postCode,
-      city: loc.city,
-      region: loc.region,
-      country: loc.country,
-    });
+    if (!id) return;
 
     setGeoLoadingId(id);
-
     try {
       const url = `${API}/api/mlocations/${id}/geocode`;
-      console.log("[Geocode] Fetching:", url);
-
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
 
-      console.log("[Geocode] Response status:", res.status);
-
-      // Read raw text for debugging, then try to parse JSON
       const raw = await res.text();
-      console.log("[Geocode] Raw response body:", raw);
-
       let json = {};
       try {
         json = raw ? JSON.parse(raw) : {};
-      } catch (e) {
-        console.error("[Geocode] Failed to parse JSON:", e);
-      }
+      } catch {}
 
       if (!res.ok) {
-        console.error("[Geocode] Backend returned error:", json);
         showNotice("error", json.message || L.alerts.requestFail);
         return;
       }
 
-      console.log("[Geocode] Parsed JSON:", json);
-
       const updated = json.location || json;
-      console.log("[Geocode] Updated location from server:", updated);
 
-      // Update the relevant row in state
-      setData((prev) => {
-        console.log("[Geocode] Previous data state:", prev);
-        const next = {
-          ...prev,
-          data: prev.data.map((d) => {
-            const key = d.id || d._id;
-            return key === (updated.id || updated._id)
-              ? { ...d, ...updated }
-              : d;
-          }),
-        };
-        console.log("[Geocode] Next data state:", next);
-        return next;
-      });
+      setData((prev) => ({
+        ...prev,
+        data: prev.data.map((d) => {
+          const key = d.id || d._id;
+          return key === (updated.id || updated._id) ? { ...d, ...updated } : d;
+        }),
+      }));
 
       showNotice("success", json.message || "Location geocoded");
-    } catch (e) {
-      console.error("[Geocode] Network or runtime error:", e);
+    } catch {
       showNotice("error", L.alerts.requestFail);
     } finally {
-      console.log("[Geocode] Done for location id:", id);
       setGeoLoadingId(null);
     }
   };
@@ -424,14 +395,12 @@ export default function Locations() {
     return !hasCoords && hasEnoughAddress;
   };
 
-  const getOsmEmbedUrl = (lat, lon, zoom = 14) => {
-    // Make a small bbox around the point so OSM embed centers nicely
-    const d = 0.01; // ~1km-ish depending on latitude
+  const getOsmEmbedUrl = (lat, lon) => {
+    const d = 0.01;
     const left = lon - d;
     const right = lon + d;
     const top = lat + d;
     const bottom = lat - d;
-
     const bbox = `${left},${bottom},${right},${top}`;
     return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
       bbox
@@ -630,6 +599,7 @@ export default function Locations() {
               ) : (
                 rows.flatMap((r) => {
                   const key = r.id || r._id;
+
                   const mainRow = (
                     <tr key={key} className="border-t">
                       <Td className="w-8">
@@ -638,16 +608,9 @@ export default function Locations() {
                           onClick={() => {
                             setExpandedId((id) => {
                               const next = id === key ? null : key;
-
-                              // ✅ auto-geocode when opening details
-                              if (
-                                next &&
-                                needsGeocode(r) &&
-                                geoLoadingId !== key
-                              ) {
+                              if (next && needsGeocode(r) && geoLoadingId !== key) {
                                 geocodeLocation(r);
                               }
-
                               return next;
                             });
                           }}
@@ -739,6 +702,18 @@ export default function Locations() {
                               {r.country || L.table.dash}
                             </KV>
 
+                            {/* operating hours */}
+                            <KV label={L.details.operatingFromH} icon={Calendar}>
+                              {typeof r.operatingFromH === "number"
+                                ? `${String(r.operatingFromH).padStart(2, "0")}:00`
+                                : L.table.dash}
+                            </KV>
+                            <KV label={L.details.operatingToH} icon={Calendar}>
+                              {typeof r.operatingToH === "number"
+                                ? `${String(r.operatingToH).padStart(2, "0")}:00`
+                                : L.table.dash}
+                            </KV>
+
                             <KV label={L.details.latitude} icon={MapPin}>
                               {geoLoadingId === key
                                 ? "Geocoding…"
@@ -770,33 +745,21 @@ export default function Locations() {
                             </KV>
 
                             {/* costs */}
-                            <KV
-                              label={L.details.additionalCost}
-                              icon={AlignLeft}
-                            >
+                            <KV label={L.details.additionalCost} icon={AlignLeft}>
                               {fmtDec(r.additionalCost)}
                             </KV>
                             <KV label={L.details.loadingCost} icon={AlignLeft}>
                               {fmtDec(r.loadingCost)}
                             </KV>
-                            <KV
-                              label={L.details.unloadingCost}
-                              icon={AlignLeft}
-                            >
+                            <KV label={L.details.unloadingCost} icon={AlignLeft}>
                               {fmtDec(r.unloadingCost)}
                             </KV>
 
-                            {/* ✅ NEW risk costs */}
-                            <KV
-                              label={L.details.loadingCostRisk}
-                              icon={AlignLeft}
-                            >
+                            {/* risk costs */}
+                            <KV label={L.details.loadingCostRisk} icon={AlignLeft}>
                               {fmtDec(r.loadingCostRisk)}
                             </KV>
-                            <KV
-                              label={L.details.unloadingCostRisk}
-                              icon={AlignLeft}
-                            >
+                            <KV label={L.details.unloadingCostRisk} icon={AlignLeft}>
                               {fmtDec(r.unloadingCostRisk)}
                             </KV>
 
@@ -814,7 +777,7 @@ export default function Locations() {
                                 : L.table.dash}
                             </KV>
 
-                            {/* ✅ mini map moved near bottom */}
+                            {/* map */}
                             <div className="md:col-span-3">
                               {geoLoadingId === key ? (
                                 <div className="h-48 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-500 text-sm">
@@ -853,10 +816,7 @@ export default function Locations() {
 
                             {/* Notes last */}
                             <div className="md:col-span-3">
-                              <KV
-                                label={L.details.description}
-                                icon={AlignLeft}
-                              >
+                              <KV label={L.details.description} icon={AlignLeft}>
                                 {r.description || L.table.dash}
                               </KV>
                             </div>
@@ -913,7 +873,11 @@ export default function Locations() {
       {/* Modal */}
       {open && (
         <Modal
-          title={editing ? L.modal.titleEdit : L.modal.titleNew}
+          title={
+            editing
+              ? `${L.modal.titleEdit}${editing?.no ? ` • ${editing.no}` : ""}`
+              : L.modal.titleNew
+          }
           onClose={() => {
             setOpen(false);
             setEditing(null);
@@ -921,7 +885,7 @@ export default function Locations() {
         >
           <LocationForm
             initial={editing}
-            settings={settings}  
+            settings={settings}
             onCancel={() => {
               setOpen(false);
               setEditing(null);
@@ -1128,44 +1092,69 @@ function fmtDec(v) {
   }).format(n);
 }
 
-/* ---------- Form ---------- */
+/* ---------- Form (tabbed) ---------- */
 function LocationForm({ initial, onSubmit, onCancel, L, settings }) {
   const isEdit = Boolean(initial?.id || initial?._id);
+
+  // default tab = basics; reset when editing changes
+  const [tab, setTab] = useState("basics");
+  useEffect(() => {
+    setTab("basics");
+  }, [initial?.id, initial?._id]);
 
   const defaultLoading = Number(settings?.defaultLoadingCost ?? 0);
   const defaultUnloading = Number(settings?.defaultUnloadingCost ?? 0);
 
+  // basics
   const [no, setNo] = useState(initial?.no || "");
   const [name, setName] = useState(initial?.name || "");
   const [name2, setName2] = useState(initial?.name2 || "");
+  const [minQty, setMinQty] = useState(initial?.minQty ?? "");
+  const [maxQty, setMaxQty] = useState(initial?.maxQty ?? "");
+  const [active, setActive] = useState(initial?.active ?? true);
+
+  // operating hours
+  const [operatingFromH, setOperatingFromH] = useState(
+    typeof initial?.operatingFromH === "number" ? initial.operatingFromH : null
+  );
+  const [operatingToH, setOperatingToH] = useState(
+    typeof initial?.operatingToH === "number" ? initial.operatingToH : null
+  );
+  const hourToTime = (h) =>
+    typeof h === "number" && h >= 0 && h <= 23
+      ? `${String(h).padStart(2, "0")}:00`
+      : "";
+  const timeToHour = (v) => {
+    if (!v) return null;
+    const [hh] = String(v).split(":");
+    const n = Number(hh);
+    if (!Number.isFinite(n)) return null;
+    const i = Math.trunc(n);
+    return i >= 0 && i <= 23 ? i : null;
+  };
+
+  // address
   const [address, setAddress] = useState(initial?.address || "");
   const [address2, setAddress2] = useState(initial?.address2 || "");
   const [city, setCity] = useState(initial?.city || "");
   const [region, setRegion] = useState(initial?.region || "");
   const [postCode, setPostCode] = useState(initial?.postCode || "");
   const [country, setCountry] = useState(initial?.country || "");
+
+  // contact
   const [email, setEmail] = useState(initial?.email || "");
   const [phoneNo, setPhoneNo] = useState(initial?.phoneNo || "");
-  const [minQty, setMinQty] = useState(initial?.minQty ?? "");
-  const [maxQty, setMaxQty] = useState(initial?.maxQty ?? "");
-  const [active, setActive] = useState(initial?.active ?? true);
 
-  // costs
+  // finance/costs
   const [additionalCost, setAdditionalCost] = useState(
     initial?.additionalCost ?? ""
   );
-
-  // ✅ IMPORTANT:
-  // - on CREATE: start empty (or show placeholder), we will apply default in submit if empty
-  // - on EDIT: show existing values
   const [loadingCost, setLoadingCost] = useState(
-    isEdit ? (initial?.loadingCost ?? "") : ""
+    isEdit ? initial?.loadingCost ?? "" : ""
   );
   const [unloadingCost, setUnloadingCost] = useState(
-    isEdit ? (initial?.unloadingCost ?? "") : ""
+    isEdit ? initial?.unloadingCost ?? "" : ""
   );
-
-  // risk costs
   const [loadingCostRisk, setLoadingCostRisk] = useState(
     initial?.loadingCostRisk ?? ""
   );
@@ -1177,46 +1166,42 @@ function LocationForm({ initial, onSubmit, onCancel, L, settings }) {
     e.preventDefault();
     if (!no.trim()) {
       alert(L.modal.required);
+      setTab("basics");
       return;
     }
 
-    // ✅ Use defaults only on CREATE when empty
+    // defaults only on CREATE when empty
     const resolvedLoadingCost =
-      loadingCost === ""
-        ? isEdit
-          ? null // or keep existing; edit case not needed because we prefill
-          : defaultLoading
-        : Number(loadingCost);
+      loadingCost === "" ? (isEdit ? null : defaultLoading) : Number(loadingCost);
 
     const resolvedUnloadingCost =
-      unloadingCost === ""
-        ? isEdit
-          ? null
-          : defaultUnloading
-        : Number(unloadingCost);
+      unloadingCost === "" ? (isEdit ? null : defaultUnloading) : Number(unloadingCost);
 
     const payload = {
       no: no.trim(),
       name: name.trim(),
       name2: name2.trim(),
+
       address: address.trim(),
       address2: address2.trim(),
       city: city.trim(),
       region: region.trim(),
       postCode: postCode.trim(),
       country: country.trim(),
+
       email: email.trim(),
       phoneNo: phoneNo.trim(),
+
       minQty: minQty === "" ? null : Number(minQty),
       maxQty: maxQty === "" ? null : Number(maxQty),
 
+      operatingFromH: operatingFromH == null ? null : Number(operatingFromH),
+      operatingToH: operatingToH == null ? null : Number(operatingToH),
+
       additionalCost: additionalCost === "" ? null : Number(additionalCost),
 
-      // ✅ defaults applied here for CREATE
-      loadingCost:
-        resolvedLoadingCost == null ? null : Number(resolvedLoadingCost),
-      unloadingCost:
-        resolvedUnloadingCost == null ? null : Number(resolvedUnloadingCost),
+      loadingCost: resolvedLoadingCost == null ? null : Number(resolvedLoadingCost),
+      unloadingCost: resolvedUnloadingCost == null ? null : Number(resolvedUnloadingCost),
 
       loadingCostRisk: loadingCostRisk === "" ? null : Number(loadingCostRisk),
       unloadingCostRisk:
@@ -1225,11 +1210,13 @@ function LocationForm({ initial, onSubmit, onCancel, L, settings }) {
       active: Boolean(active),
     };
 
-    // ✅ If editing and user cleared field, I recommend NOT sending null (keeps old value)
-    // So remove loadingCost/unloadingCost if null in edit mode
+    // In edit mode: if user cleared a field and it becomes null, don't send it (keeps old value)
     if (isEdit) {
       if (payload.loadingCost == null) delete payload.loadingCost;
       if (payload.unloadingCost == null) delete payload.unloadingCost;
+
+      if (payload.operatingFromH == null) delete payload.operatingFromH;
+      if (payload.operatingToH == null) delete payload.operatingToH;
     }
 
     onSubmit(payload);
@@ -1237,199 +1224,271 @@ function LocationForm({ initial, onSubmit, onCancel, L, settings }) {
 
   return (
     <form onSubmit={submit} className="space-y-3">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Field label={L.modal.fields.no} icon={Hash}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={no}
-            onChange={(e) => setNo(e.target.value)}
+      {/* Tabs header like screenshot */}
+      <div className="rounded-2xl border border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center gap-2 p-2">
+          <TabBtn
+            active={tab === "basics"}
+            onClick={() => setTab("basics")}
+            icon={Building2}
+            label={L.modal.tabs.basics}
           />
-        </Field>
-
-        <Field label={L.modal.fields.country} icon={Globe}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
+          <TabBtn
+            active={tab === "address"}
+            onClick={() => setTab("address")}
+            icon={MapPin}
+            label={L.modal.tabs.address}
           />
-        </Field>
-
-        <Field label={L.modal.fields.name} icon={Building2}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+          <TabBtn
+            active={tab === "contact"}
+            onClick={() => setTab("contact")}
+            icon={Phone}
+            label={L.modal.tabs.contact}
           />
-        </Field>
-
-        <Field label={L.modal.fields.name2} icon={Building2}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={name2}
-            onChange={(e) => setName2(e.target.value)}
+          <TabBtn
+            active={tab === "finance"}
+            onClick={() => setTab("finance")}
+            icon={Wallet}
+            label={L.modal.tabs.finance}
           />
-        </Field>
-
-        <Field label={L.modal.fields.address} icon={MapPin}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.address2} icon={MapPin}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={address2}
-            onChange={(e) => setAddress2(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.city} icon={MapPin}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.region} icon={MapPin}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={region}
-            onChange={(e) => setRegion(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.postCode} icon={MapPin}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={postCode}
-            onChange={(e) => setPostCode(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.email} icon={Mail}>
-          <input
-            type="email"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.phoneNo} icon={Phone}>
-          <input
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={phoneNo}
-            onChange={(e) => setPhoneNo(e.target.value)}
-          />
-        </Field>
-
-        <Field label={L.modal.fields.minQty} icon={ArrowDown01}>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={minQty}
-            onChange={(e) => setMinQty(e.target.value)}
-            placeholder="0"
-          />
-        </Field>
-
-        <Field label={L.modal.fields.maxQty} icon={ArrowUp01}>
-          <input
-            type="number"
-            step="1"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={maxQty}
-            onChange={(e) => setMaxQty(e.target.value)}
-            placeholder="0"
-          />
-        </Field>
-
-        {/* costs */}
-        <Field label={L.modal.fields.additionalCost} icon={AlignLeft}>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={additionalCost}
-            onChange={(e) => setAdditionalCost(e.target.value)}
-            placeholder="0.00"
-          />
-        </Field>
-
-        <Field label={L.modal.fields.loadingCost} icon={AlignLeft}>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={loadingCost}
-            onChange={(e) => setLoadingCost(e.target.value)}
-            placeholder={
-              isEdit ? "0.00" : `Default: ${defaultLoading.toFixed(2)}`
-            }
-          />
-        </Field>
-
-        <Field label={L.modal.fields.unloadingCost} icon={AlignLeft}>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={unloadingCost}
-            onChange={(e) => setUnloadingCost(e.target.value)}
-            placeholder={
-              isEdit ? "0.00" : `Default: ${defaultUnloading.toFixed(2)}`
-            }
-          />
-        </Field>
-
-        {/* risk costs */}
-        <Field label={L.modal.fields.loadingCostRisk} icon={AlignLeft}>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={loadingCostRisk}
-            onChange={(e) => setLoadingCostRisk(e.target.value)}
-            placeholder="0.00"
-          />
-        </Field>
-
-        <Field label={L.modal.fields.unloadingCostRisk} icon={AlignLeft}>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
-            value={unloadingCostRisk}
-            onChange={(e) => setUnloadingCostRisk(e.target.value)}
-            placeholder="0.00"
-          />
-        </Field>
-
-        <Field label={L.modal.fields.active} icon={ToggleRight}>
-          <select
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            value={String(active)}
-            onChange={(e) => setActive(e.target.value === "true")}
-          >
-            <option value="true">{L.controls.statuses.active}</option>
-            <option value="false">{L.controls.statuses.inactive}</option>
-          </select>
-        </Field>
+          <div className="ml-auto px-2 text-xs text-slate-500">
+            {isEdit ? (
+              <span className="font-mono">{String(no || "").trim() || "—"}</span>
+            ) : null}
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
+      {/* Tab content */}
+      {tab === "basics" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={L.modal.fields.no} icon={Hash}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={no}
+              onChange={(e) => setNo(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.active} icon={ToggleRight}>
+            <select
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={String(active)}
+              onChange={(e) => setActive(e.target.value === "true")}
+            >
+              <option value="true">{L.controls.statuses.active}</option>
+              <option value="false">{L.controls.statuses.inactive}</option>
+            </select>
+          </Field>
+
+          <Field label={L.modal.fields.name} icon={Building2}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.name2} icon={Building2}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={name2}
+              onChange={(e) => setName2(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.minQty} icon={ArrowDown01}>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={minQty}
+              onChange={(e) => setMinQty(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+
+          <Field label={L.modal.fields.maxQty} icon={ArrowUp01}>
+            <input
+              type="number"
+              step="1"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={maxQty}
+              onChange={(e) => setMaxQty(e.target.value)}
+              placeholder="0"
+            />
+          </Field>
+
+          <Field label={L.modal.fields.operatingFromH} icon={Calendar}>
+            <input
+              type="time"
+              step="3600"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={hourToTime(operatingFromH)}
+              onChange={(e) => setOperatingFromH(timeToHour(e.target.value))}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.operatingToH} icon={Calendar}>
+            <input
+              type="time"
+              step="3600"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={hourToTime(operatingToH)}
+              onChange={(e) => setOperatingToH(timeToHour(e.target.value))}
+            />
+          </Field>
+        </div>
+      )}
+
+      {tab === "address" && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={L.modal.fields.address} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.address2} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={address2}
+              onChange={(e) => setAddress2(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.city} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.postCode} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={postCode}
+              onChange={(e) => setPostCode(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.region} icon={MapPin}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.country} icon={Globe}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
+
+      {tab === "contact" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={L.modal.fields.email} icon={Mail}>
+            <input
+              type="email"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+
+          <Field label={L.modal.fields.phoneNo} icon={Phone}>
+            <input
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              value={phoneNo}
+              onChange={(e) => setPhoneNo(e.target.value)}
+            />
+          </Field>
+        </div>
+      )}
+
+      {tab === "finance" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label={L.modal.fields.additionalCost} icon={AlignLeft}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={additionalCost}
+              onChange={(e) => setAdditionalCost(e.target.value)}
+              placeholder="0.00"
+            />
+          </Field>
+
+          <div className="hidden md:block" />
+
+          <Field label={L.modal.fields.loadingCost} icon={AlignLeft}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={loadingCost}
+              onChange={(e) => setLoadingCost(e.target.value)}
+              placeholder={
+                isEdit ? "0.00" : `Default: ${defaultLoading.toFixed(2)}`
+              }
+            />
+          </Field>
+
+          <Field label={L.modal.fields.unloadingCost} icon={AlignLeft}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={unloadingCost}
+              onChange={(e) => setUnloadingCost(e.target.value)}
+              placeholder={
+                isEdit ? "0.00" : `Default: ${defaultUnloading.toFixed(2)}`
+              }
+            />
+          </Field>
+
+          <Field label={L.modal.fields.loadingCostRisk} icon={AlignLeft}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={loadingCostRisk}
+              onChange={(e) => setLoadingCostRisk(e.target.value)}
+              placeholder="0.00"
+            />
+          </Field>
+
+          <Field label={L.modal.fields.unloadingCostRisk} icon={AlignLeft}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-right"
+              value={unloadingCostRisk}
+              onChange={(e) => setUnloadingCostRisk(e.target.value)}
+              placeholder="0.00"
+            />
+          </Field>
+        </div>
+      )}
+
+
+      {/* Footer actions like screenshot */}
+      <div className="flex justify-end gap-2 pt-2 border-t border-slate-200 mt-3">
         <button
           type="button"
           onClick={onCancel}
@@ -1448,6 +1507,24 @@ function LocationForm({ initial, onSubmit, onCancel, L, settings }) {
   );
 }
 
+function TabBtn({ active, onClick, icon: Icon, label }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "inline-flex items-center gap-2 h-9 px-3 rounded-xl border text-sm transition",
+        active
+          ? "bg-white border-slate-200 shadow-sm"
+          : "bg-slate-50 border-slate-200 hover:bg-white",
+      ].join(" ")}
+      aria-current={active ? "page" : undefined}
+    >
+      {Icon ? <Icon size={16} className="text-slate-500" /> : null}
+      <span className="text-slate-700 font-medium">{label}</span>
+    </button>
+  );
+}
 
 /* Field with optional icon */
 function Field({ label, icon: Icon, children }) {

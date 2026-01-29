@@ -35,7 +35,7 @@ const STATUS_CANON_MAP = {
   new: "new",
   on_hold: "on-hold",
   "on-hold": "on-hold",
-  accepted: "accepted",
+ //accepted: "accepted",
   approved: "approved",
   matched: "matched",
   mached: "matched",
@@ -47,7 +47,7 @@ const STATUS_CANON_MAP = {
 const STATUS_LABELS = {
   new: "New",
   "on-hold": "On Hold",
-  accepted: "Accepted",
+  //accepted: "Accepted",
   approved: "Approved",
   matched: "Matched",
   shipped: "Shipped",
