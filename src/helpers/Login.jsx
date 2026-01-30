@@ -11,6 +11,7 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Lock,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "../assets/logo.png";
@@ -21,6 +22,10 @@ const API_URL =
   (window.location.hostname === "localhost"
     ? "http://localhost:5000"
     : "https://api.217.154.88.40.sslip.io");
+
+// STATIC ADMIN PASSWORD (UI GATE)
+const ADMIN_GATE_PASSWORD = "!@rewQ122";
+const ADMIN_GATE_SESSION_KEY = "admin_gate_unlocked";
 
 const T = {
   pl: {
@@ -38,6 +43,15 @@ const T = {
     otpSubtitle: "Wybierz metodę weryfikacji, aby kontynuować",
     otpEmail: "Weryfikacja e-mail (OTP)",
     otpSms: "Weryfikacja SMS (OTP)",
+
+    // Gate copy
+    gateTitle: "Dodatkowy poziom zabezpieczeń",
+    gateBody:
+      "Render.com wymaga dodatkowego poziomu zabezpieczeń dla środowisk testowych uruchomionych w wersji PRO.\nWprowadź hasło administratora, aby kontynuować.",
+    gateLabel: "Hasło administratora",
+    gatePlaceholder: "Wpisz hasło administratora",
+    gateUnlock: "Odblokuj",
+    gateError: "Nieprawidłowe hasło administratora",
   },
   en: {
     brand: "Exchange Platform",
@@ -54,6 +68,15 @@ const T = {
     otpSubtitle: "Choose a verification method to continue",
     otpEmail: "Email verification (OTP)",
     otpSms: "SMS verification (OTP)",
+
+    // Gate copy
+    gateTitle: "Additional security level",
+    gateBody:
+      "Render.com requires an additional security level for test environments running in the PRO version.\nPlease input the admin password to continue.",
+    gateLabel: "Admin password",
+    gatePlaceholder: "Enter admin password",
+    gateUnlock: "Unlock",
+    gateError: "Invalid admin password",
   },
 };
 
@@ -78,6 +101,36 @@ export default function Login({ onSuccess }) {
   }, [lang]);
 
   const t = useMemo(() => T[lang], [lang]);
+
+  // --- Admin gate state ---
+  const [gateUnlocked, setGateUnlocked] = useState(() => {
+    try {
+      return sessionStorage.getItem(ADMIN_GATE_SESSION_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [gatePwd, setGatePwd] = useState("");
+  const [gateShow, setGateShow] = useState(false);
+  const [gateError, setGateError] = useState("");
+
+  const unlockGate = () => {
+    setGateError("");
+    if (gatePwd === ADMIN_GATE_PASSWORD) {
+      setGateUnlocked(true);
+      try {
+        sessionStorage.setItem(ADMIN_GATE_SESSION_KEY, "1");
+      } catch {}
+      setGatePwd("");
+    } else {
+      setGateError(t.gateError);
+    }
+  };
+
+  const onGateSubmit = (e) => {
+    e.preventDefault();
+    unlockGate();
+  };
 
   async function submit(e) {
     e.preventDefault();
@@ -155,6 +208,100 @@ export default function Login({ onSuccess }) {
             bg-[#007A3A]/90 p-8 shadow-2xl backdrop-blur-sm
           "
         >
+          {/* --- Admin Gate Overlay --- */}
+          {!gateUnlocked && (
+            <div
+              className="
+                absolute inset-0 z-50 rounded-2xl
+                bg-[#0E0F0E]/70 backdrop-blur-sm
+                flex items-center justify-center p-6
+              "
+              role="dialog"
+              aria-modal="true"
+            >
+              <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-[#007A3A]/95 p-6 shadow-2xl">
+                <div className="flex items-center gap-3 text-white">
+                  <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center">
+                    <Lock size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-extrabold">{t.gateTitle}</h2>
+                    <p className="text-xs text-white/80 mt-0.5">Test / PRO environment</p>
+                  </div>
+                </div>
+
+                <p className="mt-4 text-sm text-white/90 whitespace-pre-line">
+                  {t.gateBody}
+                </p>
+
+                <form onSubmit={onGateSubmit} className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-sm text-white/90 mb-1">{t.gateLabel}</label>
+                    <div className="relative">
+                      <input
+                        type={gateShow ? "text" : "password"}
+                        value={gatePwd}
+                        onChange={(e) => setGatePwd(e.target.value)}
+                        placeholder={t.gatePlaceholder}
+                        className="
+                          w-full rounded-xl border border-white/20
+                          bg-[#E7EEE7] text-[#0E0F0E] placeholder:text-[#0E0F0E]/45
+                          px-4 py-3 pr-12
+                          focus:outline-none focus:ring-2 focus:ring-[#00C86F]
+                        "
+                        autoFocus
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setGateShow((s) => !s)}
+                        className="
+                          absolute inset-y-0 right-3 my-auto
+                          text-[#007A3A] hover:text-[#00572A] transition
+                          focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/40 rounded-md
+                        "
+                        aria-label={gateShow ? "Hide password" : "Show password"}
+                        title={gateShow ? "Hide password" : "Show password"}
+                      >
+                        {gateShow ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {gateError && (
+                    <div
+                      className="
+                        flex items-start gap-3 rounded-xl
+                        border border-[#E8C26A]/70 bg-[#E8C26A]/15
+                        text-white px-4 py-3 text-sm
+                      "
+                      role="alert"
+                    >
+                      <AlertCircle className="mt-0.5 text-[#E8C26A]" size={18} />
+                      <span>{gateError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="
+                      w-full rounded-2xl bg-[#00C86F] text-[#0E0F0E]
+                      shadow-lg font-semibold py-3 transition
+                      hover:bg-[#32D57E] active:scale-[0.99]
+                      focus:outline-none focus:ring-4 focus:ring-[#74E8A0]/50
+                    "
+                  >
+                    {t.gateUnlock}
+                  </button>
+
+                  <div className="text-center text-[11px] text-white/70">
+                    This gate is client-side UI only.
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
           {/* Language switch */}
           <button
             type="button"
@@ -199,6 +346,7 @@ export default function Login({ onSuccess }) {
                   "
                   required
                   autoComplete="username"
+                  disabled={!gateUnlocked}
                 />
               </div>
 
@@ -219,6 +367,7 @@ export default function Login({ onSuccess }) {
                     "
                     required
                     autoComplete="current-password"
+                    disabled={!gateUnlocked}
                   />
                   <button
                     type="button"
@@ -230,6 +379,7 @@ export default function Login({ onSuccess }) {
                     "
                     aria-label={show ? "Hide password" : "Show password"}
                     title={show ? "Hide password" : "Show password"}
+                    disabled={!gateUnlocked}
                   >
                     {show ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
@@ -266,7 +416,7 @@ export default function Login({ onSuccess }) {
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !gateUnlocked}
                 className="
                   relative w-full overflow-hidden rounded-2xl
                   bg-[#00C86F] text-[#0E0F0E]
@@ -340,7 +490,6 @@ export default function Login({ onSuccess }) {
                   {t.otpSms}
                 </button>
 
-                {/* subtle warm note */}
                 <div className="text-center text-xs text-[#0E0F0E]/75">
                   <span className="inline-flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-[#E8C26A]" />
