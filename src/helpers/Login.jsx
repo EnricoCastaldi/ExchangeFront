@@ -24,7 +24,7 @@ const API_URL =
     : "https://api.217.154.88.40.sslip.io");
 
 // STATIC ADMIN PASSWORD (UI GATE)
-const ADMIN_GATE_PASSWORD = "!@rewQ122";
+const ADMIN_GATE_PASSWORD = "!@rewQ122!@";
 const ADMIN_GATE_SESSION_KEY = "admin_gate_unlocked";
 
 const T = {
